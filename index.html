@@ -358,9 +358,61 @@ tr.inv-hidden{display:none}
   window._preloadedBackup = _backup;
 })();
 </script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 </head>
 <body>
+
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" style="position:fixed;inset:0;z-index:999999;background:#07111f;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e1d38;border:1px solid rgba(0,194,224,0.3);border-radius:16px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 24px 80px rgba(0,0,0,0.7)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:2px">LUMAR <span style="color:#00c2e0">TELECOM</span></div>
+      <div style="font-size:11px;color:rgba(200,213,240,0.6);letter-spacing:2px;margin-top:4px;text-transform:uppercase">Gestão de Ferramental</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:rgba(200,213,240,0.7);text-transform:uppercase;display:block;margin-bottom:6px">Usuário</label>
+      <input id="loginUser" type="text" placeholder="Digite o usuário" autocomplete="username"
+        style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(0,194,224,0.2);border-radius:8px;color:#fff;font-family:'Barlow',sans-serif;font-size:14px;padding:11px 14px;outline:none;box-sizing:border-box;transition:border-color .2s"
+        onfocus="this.style.borderColor='#00c2e0'" onblur="this.style.borderColor='rgba(0,194,224,0.2)'"
+        onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:rgba(200,213,240,0.7);text-transform:uppercase;display:block;margin-bottom:6px">Senha</label>
+      <input id="loginPass" type="password" placeholder="Digite a senha" autocomplete="current-password"
+        style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(0,194,224,0.2);border-radius:8px;color:#fff;font-family:'Barlow',sans-serif;font-size:14px;padding:11px 14px;outline:none;box-sizing:border-box;transition:border-color .2s"
+        onfocus="this.style.borderColor='#00c2e0'" onblur="this.style.borderColor='rgba(0,194,224,0.2)'"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="loginErr" style="color:#e03030;font-size:12px;text-align:center;margin-bottom:12px;display:none">Usuário ou senha incorretos.</div>
+    <button onclick="doLogin()"
+      style="width:100%;background:#00c2e0;color:#0a1628;border:none;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;padding:13px;cursor:pointer;transition:background .2s"
+      onmouseover="this.style.background='#00d9f9'" onmouseout="this.style.background='#00c2e0'">
+      Entrar
+    </button>
+  </div>
+</div>
+
+<script>
+function doLogin() {
+  const user = (document.getElementById('loginUser').value || '').trim();
+  const pass = (document.getElementById('loginPass').value || '').trim();
+  const err  = document.getElementById('loginErr');
+  if (user === 'admin' && pass === 'lumar123') {
+    sessionStorage.setItem('lm_auth', '1');
+    document.getElementById('loginScreen').style.display = 'none';
+  } else {
+    err.style.display = 'block';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+  }
+}
+// Se já estava logado nesta sessão, esconde o login direto
+if (sessionStorage.getItem('lm_auth') === '1') {
+  document.getElementById('loginScreen').style.display = 'none';
+}
+</script>
 
 <div id="appLoading" style="position:fixed;inset:0;z-index:99999;background:#07111f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .3s">
   <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:2px">LUMAR <span style="color:#00c2e0">TELECOM</span></div>
@@ -3663,7 +3715,6 @@ function clearAudit(){
 
 // ══════════════════════════════════════════════════════════════════════
 // SYNC NA NUVEM — Firebase Firestore
-// Salva/carrega dados na nuvem para acesso de qualquer dispositivo
 // ══════════════════════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCTaH9u-yy17w16vWDqOb4Z5xL6MAXwMhk",
@@ -3673,34 +3724,26 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "309813669254",
   appId: "1:309813669254:web:fe624e072404ce5f405007"
 };
-const FIRESTORE_DOC = 'lumar/dados';
 let _db = null;
 let _cloudSyncTimer = null;
 
-// Inicializa Firebase via CDN
-function _initFirebase() {
-  return new Promise((resolve) => {
-    if (_db) { resolve(_db); return; }
-    // Carrega scripts do Firebase dinamicamente
-    const loadScript = (src) => new Promise((res, rej) => {
-      const s = document.createElement('script'); s.src = src; s.type = 'module';
-      s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    });
-    // Usa Firebase via CDN com módulos ES
-    const init = async () => {
-      try {
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-        const { getFirestore, doc, setDoc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-        const app = initializeApp(FIREBASE_CONFIG);
-        _db = { db: getFirestore(app), doc, setDoc, getDoc };
-        resolve(_db);
-      } catch(e) {
-        console.warn('Firebase init falhou:', e);
-        resolve(null);
-      }
-    };
-    init();
-  });
+async function _initFirebase() {
+  if (_db) return _db;
+  try {
+    // Aguarda os scripts do Firebase carregarem (injetados no head)
+    let attempts = 0;
+    while (typeof firebase === 'undefined' && attempts < 20) {
+      await new Promise(r => setTimeout(r, 200));
+      attempts++;
+    }
+    if (typeof firebase === 'undefined') return null;
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.firestore();
+    return _db;
+  } catch(e) {
+    console.warn('Firebase init falhou:', e);
+    return null;
+  }
 }
 
 async function cloudSave(force = false) {
@@ -3710,9 +3753,8 @@ async function cloudSave(force = false) {
     return;
   }
   try {
-    const fb = await _initFirebase();
-    if (!fb) { showCloudStatus('⚠️ Sem sync', 'var(--yellow)'); return; }
-    const { db, doc, setDoc } = fb;
+    const db = await _initFirebase();
+    if (!db) { showCloudStatus('⚠️ Sem sync', 'var(--yellow)'); return; }
 
     const payload = {
       ts: Date.now(),
@@ -3721,12 +3763,12 @@ async function cloudSave(force = false) {
       sups:  sups  || [],
       hist:  hist  || [],
       banco: banco || [],
-      audit: (audit || []).slice(0, 100), // limita audit para economizar espaço
+      audit: (audit || []).slice(0, 100),
       logo: localStorage.getItem('lm_logo') || null,
       cursup: localStorage.getItem('lm_cursup') || ''
     };
 
-    // Firestore tem limite de 1MB por documento — remove fotos grandes se necessário
+    // Firestore tem limite de 1MB — remove fotos grandes se necessário
     const json = JSON.stringify(payload);
     if (json.length > 900000) {
       payload.techs = techs.map(t => ({...t, foto: null}));
@@ -3734,8 +3776,7 @@ async function cloudSave(force = false) {
       payload.logo  = null;
     }
 
-    const ref = doc(db, 'lumar', 'dados');
-    await setDoc(ref, payload);
+    await db.collection('lumar').doc('dados').set(payload);
     showCloudStatus('✅ Sincronizado', 'var(--green)');
   } catch(e) {
     console.warn('Cloud save falhou:', e);
@@ -3745,12 +3786,10 @@ async function cloudSave(force = false) {
 
 async function cloudLoad() {
   try {
-    const fb = await _initFirebase();
-    if (!fb) return null;
-    const { db, doc, getDoc } = fb;
-    const ref = doc(db, 'lumar', 'dados');
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
+    const db = await _initFirebase();
+    if (!db) return null;
+    const snap = await db.collection('lumar').doc('dados').get();
+    if (!snap.exists) return null;
     return snap.data();
   } catch(e) {
     console.warn('Cloud load falhou:', e);
@@ -3768,7 +3807,6 @@ function showCloudStatus(msg, color) {
   el._fadeTimer = setTimeout(() => { el.style.opacity = '0.4'; }, 4000);
 }
 
-// Patch nas funções de save para acionar sync automático
 function _patchSaveWithCloud() {
   const origSave = window.save;
   window.save = function() {
