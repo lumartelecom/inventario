@@ -398,21 +398,8 @@ tr.inv-hidden{display:none}
   </div>
 </header>
 <!-- BARRA DE SYNC / BACKUP AUTOMÁTICO -->
-<div class="sync-bar" id="syncBar">
-  <span class="sb-dot" id="syncDot"></span>
-  <span class="sb-msg" id="syncMsg">Backup local ativo · Configure o Google Drive para sync online</span>
-  <button class="sb-btn" onclick="toggleSyncCfg()">☁️ Configurar Sync</button>
-  <button class="sb-btn" onclick="exportBackup()">💾 Backup Manual</button>
-  <button class="sb-btn" onclick="openAuditModal()" style="color:#f5c518;border-color:#f5c518">🔍 Auditoria</button>
-</div>
-<div class="sync-cfg-panel" id="syncCfgPanel">
-  <label>URL do Google Apps Script:</label>
-  <input type="text" id="syncUrl" placeholder="https://script.google.com/macros/s/SEU_ID/exec" value="">
-  <button class="sb-btn" onclick="saveSyncCfg()">✔ Salvar</button>
-  <button class="sb-btn" onclick="testSync()">🔗 Testar</button>
-  <button class="sb-btn" onclick="toggleSyncCfg()">✕</button>
-  <span style="color:var(--mid);font-size:10px;width:100%">ℹ️ Cole aqui a URL do seu Google Apps Script para sincronizar automaticamente com o Drive. Veja o arquivo INSTRUCOES.txt incluído no download.</span>
-</div>
+<div class="sync-bar" id="syncBar" style="display:none"></div>
+<div class="sync-cfg-panel" id="syncCfgPanel" style="display:none"></div>
 
 <div class="sup-banner inactive" id="supBanner">
   <span class="sb-ico">⚠️</span>
@@ -429,6 +416,7 @@ tr.inv-hidden{display:none}
   <div class="hbackup">
     <button class="btn-xs" onclick="exportBackup()" title="Exportar todos os dados em arquivo .json">💾 Backup</button>
     <button class="btn-xs" onclick="document.getElementById('importBackupIn').click()" title="Restaurar dados de um arquivo .json">📥 Importar</button>
+    <button class="btn-xs" onclick="openAuditModal()" style="color:#f5c518;border-color:rgba(245,197,24,0.4)" title="Log de auditoria">🔍 Auditoria</button>
     <input type="file" id="importBackupIn" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
   </div>
 </div>
