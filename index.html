@@ -38,25 +38,30 @@ window.addEventListener('load', function(){
 :root{--navy:#0a1628;--blue:#1a4fd6;--cyan:#00c2e0;--orange:#ff6b00;--light:#f0f4ff;--mid:#c8d5f0;--white:#fff;--red:#e03030;--green:#18c96a;--yellow:#f5c518;--card:#111e38;--border:rgba(0,194,224,0.18)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Barlow',sans-serif;background:var(--navy);color:var(--light);min-height:100vh}
-header{background:linear-gradient(135deg,#06101f,#0f2045 60%,#0a1628);border-bottom:2px solid var(--cyan);padding:0 28px;display:flex;align-items:center;gap:20px;min-height:82px;position:relative;overflow:hidden}
+header{background:linear-gradient(135deg,#06101f,#0f2045 60%,#0a1628);border-bottom:2px solid var(--cyan);padding:0 20px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;min-height:70px;position:relative;overflow:hidden}
 header::before{content:'';position:absolute;top:-40px;right:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,194,224,0.12) 0%,transparent 70%);pointer-events:none}
-.logo-area{display:flex;align-items:center;gap:12px}
-.logo-box{width:58px;height:58px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:#fff;cursor:pointer;position:relative;overflow:hidden;border:2px dashed rgba(255,255,255,0.2);transition:border-color .2s;flex-shrink:0}
+.logo-area{display:flex;align-items:center;gap:10px}
+.logo-box{width:52px;height:52px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:#fff;cursor:pointer;position:relative;overflow:hidden;border:2px dashed rgba(255,255,255,0.2);transition:border-color .2s;flex-shrink:0}
 .logo-box:hover{border-color:var(--cyan)}
 .logo-box img{width:100%;height:100%;object-fit:contain;border-radius:8px}
 .logo-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);font-size:7px;text-align:center;padding:1px 0}
 #logoInput{display:none}
-.htitles h1{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;letter-spacing:1px;color:#fff;line-height:1;text-transform:uppercase}
+.htitles h1{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:1px;color:#fff;line-height:1;text-transform:uppercase}
 .htitles h1 span{color:var(--cyan)}
-.htitles p{font-size:11px;font-weight:500;color:var(--mid);letter-spacing:2px;text-transform:uppercase;margin-top:3px}
-.hright{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-.sup-block{display:flex;align-items:center;gap:8px;background:rgba(0,194,224,0.08);border:1px solid var(--border);border-radius:8px;padding:7px 12px}
-.sup-block label{font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
-.sup-block select{background:transparent;border:none;border-bottom:1px dashed rgba(255,255,255,0.3);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;width:190px;outline:none;cursor:pointer;padding:2px 0}
+.htitles p{font-size:10px;font-weight:500;color:var(--mid);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+/* Centro do header — supervisor */
+.hcenter{display:flex;align-items:center;justify-content:center}
+.sup-block{display:flex;align-items:center;gap:8px;background:rgba(0,194,224,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px}
+.sup-block label{font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+.sup-block select{background:transparent;border:none;border-bottom:1px dashed rgba(255,255,255,0.3);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;width:160px;outline:none;cursor:pointer;padding:2px 0}
 .sup-block select option{background:#0e1d38}
-.btn-xs{font-size:10px;padding:4px 9px;background:rgba(0,194,224,0.12);border:1px solid var(--border);border-radius:5px;color:var(--cyan);cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600}
+/* Direita do header */
+.hright{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.hright-top{display:flex;align-items:center;gap:6px}
+.hright-bot{display:flex;align-items:center;gap:5px}
+.btn-xs{font-size:10px;padding:4px 9px;background:rgba(0,194,224,0.12);border:1px solid var(--border);border-radius:5px;color:var(--cyan);cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600;white-space:nowrap}
 .btn-xs:hover{background:rgba(0,194,224,0.22)}
-.hdate{font-size:11px;color:var(--mid);letter-spacing:1px}
+.hdate{font-size:10px;color:var(--mid);letter-spacing:1px;white-space:nowrap}
 /* BARRA INDICADORA DE SUPERVISOR ATIVO */
 .sup-banner{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px 20px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);transition:background .25s}
 .sup-banner.active{background:linear-gradient(90deg,rgba(24,201,106,0.15),rgba(0,194,224,0.15));color:var(--green);border-bottom-color:var(--green)}
@@ -301,14 +306,19 @@ tbody td{padding:10px 13px;vertical-align:middle}
 
 /* ── MOBILE RESPONSIVO ── */
 @media (max-width: 700px) {
-  header{padding:10px 12px;gap:10px;min-height:64px;flex-wrap:wrap}
-  .htitles h1{font-size:18px}
-  .htitles p{font-size:9px}
-  .logo-box{width:44px;height:44px;font-size:16px}
-  .hright{width:100%;flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap}
-  .sup-block{flex:1;padding:5px 8px}
-  .sup-block select{width:100%;font-size:13px}
-  .hdate{display:none}
+  header{padding:8px 12px;gap:8px;min-height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+  .logo-area{grid-column:1;grid-row:1}
+  .hcenter{grid-column:1/-1;grid-row:2;justify-content:flex-start}
+  .hright{grid-column:2;grid-row:1;align-items:flex-end}
+  .htitles h1{font-size:17px}
+  .htitles p{font-size:8px;letter-spacing:1px}
+  .logo-box{width:42px;height:42px;font-size:15px}
+  .sup-block{padding:5px 8px;gap:6px}
+  .sup-block select{width:140px;font-size:12px}
+  .hdate{font-size:9px}
+  .hright-top{gap:4px}
+  .hright-bot{gap:4px}
+  .btn-xs{font-size:9px;padding:3px 6px}
   .dashboard{padding:8px 10px;gap:7px;grid-template-columns:repeat(3,1fr)}
   .dash-card{padding:7px 8px;gap:6px}
   .dash-card .dash-num{font-size:18px}
@@ -419,11 +429,14 @@ tr.inv-hidden{display:none}
       <!-- Nome do sistema -->
       <div>
         <label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--cyan);text-transform:uppercase;display:block;margin-bottom:8px">✏️ Nome do Sistema</label>
-        <div style="display:flex;gap:8px">
-          <input id="adminSysName" type="text" placeholder="Ex: LUMAR TELECOM" maxlength="30"
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <input id="adminSysName1" type="text" placeholder="Ex: LUMAR" maxlength="15"
             style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;padding:9px 12px;outline:none">
+          <input id="adminSysName2" type="text" placeholder="Ex: TELECOM" maxlength="15"
+            style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(0,194,224,0.4);border-radius:8px;color:#00c2e0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;padding:9px 12px;outline:none">
           <button class="btn btn-cyan btn-sm" onclick="saveAdminSysName()">Salvar</button>
         </div>
+        <div style="font-size:10px;color:var(--mid)">1º campo = branco · 2º campo = azul</div>
       </div>
 
       <!-- Supervisores cadastrados -->
@@ -594,8 +607,8 @@ function openAdminModal() {
   else prev.innerHTML = '🏢';
 
   // Nome atual
-  const sysName = localStorage.getItem('lm_sysname') || '';
-  document.getElementById('adminSysName').value = sysName;
+  document.getElementById('adminSysName1').value = localStorage.getItem('lm_sysname1') || 'Lumar';
+  document.getElementById('adminSysName2').value = localStorage.getItem('lm_sysname2') || 'Telecom';
 
   // Lista de supervisores
   renderAdminSupList();
@@ -611,12 +624,42 @@ function renderAdminSupList() {
   el.innerHTML = creds.supervisores.map((s, i) => `
     <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
       <span style="flex:1;font-size:13px;font-weight:600">👔 ${s.nome}</span>
-      <input type="password" value="${s.senha}" id="supPass_${i}"
-        style="width:130px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:#fff;font-size:12px;padding:6px 8px;outline:none">
+      <div style="position:relative;display:flex;align-items:center">
+        <input type="password" value="${s.senha}" id="supPass_${i}"
+          style="width:120px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:#fff;font-size:12px;padding:6px 28px 6px 8px;outline:none">
+        <button onclick="togglePassVis('supPass_${i}',this)" style="position:absolute;right:6px;background:none;border:none;color:var(--mid);cursor:pointer;font-size:13px;padding:0">👁</button>
+      </div>
       <button class="btn btn-cyan btn-sm" onclick="updateSupPass(${i})" style="font-size:10px;padding:4px 8px">💾</button>
       <button class="btn btn-danger btn-sm" onclick="delSupAdmin(${i})" style="font-size:10px;padding:4px 8px">🗑</button>
     </div>
-  `).join('');
+  `).join('') + `
+  <div style="margin-top:6px;padding:10px 12px;background:rgba(0,194,224,0.05);border:1px solid rgba(0,194,224,0.15);border-radius:8px">
+    <div style="font-size:10px;color:var(--mid);margin-bottom:6px;font-weight:600;letter-spacing:1px">🔐 SENHA ADMIN</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="position:relative;flex:1;display:flex;align-items:center">
+        <input type="password" id="adminPassShow" value="${creds.adminPass}"
+          style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:#f5c518;font-size:12px;padding:6px 28px 6px 8px;outline:none;box-sizing:border-box">
+        <button onclick="togglePassVis('adminPassShow',this)" style="position:absolute;right:6px;background:none;border:none;color:var(--mid);cursor:pointer;font-size:13px;padding:0">👁</button>
+      </div>
+      <button class="btn btn-cyan btn-sm" onclick="saveAdminPassDirect()" style="font-size:10px;padding:4px 8px">💾</button>
+    </div>
+  </div>`;
+}
+
+function togglePassVis(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function saveAdminPassDirect() {
+  const nova = (document.getElementById('adminPassShow').value || '').trim();
+  if (!nova || nova.length < 4) { toast('Senha muito curta', 'warn'); return; }
+  const creds = _getCreds();
+  creds.adminPass = nova;
+  _saveCreds(creds);
+  toast('✅ Senha admin atualizada!', 'success');
 }
 
 function updateSupPass(i) {
@@ -690,12 +733,13 @@ function removeAdminLogo() {
 }
 
 function saveAdminSysName() {
-  const nome = (document.getElementById('adminSysName').value || '').trim();
-  if (!nome) { toast('Digite um nome', 'warn'); return; }
-  localStorage.setItem('lm_sysname', nome);
-  // Atualiza no header
+  const p1 = (document.getElementById('adminSysName1').value || '').trim();
+  const p2 = (document.getElementById('adminSysName2').value || '').trim();
+  if (!p1) { toast('Digite pelo menos o primeiro nome', 'warn'); return; }
+  localStorage.setItem('lm_sysname1', p1);
+  localStorage.setItem('lm_sysname2', p2);
   const el = document.getElementById('headerSysName');
-  if (el) el.textContent = nome;
+  if (el) el.innerHTML = p1 + (p2 ? ` <span>${p2}</span>` : '');
   toast('✅ Nome atualizado!', 'success');
 }
 </script>
@@ -745,8 +789,9 @@ setInterval(_updateOfflineBanner, 5000);
 </script>
 
 
+  <!-- ESQUERDA: Logo + Nome -->
   <div class="logo-area">
-    <div class="logo-box" id="headerLogoWrap" onclick="if(sessionStorage.getItem('lm_role')==='admin')document.getElementById('adminLogoIn').click()" style="cursor:default">
+    <div class="logo-box" id="headerLogoWrap" onclick="if(sessionStorage.getItem('lm_role')==='admin')document.getElementById('adminLogoIn').click()">
       <span id="logoText">LT</span>
       <img id="logoImg" src="" alt="" style="display:none">
       <img id="headerLogo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
@@ -758,22 +803,28 @@ setInterval(_updateOfflineBanner, 5000);
       <p>Gestão de Ferramental</p>
     </div>
   </div>
-  <div class="hright">
+
+  <!-- CENTRO: Supervisor -->
+  <div class="hcenter">
     <div class="sup-block">
       <label>Supervisor</label>
       <select id="supSel" onchange="onSupChange()"><option value="">— Selecione —</option></select>
       <button class="btn-xs" onclick="openSupModal()" id="btnNovoSup" style="display:none">+ Novo</button>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+  </div>
+
+  <!-- DIREITA: Badge + Data + Ações -->
+  <div class="hright">
+    <div class="hright-top">
       <span id="headerUserBadge" style="font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:20px;display:none"></span>
+      <span class="hdate" id="hdate"></span>
     </div>
-    <div class="hdate" id="hdate"></div>
-    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
-      <span id="cloudStatus" style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mid);opacity:0.4;transition:opacity .5s">☁️ Nuvem</span>
-      <button class="btn-xs" onclick="cloudSave(true).then(()=>toast('Sincronizado!','success')).catch(()=>toast('Falha','error'))" style="font-size:9px;padding:3px 7px">🔄 Sync</button>
-      <button id="btnAdminPanel" class="btn-xs" onclick="openAdminModal()" title="Painel Admin" style="font-size:9px;padding:3px 7px;display:none;color:#f5c518;border-color:rgba(245,197,24,0.4)">⚙️ Admin</button>
-      <button id="btnLogout" class="btn-xs" onclick="doLogout()" title="Sair" style="font-size:9px;padding:3px 7px;display:none;color:var(--red);border-color:rgba(224,48,48,0.4)">🚪 Sair</button>
-      <button id="installPWABtn" class="btn-xs" onclick="installPWA()" style="font-size:9px;padding:3px 7px;display:none;color:var(--green);border-color:rgba(24,201,106,0.4)">📲 Instalar</button>
+    <div class="hright-bot">
+      <span id="cloudStatus" style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mid);opacity:0.4;transition:opacity .5s">☁️</span>
+      <button class="btn-xs" onclick="cloudSave(true).then(()=>toast('Sincronizado!','success')).catch(()=>toast('Falha','error'))">🔄 Sync</button>
+      <button id="btnAdminPanel" class="btn-xs" onclick="openAdminModal()" style="display:none;color:#f5c518;border-color:rgba(245,197,24,0.4)">⚙️ Admin</button>
+      <button id="btnLogout" class="btn-xs" onclick="doLogout()" style="display:none;color:var(--red);border-color:rgba(224,48,48,0.4)">🚪 Sair</button>
+      <button id="installPWABtn" class="btn-xs" onclick="installPWA()" style="display:none;color:var(--green);border-color:rgba(24,201,106,0.4)">📲</button>
     </div>
   </div>
 </header>
@@ -4300,10 +4351,11 @@ async function bootApp(){
     if (hLogo) { hLogo.src = _savedLogo; hLogo.style.display = 'block'; }
     if (logoText) logoText.style.display = 'none';
   }
-  const _savedName = localStorage.getItem('lm_sysname');
-  if (_savedName) {
+  const _savedName1 = localStorage.getItem('lm_sysname1');
+  const _savedName2 = localStorage.getItem('lm_sysname2');
+  if (_savedName1) {
     const el = document.getElementById('headerSysName');
-    if (el) el.textContent = _savedName;
+    if (el) el.innerHTML = _savedName1 + (_savedName2 ? ` <span>${_savedName2}</span>` : '');
   }
 
   // Esconde loading após tudo renderizado
