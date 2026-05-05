@@ -341,8 +341,8 @@ tbody td{padding:10px 13px;vertical-align:middle}
   #headerUserBadge{display:none !important}
   .btn-xs{font-size:10px;padding:4px 7px;min-height:30px}
 
-  /* ── BARRA MOBILE DE SUPERVISOR (logo abaixo do header) ── */
-  #mobileSupBar{display:flex !important}
+  /* ── BARRA MOBILE: supervisor só aparece via JS para admin ── */
+  #mobileSupBar{display:none}
 
   /* ── BUSCA ── */
   .hsearch-row{padding:6px 10px;gap:6px}
@@ -603,21 +603,26 @@ function doLogin() {
 }
 
 function _applyRole(role, supNome) {
-  const btnAdmin   = document.getElementById('btnAdminPanel');
-  const btnLogout  = document.getElementById('btnLogout');
-  const btnNovoSup = document.getElementById('btnNovoSup');
-  const btnSupLogado = document.getElementById('btnSupLogado');
-  const sel        = document.getElementById('supSel');
-  const badge      = document.getElementById('headerUserBadge');
+  const btnAdmin      = document.getElementById('btnAdminPanel');
+  const btnLogout     = document.getElementById('btnLogout');
+  const btnNovoSup    = document.getElementById('btnNovoSup');
+  const btnNovoSupMob = document.getElementById('btnNovoSupMobile');
+  const btnSupLogado  = document.getElementById('btnSupLogado');
+  const sel           = document.getElementById('supSel');
+  const badge         = document.getElementById('headerUserBadge');
   const supBlockAdmin = document.getElementById('supBlockAdmin');
+  const mobileBar     = document.getElementById('mobileSupBar');
+  const isMobile      = window.innerWidth <= 700;
 
   if (role === 'admin') {
-    // Admin vê seletor de supervisor à esquerda
+    // Admin: seletor visível (desktop no hleft, mobile na barra)
     if (supBlockAdmin) supBlockAdmin.style.display = 'flex';
-    if (btnAdmin)    btnAdmin.style.display    = 'inline-flex';
-    if (btnNovoSup)  btnNovoSup.style.display  = 'inline-flex';
-    if (btnSupLogado) btnSupLogado.style.display = 'none';
-    if (sel)         sel.disabled = false;
+    if (mobileBar)     mobileBar.style.display     = isMobile ? 'flex' : 'none';
+    if (btnAdmin)      btnAdmin.style.display       = 'inline-flex';
+    if (btnNovoSup)    btnNovoSup.style.display     = 'inline-flex';
+    if (btnNovoSupMob) btnNovoSupMob.style.display  = 'inline-flex';
+    if (btnSupLogado)  btnSupLogado.style.display   = 'none';
+    if (sel)           sel.disabled = false;
     if (badge) {
       badge.textContent = '⚙️ Admin';
       badge.style.display = 'inline-flex';
@@ -626,26 +631,27 @@ function _applyRole(role, supNome) {
       badge.style.border = '1px solid rgba(245,197,24,0.4)';
     }
     if (sel) sel.value = '';
-    if (typeof syncSupFilter === 'function') syncSupFilter('');
-    if (typeof updateSupBanner === 'function') updateSupBanner('');
+    if (typeof syncMobileSupSel === 'function') syncMobileSupSel();
+    if (typeof syncSupFilter    === 'function') syncSupFilter('');
+    if (typeof updateSupBanner  === 'function') updateSupBanner('');
+
   } else if (role === 'supervisor' && supNome) {
-    // Supervisor: sem seletor, sem botão admin; aparece botão com nome dele
+    // Supervisor: sem seletor, sem barra mobile, sem botão admin
     if (supBlockAdmin) supBlockAdmin.style.display = 'none';
-    if (btnAdmin)    btnAdmin.style.display    = 'none';
-    if (btnNovoSup)  btnNovoSup.style.display  = 'none';
+    if (mobileBar)     mobileBar.style.display     = 'none';
+    if (btnAdmin)      btnAdmin.style.display       = 'none';
+    if (btnNovoSup)    btnNovoSup.style.display     = 'none';
+    if (btnNovoSupMob) btnNovoSupMob.style.display  = 'none';
     if (sel) { sel.value = supNome; sel.disabled = true; }
     localStorage.setItem('lm_cursup', supNome);
-    if (typeof syncSupFilter  === 'function') syncSupFilter(supNome);
+    if (typeof syncSupFilter   === 'function') syncSupFilter(supNome);
     if (typeof updateSupBanner === 'function') updateSupBanner(supNome);
-    // Botão com nome do supervisor no lugar dos botões de backup
     if (btnSupLogado) {
       btnSupLogado.style.display = 'inline-flex';
-      btnSupLogado.textContent = '👔 ' + supNome;
+      btnSupLogado.textContent = '👔 ' + supNome.split(' ')[0];
       btnSupLogado.title = 'Supervisor: ' + supNome;
     }
-    if (badge) {
-      badge.style.display = 'none';
-    }
+    if (badge) badge.style.display = 'none';
   }
 
   // Botão logout sempre visível após login
@@ -949,7 +955,10 @@ function syncMobileSupSel() {
 }
 function updateMobileSupBar() {
   const bar = document.getElementById('mobileSupBar');
-  if (bar) bar.style.display = window.innerWidth <= 700 ? 'flex' : 'none';
+  if (!bar) return;
+  const role = sessionStorage.getItem('lm_role');
+  // Só mostra no mobile E somente para admin
+  bar.style.display = (window.innerWidth <= 700 && role === 'admin') ? 'flex' : 'none';
 }
 window.addEventListener('resize', updateMobileSupBar);
 </script>
@@ -1165,10 +1174,10 @@ window.addEventListener('resize', updateMobileSupBar);
         </div>
         <table class="inv-table">
           <thead><tr>
-            <th style="width:36%">Ferramenta</th>
-            <th style="width:20%">Status</th>
+            <th style="width:40%">Ferramenta</th>
+            <th style="width:25%">Status</th>
             <th style="width:10%">Qtd</th>
-            <th>Observação</th>
+            <th style="width:25%">Patrimônio</th>
           </tr></thead>
           <tbody id="invBody"></tbody>
         </table>
@@ -1799,9 +1808,9 @@ function importBackup(input){
                   : r.status === 'Disponível'   ? 'Em Uso'
                   : r.status === 'Manutenção'   ? 'Em Uso'
                   : (r.status || 'Em Uso'),
-                  // N/A é preservado como está
             qtd: r.qtd || 1,
-            obs: r.obs || ''
+            obs: r.obs || '',
+            patrimonio: r.patrimonio || ''
           })) : [],
           atualizacoes: Array.isArray(h.atualizacoes) ? h.atualizacoes : []
         }));
@@ -1918,7 +1927,15 @@ function openTeamInv(){
       const perdido  = t.byStatus['Perdido']||0;
       const naoRec   = (t.byStatus['Não Recebeu']||0) + (t.byStatus['NÃO RECEBEU']||0);
       const problema = danif + perdido + naoRec;
-      const aRepor   = danif + perdido + naoRec; // N/A excluído — não gera reposição
+      // Para cones: soma as qtds negativas e converte para positivo (quantidade a comprar)
+      let aRepor = 0;
+      if(isCones(t.nome)){
+        // Busca qtd negativa registrada nos inventários
+        const qtdNeg = t.totalQtd !== undefined ? Math.abs(Math.min(0, t.totalQtd)) : (danif + perdido) * 3;
+        aRepor = qtdNeg;
+      } else {
+        aRepor = danif + perdido + naoRec;
+      }
       const rowStyle = aRepor>0 ? 'background:rgba(224,48,48,0.05)' : '';
       html += `<tr style="${rowStyle}">`;
       html += `<td style="font-weight:600;padding:8px 10px">${t.nome}</td>`;
@@ -2376,33 +2393,23 @@ function loadBancoForInv(){
 }
 
 const CONES_NOME = 'CONES';
-function _updateStatusColor(idx) {
-  const sel = document.getElementById('inv-status-' + idx);
-  if (!sel) return;
-  const colors = {
-    'Em Uso': 'var(--cyan)',
-    'Danificado': 'var(--red)',
-    'Perdido': 'var(--red)',
-    'Não Recebeu': 'var(--yellow)',
-    'N/A': 'var(--mid)'
-  };
-  const c = colors[sel.value] || 'var(--mid)';
-  sel.style.color = c;
-  sel.style.borderColor = c + '60';
-}
-
 const STATUS_OPTIONS = ['Em Uso','Danificado','Perdido','Não Recebeu','N/A'];
-const STATUS_NEGATIVO = ['Danificado','Perdido','Não Recebeu'];
+const STATUS_NEGATIVO = ['Danificado','Perdido'];
 const STATUS_ZERO_QTD = ['Danificado','Perdido','Não Recebeu','N/A'];
 const STATUS_NA = 'N/A';
 
 function isCones(nome){ return (nome||'').toUpperCase().trim() === CONES_NOME; }
-function isNA(status){ return status === STATUS_NA; }
+function isEscada(nome){ return (nome||'').toUpperCase().includes('ESCADA'); }
 
-function conesQtdForStatus(status){
-  if(status === 'Em Uso') return 3;
-  if(STATUS_NEGATIVO.includes(status)) return -3;
-  if(status === STATUS_NA) return 0;
+function conesQtdForStatus(status, qtdAtual){
+  if(status === 'Em Uso')       return 3;
+  if(status === STATUS_NA)      return 0;
+  // Danificado/Perdido: usa qtd atual (editável, negativo)
+  if(STATUS_NEGATIVO.includes(status)){
+    // Se qtd já é negativo mantém, senão inicia como -3
+    if(qtdAtual !== undefined && qtdAtual < 0) return qtdAtual;
+    return -3;
+  }
   return 1;
 }
 
@@ -2410,76 +2417,157 @@ function onInvStatusChange(idx, val){
   currentInvRows[idx].status = val;
   const isCone = isCones(currentInvRows[idx].nome);
   const qInput = document.getElementById('inv-qty-'+idx);
-  // Cones: qtd automática por status
+
   if(isCone){
-    currentInvRows[idx].qtd = conesQtdForStatus(val);
-    if(qInput) qInput.value = currentInvRows[idx].qtd;
+    const novaQtd = conesQtdForStatus(val, currentInvRows[idx].qtd);
+    currentInvRows[idx].qtd = novaQtd;
+    if(qInput){
+      qInput.value = novaQtd;
+      // Cones negativos: editável; N/A e Em Uso: readonly
+      qInput.readOnly = (val === STATUS_NA || val === 'Em Uso');
+      qInput.style.opacity = (val === STATUS_NA) ? '0.4' : '1';
+      qInput.style.color = novaQtd < 0 ? 'var(--red)' : (novaQtd === 3 ? 'var(--cyan)' : 'var(--light)');
+    }
     return;
   }
-  // Demais: zera qtd para status negativos e N/A
+
+  // Demais ferramentas
   if(STATUS_ZERO_QTD.includes(val)){
     currentInvRows[idx].qtd = 0;
     if(qInput){ qInput.value = 0; qInput.style.opacity = '0.5'; }
   } else {
-    // Restaura qtd para 1 se estava zerado (vindo de status negativo)
-    if(!currentInvRows[idx].qtd || currentInvRows[idx].qtd <= 0){
-      currentInvRows[idx].qtd = 1;
-    }
+    if(!currentInvRows[idx].qtd || currentInvRows[idx].qtd <= 0) currentInvRows[idx].qtd = 1;
     if(qInput){ qInput.value = currentInvRows[idx].qtd; qInput.style.opacity = '1'; }
+  }
+}
+
+function _updateStatusColor(idx) {
+  const sel = document.getElementById('inv-status-' + idx);
+  if (!sel) return;
+  const colors = {
+    'Em Uso': 'var(--cyan)', 'Danificado': 'var(--red)',
+    'Perdido': 'var(--red)', 'Não Recebeu': 'var(--yellow)', 'N/A': 'var(--mid)'
+  };
+  const c = colors[sel.value] || 'var(--mid)';
+  sel.style.color = c;
+  sel.style.borderColor = c + '60';
+  // Atualiza cor da qtd para cones
+  const row = currentInvRows[idx];
+  if (row && isCones(row.nome)) {
+    const qInput = document.getElementById('inv-qty-' + idx);
+    if (qInput) {
+      const q = +qInput.value;
+      qInput.style.color = q < 0 ? 'var(--red)' : (q === 3 ? 'var(--cyan)' : 'var(--light)');
+      qInput.readOnly = (sel.value === STATUS_NA || sel.value === 'Em Uso');
+    }
   }
 }
 
 function renderInvRows(){
   const body = document.getElementById('invBody');
   body.innerHTML = '';
-  currentInvRows.forEach((row, idx) => {
+
+  // Separa N/A para o final
+  const normais = currentInvRows.filter((r, i) => { r._origIdx = i; return r.status !== STATUS_NA; });
+  const naRows  = currentInvRows.filter((r, i) => { r._origIdx = i; return r.status === STATUS_NA; });
+  const ordered = [...normais, ...naRows];
+
+  ordered.forEach((row) => {
+    const idx = row._origIdx; // índice real no array
     const isCone = isCones(row.nome);
+
+    // Garante qtd correto para cones
     if(isCone){
-      const expectedQtd = conesQtdForStatus(row.status);
-      if(row.qtd !== expectedQtd){ row.qtd = expectedQtd; currentInvRows[idx].qtd = expectedQtd; }
+      const expected = conesQtdForStatus(row.status, row.qtd);
+      if(row.qtd !== expected && row.status !== 'Danificado' && row.status !== 'Perdido'){
+        row.qtd = expected; currentInvRows[idx].qtd = expected;
+      }
     }
+
     const tr = document.createElement('tr');
     const opts = STATUS_OPTIONS.map(s=>`<option ${row.status===s?'selected':''}>${s}</option>`).join('');
-    const isZeroStatus = STATUS_ZERO_QTD.includes(row.status);
-    const isNAStatus   = row.status === STATUS_NA;
-    // Garante qtd correto para status negativos/NA
-    if(!isCone && isZeroStatus && row.qtd > 0){ row.qtd = 0; currentInvRows[idx].qtd = 0; }
-    const qtyOpacity = (isCone || isZeroStatus) ? '0.5' : '1';
-    const qtyReadonly = (isCone || isNAStatus) ? ' readonly' : '';
-    const rowStyle = isNAStatus ? 'opacity:0.5;background:rgba(255,255,255,0.02)' : '';
-    const naTag = isNAStatus ? '<span style="font-size:9px;color:#888;margin-left:5px;letter-spacing:.5px">N/A</span>' : '';
-    const coneTag = isCone ? '<span style="font-size:9px;color:var(--cyan);margin-left:5px">±3</span>' : '';
+    const isNAStatus = row.status === STATUS_NA;
+    const isZeroStatus = STATUS_ZERO_QTD.includes(row.status) && !isCone;
 
-    // Cores por status
+    // Qtd para cones
+    let qtyReadonly = '';
+    let qtyColor = 'var(--light)';
+    let qtyOpacity = '1';
+    let coneTag = '';
+
+    if(isCone){
+      const q = +row.qtd;
+      qtyColor  = q < 0 ? 'var(--red)' : (q === 3 ? 'var(--cyan)' : 'var(--light)');
+      qtyReadonly = (row.status === STATUS_NA || row.status === 'Em Uso') ? ' readonly' : '';
+      qtyOpacity = isNAStatus ? '0.4' : '1';
+      coneTag = `<span style="font-size:9px;color:${qtyColor};margin-left:5px;font-weight:700">${q>0?'+'+q:q}</span>`;
+    } else {
+      qtyReadonly = isNAStatus ? ' readonly' : '';
+      qtyOpacity = isZeroStatus ? '0.5' : '1';
+    }
+
     const statusColor = {
-      'Em Uso': 'var(--cyan)',
-      'Danificado': 'var(--red)',
-      'Perdido': 'var(--red)',
-      'Não Recebeu': 'var(--yellow)',
-      'N/A': 'var(--mid)'
+      'Em Uso':'var(--cyan)','Danificado':'var(--red)',
+      'Perdido':'var(--red)','Não Recebeu':'var(--yellow)','N/A':'var(--mid)'
     }[row.status] || 'var(--mid)';
 
+    const rowStyle = isNAStatus
+      ? 'opacity:0.45;background:rgba(255,255,255,0.01);border-top:1px dashed rgba(255,255,255,0.08)'
+      : '';
+
     tr.setAttribute('style', rowStyle);
+
+    const isEsc = isEscada(row.nome);
+    const patrimonioCel = isEsc
+      ? `<td style="padding:6px 8px"><input type="text" class="inv-obs-in" value="${(row.patrimonio||'').replace(/"/g,'&quot;')}" placeholder="Nº patrimônio..." onchange="currentInvRows[${idx}].patrimonio=this.value" style="font-size:12px"></td>`
+      : `<td style="padding:6px 8px;color:var(--mid);font-size:11px;text-align:center">—</td>`;
+
     tr.innerHTML =
-      `<td style="font-size:13px;font-weight:600;padding:8px 12px">${row.nome}${coneTag}${naTag}</td>`+
+      `<td style="font-size:13px;font-weight:600;padding:8px 12px">${row.nome}${coneTag}</td>`+
       `<td style="padding:6px 8px">
         <select class="inv-status-sel" id="inv-status-${idx}" onchange="onInvStatusChange(${idx},this.value);_updateStatusColor(${idx})" style="color:${statusColor};font-weight:700;border-color:${statusColor}40">${opts}</select>
       </td>`+
-      `<td style="padding:8px 8px"><input id="inv-qty-${idx}" type="number" class="inv-obs-in" value="${row.qtd}"${qtyReadonly} style="width:50px;opacity:${qtyOpacity}" onchange="if(!isCones(currentInvRows[${idx}].nome)&&currentInvRows[${idx}].status!=='N/A')currentInvRows[${idx}].qtd=+this.value"></td>`+
-      `<td style="padding:8px 8px"><input type="text" class="inv-obs-in" value="${(row.obs||'').replace(/"/g,'&quot;')}" placeholder="Obs..." onchange="currentInvRows[${idx}].obs=this.value"></td>`;
+      `<td style="padding:8px 8px">
+        <input id="inv-qty-${idx}" type="number" class="inv-obs-in" value="${row.qtd}"${qtyReadonly}
+          style="width:50px;opacity:${qtyOpacity};color:${isCone?qtyColor:'inherit'}"
+          onchange="currentInvRows[${idx}].qtd=+this.value;if(isCones(currentInvRows[${idx}].nome)){_updateStatusColor(${idx})}">
+      </td>`+
+      patrimonioCel;
     body.appendChild(tr);
   });
 }
 
-function saveHist(){
+async function saveHist(){
   try {
   const supSel = document.getElementById('hSup').value;
   if(!supSel){ alert('⚠️ Selecione o supervisor.'); return; }
   const tName = document.getElementById('hTec').value;
   if(!tName){ alert('⚠️ Selecione o técnico na grade.'); return; }
 
+  // Faz upload das fotos base64 para Firebase Storage antes de salvar
+  let fotosFinais = [...pendingHistPh];
+  const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
+  if (temBase64) {
+    showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
+    toast('📷 Enviando fotos para a nuvem...', 'info', 3000);
+    const histId = editingHistId || Date.now().toString();
+    fotosFinais = [];
+    for (let i = 0; i < pendingHistPh.length; i++) {
+      const f = pendingHistPh[i];
+      if (f && f.startsWith('data:')) {
+        const url = await uploadFotoStorage(histId, f, i);
+        fotosFinais.push(url || f); // fallback base64 se upload falhar
+      } else {
+        fotosFinais.push(f);
+      }
+    }
+    // Atualiza pendingHistPh com as URLs
+    pendingHistPh = [...fotosFinais];
+  }
+
+  const histId = editingHistId || Date.now().toString();
+
   if(editingHistId){
-    // MODO ATUALIZAÇÃO — atualiza o registro existente
     const idx = hist.findIndex(h => h.id === editingHistId);
     if(idx >= 0){
       const prev = hist[idx];
@@ -2492,23 +2580,21 @@ function saveHist(){
         local: document.getElementById('hLocal').value.trim(),
         sup: supSel,
         obs: document.getElementById('hObs').value.trim(),
-        fotos: [...pendingHistPh],
+        fotos: fotosFinais,
         invRows: currentInvRows.map(r => ({...r})),
         atualizacoes: upds
       };
     }
   } else {
-    // NOVO inventário
-    const ts = Date.now();
     hist.unshift({
-      id: ts.toString(),
-      ts,
+      id: histId,
+      ts: parseInt(histId),
       tec: tName,
       dt: document.getElementById('hDt').value,
       local: document.getElementById('hLocal').value.trim(),
       sup: supSel,
       obs: document.getElementById('hObs').value.trim(),
-      fotos: [...pendingHistPh],
+      fotos: fotosFinais,
       invRows: currentInvRows.map(r => ({...r})),
       criadoEm: new Date().toLocaleString('pt-BR'),
       atualizacoes: []
@@ -2521,7 +2607,7 @@ function saveHist(){
   editingHistId = null;
   clearHistDirty();
   closeHM(); renderHist(); renderTechs();
-  auditLog(editingHistId ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${document.getElementById('hTec').value}`, `Local: ${document.getElementById('hLocal').value.trim()||'—'}`);
+  auditLog(editingHistId ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${tName}`, `Local: ${document.getElementById('hLocal')?.value?.trim()||'—'}`);
   toast('✅ Inventário salvo com sucesso!', 'success');
   } catch(err){
     console.error('Erro ao salvar inventário:', err);
@@ -2683,15 +2769,18 @@ function openInvTools(id){
   const normal    = (h.invRows||[]).filter(r => r.status === 'Em Uso');
   let html = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:60vh;overflow-y:auto">
     <div style="display:grid;grid-template-columns:2fr 1fr 60px 1.5fr;gap:0;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;padding:9px 14px;background:rgba(26,79,214,0.25);position:sticky;top:0">
-      <span>Ferramenta</span><span>Status</span><span>Qtd</span><span>Observação</span>
+      <span>Ferramenta</span><span>Status</span><span>Qtd</span><span>Patrimônio</span>
     </div>`;
   [...highlight, ...normal].forEach(r => {
     const isAlert = r.status !== 'Em Uso';
+    const isEsc = isEscada(r.nome);
+    const patrimonioVal = isEsc ? (r.patrimonio || '—') : '—';
+    const patrimonioStyle = isEsc && r.patrimonio ? 'color:var(--cyan);font-weight:600' : 'color:var(--mid)';
     html += `<div style="display:grid;grid-template-columns:2fr 1fr 60px 1.5fr;gap:0;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px${isAlert?';background:rgba(224,48,48,0.06)':''}">
       <span style="font-weight:${isAlert?'600':'400'};cursor:pointer;text-decoration:underline dotted" onclick="openToolTimeline('${r.nome}')" title="Ver histórico desta ferramenta">${r.nome}</span>
       <span>${statusBadge(r.status)}</span>
       <span>${r.qtd||1}</span>
-      <span style="color:var(--mid);font-size:12px">${r.obs||'—'}</span>
+      <span style="${patrimonioStyle};font-size:12px">${patrimonioVal}</span>
     </div>`;
   });
   html += `</div>`;
@@ -3321,8 +3410,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Limpa dirty ao salvar com sucesso
 const _origSaveHist = saveHist;
-saveHist = function(){
-  _origSaveHist();
+saveHist = async function(){
+  await _origSaveHist();
   clearHistDirty();
 };
 
@@ -3403,6 +3492,7 @@ function openToolTimeline(toolName){
         <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${statusBadge(r.status)}
           <span style="font-size:11px;color:var(--mid)">Qtd: ${r.qtd||1}</span>
+          ${isEscada(r.nome||'') && r.patrimonio ? `<span style="font-size:11px;color:var(--cyan);font-weight:600">🏷️ Pat: ${r.patrimonio}</span>` : ''}
           ${r.obs?`<span style="font-size:11px;color:var(--mid);font-style:italic">${r.obs}</span>`:''}
         </div>
       </div>
