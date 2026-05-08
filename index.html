@@ -412,9 +412,21 @@ tbody td{padding:10px 13px;vertical-align:middle}
   .inv-row select{min-height:36px;font-size:12px;padding:4px 2px;max-width:70px}
   .inv-row input[type="number"]{min-height:36px;font-size:12px;padding:4px;max-width:50px}
   .inv-row .obs-btn{min-height:36px;font-size:11px;padding:4px 6px}
-  /* ── BOTÕES DE AÇÃO DOS MODAIS (.ma) ── */
+  /* ── BOTÕES DE AÇÃO DOS MODAIS ── */
   .ma{flex-direction:column-reverse;gap:8px;margin-top:14px;padding-top:10px}
   .ma .btn{width:100%;min-height:46px;font-size:14px;justify-content:center;display:flex;align-items:center}
+  /* ── INVENTÁRIO DA EQUIPE: scroll horizontal no mobile ── */
+  #teamInvModal .modal{padding:10px 0}
+  #teamInvModal .modal > div:first-of-type,
+  #teamInvModal .modal > p,
+  .team-inv-stats{padding-left:12px;padding-right:12px}
+  #teamInvModal > .modal > div[style*="overflow"]{border-radius:0;border-left:none;border-right:none}
+  .team-tbl{font-size:11px;min-width:600px}
+  .team-tbl th,.team-tbl td{padding:6px 8px;white-space:nowrap}
+  .team-tbl th:first-child,.team-tbl td:first-child{white-space:normal;min-width:110px;position:sticky;left:0;background:#0e1d38;z-index:1}
+  .tis-card{padding:8px 4px}
+  .tis-num{font-size:18px}
+  .tis-lbl{font-size:8px}
   /* ── OUTROS ── */
   .sup-banner{font-size:10px;padding:5px 10px;gap:6px}
   .hist-grid{grid-template-columns:1fr}
@@ -1289,7 +1301,20 @@ window.addEventListener('resize', updateMobileSupBar);
   </div>
 </div>
 
-<div id="toastContainer"></div>
+<!-- MODAL: DETALHE POR STATUS -->
+<div class="modal-ov" id="statusDetailModal" style="z-index:1100">
+  <div class="modal" style="max-width:580px">
+    <button class="modal-close" onclick="document.getElementById('statusDetailModal').classList.remove('open')">✕</button>
+    <h2 id="statusDetailTitle">Técnicos</h2>
+    <p id="statusDetailSub" style="font-size:12px;color:var(--mid);margin-top:-8px;margin-bottom:14px"></p>
+    <div id="statusDetailBody" style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="document.getElementById('statusDetailModal').classList.remove('open')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- MODAL: LOG DE AUDITORIA -->
 <div class="modal-ov" id="auditModal">
@@ -1889,7 +1914,7 @@ function openTeamInv(){
   tools.forEach(t => { TEAM_STATUSES.forEach(s => { totals[s] += (t.byStatus[s]||0); }); });
   const totalProblemas = TEAM_STATUSES.filter(s=>s!=='Em Uso').reduce((a,s)=>a+(totals[s]||0),0);
 
-  _teamInvCache = {sup, techList, faltasByTech, techsWithoutInv};
+  _teamInvCache = {sup, techList, faltasByTech, techsWithoutInv, teamItems};
 
   // Header
   const totalARepor = Object.values(byTool).reduce((acc,t)=>{
@@ -1905,10 +1930,26 @@ function openTeamInv(){
         ` · <span style="color:#f5c518;font-weight:700">🛒 ${totalARepor} a repor</span>`
       : `<span style="color:var(--green)">✅ Tudo em ordem</span>`);
 
-  // Cards de stats
+  // Agrega técnicos por status para os cards
+  const techsByStatus = { 'Em Uso': [], 'Danificado': [], 'Perdido': [], 'Não Recebeu': [] };
+  teamItems.forEach(it => {
+    const s = it.status === 'NÃO RECEBEU' ? 'Não Recebeu' : it.status;
+    if (techsByStatus[s] && it.tecnico) {
+      if (!techsByStatus[s].find(x => x.tec === it.tecnico && x.ferr === it.nome)) {
+        techsByStatus[s].push({ tec: it.tecnico, ferr: it.nome, qtd: it.qtd });
+      }
+    }
+  });
+  _teamInvCache.techsByStatus = techsByStatus;
+
+  // Cards de stats — clicáveis
   document.getElementById('teamInvStats').innerHTML = TEAM_STAT_CFG.map(s => {
     const v = totals[s.key]||0;
-    return `<div class="tis-card ${s.cls}"><div class="tis-num">${v}</div><div class="tis-lbl">${s.lbl}</div></div>`;
+    return `<div class="tis-card ${s.cls}" style="cursor:pointer" onclick="openStatusDetail('${s.key}','${s.lbl}')">
+      <div class="tis-num">${v}</div>
+      <div class="tis-lbl">${s.lbl}</div>
+      <div style="font-size:9px;margin-top:3px;opacity:0.6">Ver técnicos</div>
+    </div>`;
   }).join('');
 
   // Tabela — colunas: Ferramenta | Em Uso | Danificado | Perdido | Não Recebeu | ⚠️ Com Problema
@@ -1916,33 +1957,45 @@ function openTeamInv(){
     document.getElementById('teamInvTbl').innerHTML =
       '<tbody><tr><td style="padding:40px;text-align:center;color:var(--mid)">Nenhum inventário registrado para esta equipe ainda.</td></tr></tbody>';
   } else {
-    let html = '<thead><tr><th style="min-width:200px">Ferramenta</th>';
+    let html = '<thead><tr><th style="min-width:180px">Ferramenta</th>';
     TEAM_STAT_CFG.forEach(s => { html += `<th style="text-align:center">${s.lbl}</th>`; });
+    html += '<th style="text-align:center;color:var(--cyan)">🏷️ Patrimônio</th>';
     html += '<th style="text-align:center;color:var(--red)">⚠️ Problema</th>';
     html += '<th style="text-align:center;color:#f5c518;font-weight:900">🛒 A REPOR</th></tr></thead><tbody>';
     tools.forEach(t => {
       const emUso    = t.byStatus['Em Uso']||0;
-      const naQtd    = t.byStatus['N/A']||0;
       const danif    = t.byStatus['Danificado']||0;
       const perdido  = t.byStatus['Perdido']||0;
       const naoRec   = (t.byStatus['Não Recebeu']||0) + (t.byStatus['NÃO RECEBEU']||0);
       const problema = danif + perdido + naoRec;
-      // Para cones: soma as qtds negativas e converte para positivo (quantidade a comprar)
       let aRepor = 0;
       if(isCones(t.nome)){
-        // Busca qtd negativa registrada nos inventários
         const qtdNeg = t.totalQtd !== undefined ? Math.abs(Math.min(0, t.totalQtd)) : (danif + perdido) * 3;
         aRepor = qtdNeg;
       } else {
         aRepor = danif + perdido + naoRec;
       }
       const rowStyle = aRepor>0 ? 'background:rgba(224,48,48,0.05)' : '';
+
+      // Busca patrimônio das escadas nos inventários
+      let patrimonioHtml = '<td class="tcnt" style="color:var(--mid);font-size:11px">—</td>';
+      if(isEscada(t.nome)){
+        const pats = [];
+        (_teamInvCache.teamItems||[]).forEach(it => {
+          if(it.nome === t.nome && it.patrimonio) {
+            pats.push(`<span style="font-size:10px;color:var(--mid)">${it.tecnico.split(' ')[0]}:</span> <span style="color:var(--cyan);font-weight:700">${it.patrimonio}</span>`);
+          }
+        });
+        patrimonioHtml = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${pats.length ? pats.join('<br>') : '—'}</td>`;
+      }
+
       html += `<tr style="${rowStyle}">`;
       html += `<td style="font-weight:600;padding:8px 10px">${t.nome}</td>`;
       html += `<td class="tcnt uso${emUso===0?' zero':''}">${emUso||0}</td>`;
       html += `<td class="tcnt dan${danif===0?' zero':''}">${danif||0}</td>`;
       html += `<td class="tcnt per${perdido===0?' zero':''}">${perdido||0}</td>`;
       html += `<td class="tcnt nr${naoRec===0?' zero':''}">${naoRec||0}</td>`;
+      html += patrimonioHtml;
       html += `<td class="tcnt${problema>0?' warn':''}"><span style="${problema>0?'color:var(--red);font-weight:900':'color:rgba(255,255,255,0.15)'}">${problema>0?problema:'—'}</span></td>`;
       html += `<td class="tcnt"><span style="${aRepor>0?'color:#f5c518;font-weight:900;font-size:15px':'color:rgba(255,255,255,0.12)'}">${aRepor>0?aRepor:'—'}</span></td>`;
       html += '</tr>';
@@ -1973,6 +2026,59 @@ function clearHistFilters(){
   const ids = ['histDtDe','histDtAte','histTecF'];
   ids.forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   renderHist();
+}
+
+function openStatusDetail(status, label) {
+  if (!_teamInvCache) return;
+  const { teamItems } = _teamInvCache;
+
+  // Agrupa ferramentas por técnico para o status selecionado
+  const techMap = {};
+  (teamItems || []).forEach(it => {
+    const s = it.status === 'NÃO RECEBEU' ? 'Não Recebeu' : it.status;
+    if (s !== status) return;
+    if (!techMap[it.tecnico]) techMap[it.tecnico] = [];
+    techMap[it.tecnico].push({ ferr: it.nome, qtd: it.qtd });
+  });
+
+  const statusColor = {
+    'Em Uso': 'var(--cyan)', 'Danificado': 'var(--red)',
+    'Perdido': 'var(--red)', 'Não Recebeu': 'var(--yellow)'
+  }[status] || 'var(--mid)';
+
+  const tecNomes = Object.keys(techMap).sort();
+  const total = Object.values(techMap).reduce((a, arr) => a + arr.length, 0);
+
+  document.getElementById('statusDetailTitle').innerHTML =
+    `<span style="color:${statusColor}">${label}</span>`;
+  document.getElementById('statusDetailSub').textContent =
+    `${tecNomes.length} técnico${tecNomes.length !== 1 ? 's' : ''} · ${total} ferramenta${total !== 1 ? 's' : ''}`;
+
+  const body = document.getElementById('statusDetailBody');
+
+  if (!tecNomes.length) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--mid)">
+      Nenhum técnico com este status no momento.
+    </div>`;
+  } else {
+    body.innerHTML = tecNomes.map(tec => {
+      const ferramentas = techMap[tec];
+      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#fff;margin-bottom:8px">
+          👷 ${tec}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${ferramentas.map(f => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:rgba(255,255,255,0.03);border-radius:6px">
+              <span style="font-size:13px">${f.ferr}</span>
+              <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}18;padding:2px 8px;border-radius:10px">${f.qtd > 0 ? f.qtd + 'x' : ''} ${status}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('statusDetailModal').classList.add('open');
 }
 
 function closeTeamInv(){ document.getElementById('teamInvModal').classList.remove('open'); }
@@ -3716,31 +3822,30 @@ function statusLabel(status){
 function buildTechSheet(tec, invs){
   const NCOLS = 4;
   const ws = {
-    '!cols': [{wch:40},{wch:18},{wch:7},{wch:46}],
+    '!cols': [{wch:42},{wch:18},{wch:7},{wch:22}],
     '!rows': []
   };
   let r = 0;
 
-  // ── BANNER: azul escuro, nome grande ─────────────────────────────
+  // ── BANNER ───────────────────────────────────────────────────────────
   const pNome = primeiroNome(tec);
-  const sBannerBase = {bold:true, sz:18, color:XC.branco, bg:XC.azulEscuro, center:true, noBorder:true};
-  setCell(ws, r, 0, 'TECNICO:  ' + pNome, xStyle(sBannerBase));
+  setCell(ws, r, 0, 'TECNICO:  ' + pNome, xStyle({bold:true, sz:18, color:XC.branco, bg:XC.azulEscuro, center:true, noBorder:true}));
   for(let c=1;c<NCOLS;c++) setCell(ws, r, c, '', xStyle({bg:XC.azulEscuro, noBorder:true}));
   setRange(ws, r, 0, r, NCOLS-1);
   ws['!rows'].push({hpt:36}); r++;
 
-  // ── Subtítulo azul médio com nome completo ────────────────────────
+  // ── Subtítulo ────────────────────────────────────────────────────────
   setCell(ws, r, 0, cleanStr(tec), xStyle({sz:9, color:XC.azulClaro, bg:XC.azulMedio, center:true, noBorder:true, italic:true}));
   for(let c=1;c<NCOLS;c++) setCell(ws, r, c, '', xStyle({bg:XC.azulMedio, noBorder:true}));
   setRange(ws, r, 0, r, NCOLS-1);
   ws['!rows'].push({hpt:14}); r++;
 
-  // ── Linha separadora visual ───────────────────────────────────────
+  // ── Separador ────────────────────────────────────────────────────────
   for(let c=0;c<NCOLS;c++) setCell(ws, r, c, '', xStyle({bg:'1E3A8A', noBorder:true}));
   setRange(ws, r, 0, r, NCOLS-1);
   ws['!rows'].push({hpt:3}); r++;
 
-  // ── Cards de resumo (4 células individuais com bordas) ───────────
+  // ── Cards de resumo ───────────────────────────────────────────────────
   const ultimo  = invs[0];
   const dtStr   = fmtDate(ultimo.dt) || '—';
   const local   = cleanStr(ultimo.local||'—');
@@ -3749,100 +3854,107 @@ function buildTechSheet(tec, invs){
   const nProb   = rows0.filter(x=>['Danificado','Perdido','Não Recebeu','NÃO RECEBEU'].includes(x.status)).length;
   const nNA     = rows0.filter(x=>x.status==='N/A').length;
 
-  // Linha de label dos cards
   ws['!rows'].push({hpt:6}); r++;
-  setCell(ws,r,0,'DATA DO INVENTARIO',  xStyle({sz:7, color:XC.cinzaMed, bg:XC.azulFundo, center:true, bold:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  setCell(ws,r,1,'LOCAL',               xStyle({sz:7, color:XC.cinzaMed, bg:XC.azulFundo, center:true, bold:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  setCell(ws,r,2,'TOTAL',               xStyle({sz:7, color:XC.cinzaMed, bg:XC.azulFundo, center:true, bold:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  setCell(ws,r,3,'PROBLEMAS / N/A',     xStyle({sz:7, color:XC.cinzaMed, bg:XC.azulFundo, center:true, bold:true, borderStyle:'thin', borderColor:'BDD0F0'}));
+  setCell(ws,r,0,'DATA DO INVENTARIO', xStyle({sz:7,color:XC.cinzaMed,bg:XC.azulFundo,center:true,bold:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  setCell(ws,r,1,'LOCAL',              xStyle({sz:7,color:XC.cinzaMed,bg:XC.azulFundo,center:true,bold:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  setCell(ws,r,2,'TOTAL',             xStyle({sz:7,color:XC.cinzaMed,bg:XC.azulFundo,center:true,bold:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  setCell(ws,r,3,'PROBLEMAS / N/A',   xStyle({sz:7,color:XC.cinzaMed,bg:XC.azulFundo,center:true,bold:true,borderStyle:'thin',borderColor:'BDD0F0'}));
   ws['!rows'].push({hpt:13}); r++;
 
-  // Linha de valores dos cards
-  setCell(ws,r,0, dtStr,                xStyle({sz:11, bold:true, color:XC.azulEscuro, bg:XC.azulFundo, center:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  setCell(ws,r,1, local,                xStyle({sz:11, bold:true, color:XC.azulEscuro, bg:XC.azulFundo, center:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  setCell(ws,r,2, rows0.length,         xStyle({sz:13, bold:true, color:XC.azulMedio,  bg:XC.azulFundo, center:true, borderStyle:'thin', borderColor:'BDD0F0'}));
-  const probTxt = nProb > 0 ? nProb + ' problema(s)  /  ' + nNA + ' N/A' : 'Sem problemas  /  ' + nNA + ' N/A';
+  setCell(ws,r,0, dtStr,          xStyle({sz:11,bold:true,color:XC.azulEscuro,bg:XC.azulFundo,center:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  setCell(ws,r,1, local,          xStyle({sz:11,bold:true,color:XC.azulEscuro,bg:XC.azulFundo,center:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  setCell(ws,r,2, rows0.length,   xStyle({sz:13,bold:true,color:XC.azulMedio, bg:XC.azulFundo,center:true,borderStyle:'thin',borderColor:'BDD0F0'}));
+  const probTxt = nProb > 0 ? nProb+' problema(s)  /  '+nNA+' N/A' : 'Sem problemas  /  '+nNA+' N/A';
   const probClr = nProb > 0 ? XC.vermelhoEsc : XC.verdeEscuro;
   const probBg  = nProb > 0 ? XC.vermelhoFnd : XC.verdeFundo;
-  setCell(ws,r,3, probTxt,              xStyle({sz:10, bold:true, color:probClr, bg:probBg, center:true, borderStyle:'thin', borderColor:'BDD0F0'}));
+  setCell(ws,r,3, probTxt, xStyle({sz:10,bold:true,color:probClr,bg:probBg,center:true,borderStyle:'thin',borderColor:'BDD0F0'}));
   ws['!rows'].push({hpt:22}); r++;
 
-  // Mini linha de stats coloridos: Em Uso | Prob | N/A
-  setCell(ws,r,0, 'Em Uso: ' + nEmUso, xStyle({sz:8, bold:true, color:XC.verdeEscuro, bg:XC.verdeClaro, center:true, borderStyle:'thin', borderColor:XC.verdeEscuro}));
-  setCell(ws,r,1, nProb > 0 ? 'Prob: ' + nProb : 'Sem Problemas', xStyle({sz:8, bold:true, color:nProb>0?XC.vermelhoEsc:XC.verdeEscuro, bg:nProb>0?XC.vermelhoFnd:XC.verdeClaro, center:true, borderStyle:'thin', borderColor:nProb>0?XC.vermelhoEsc:XC.verdeEscuro}));
-  setCell(ws,r,2, 'N/A: ' + nNA,       xStyle({sz:8, color:XC.cinzaMed, bg:XC.cinzaFnd, center:true, borderStyle:'thin', borderColor:XC.cinzaBorda}));
-  setCell(ws,r,3, rows0.length + ' ferramentas no total', xStyle({sz:8, italic:true, color:XC.cinzaMed, bg:XC.azulFundo, center:true, noBorder:true}));
+  setCell(ws,r,0,'Em Uso: '+nEmUso, xStyle({sz:8,bold:true,color:XC.verdeEscuro,bg:XC.verdeClaro,center:true,borderStyle:'thin',borderColor:XC.verdeEscuro}));
+  setCell(ws,r,1, nProb>0?'Prob: '+nProb:'Sem Problemas', xStyle({sz:8,bold:true,color:nProb>0?XC.vermelhoEsc:XC.verdeEscuro,bg:nProb>0?XC.vermelhoFnd:XC.verdeClaro,center:true,borderStyle:'thin',borderColor:nProb>0?XC.vermelhoEsc:XC.verdeEscuro}));
+  setCell(ws,r,2,'N/A: '+nNA, xStyle({sz:8,color:XC.cinzaMed,bg:XC.cinzaFnd,center:true,borderStyle:'thin',borderColor:XC.cinzaBorda}));
+  setCell(ws,r,3, rows0.length+' ferramentas no total', xStyle({sz:8,italic:true,color:XC.cinzaMed,bg:XC.azulFundo,center:true,noBorder:true}));
   ws['!rows'].push({hpt:14}); r++;
 
-  // Espaço
-  for(let c=0;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.branco, noBorder:true}));
+  for(let c=0;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.branco,noBorder:true}));
   ws['!rows'].push({hpt:8}); r++;
 
-  // ── Cabeçalho da tabela ───────────────────────────────────────────
+  // ── Cabeçalho da tabela ───────────────────────────────────────────────
   const hdrCfg = [
-    {label:'  FERRAMENTA',       align:'left'},
-    {label:'STATUS',             align:'center'},
-    {label:'QTD',                align:'center'},
-    {label:'OBSERVACAO',         align:'left'},
+    {label:'  FERRAMENTA', align:'left'},
+    {label:'STATUS',       align:'center'},
+    {label:'QTD',          align:'center'},
+    {label:'PATRIMÔNIO',   align:'center'},
   ];
   hdrCfg.forEach(({label, align}, c) => {
     setCell(ws, r, c, label, xStyle({
       bold:true, sz:10, color:XC.branco, bg:XC.azulSub,
       center: align==='center',
-      borderStyle:'thin', borderColor:'1A4FA0',
-      bottomBold: false
+      borderStyle:'thin', borderColor:'1A4FA0'
     }));
   });
   autoFilter(ws, r, 0, NCOLS-1);
   ws['!rows'].push({hpt:22}); r++;
 
-  // ── Linhas de dados ───────────────────────────────────────────────
-  const rows = rows0.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  // ── Linhas de dados (N/A no final) ───────────────────────────────────
+  const rows0sorted = rows0.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const rowsNormal  = rows0sorted.filter(x => x.status !== 'N/A');
+  const rowsNA      = rows0sorted.filter(x => x.status === 'N/A');
+  const rows = [...rowsNormal, ...rowsNA];
+
   rows.forEach((row, i) => {
     const isEven = i % 2 === 0;
     const zebra  = isEven ? XC.branco : XC.cinzaFnd;
     const ss     = statusStyle(row.status);
     const lbl    = statusLabel(row.status);
     const isProb = ['Danificado','Perdido','Não Recebeu','NÃO RECEBEU'].includes(row.status||'');
+    const isNA   = row.status === 'N/A';
 
-    // Coluna A: nome da ferramenta (destaque se problema)
+    // Coluna A: ferramenta
     setCell(ws, r, 0, '  ' + cleanStr(row.nome), xStyle({
-      sz:10, bg: isProb ? XC.vermelhoFnd : zebra,
-      bold: isProb, color: isProb ? XC.vermelhoEsc : XC.preto,
+      sz:10, bg: isProb ? XC.vermelhoFnd : (isNA ? XC.cinzaFnd : zebra),
+      bold: isProb, color: isProb ? XC.vermelhoEsc : (isNA ? XC.cinzaMed : XC.preto),
       borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
-    // Coluna B: status colorido
+    // Coluna B: status
     setCell(ws, r, 1, lbl, xStyle({
       sz:9, bg:ss.bg, color:ss.color, center:true, bold:ss.bold,
       borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
-    // Coluna C: quantidade
+    // Coluna C: qtd
+    const qtdColor = isCones(row.nome) && +row.qtd < 0 ? XC.vermelhoEsc : (isProb ? XC.vermelhoEsc : XC.cinzaEsc);
     setCell(ws, r, 2, numVal(row.qtd), xStyle({
-      sz:10, bg: isProb ? XC.vermelhoFnd : zebra, center:true,
-      bold:false, color: isProb ? XC.vermelhoEsc : XC.cinzaEsc,
+      sz:10, bg: isProb ? XC.vermelhoFnd : (isNA ? XC.cinzaFnd : zebra),
+      center:true, color: qtdColor,
       borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
-    // Coluna D: observação
-    setCell(ws, r, 3, cleanStr(row.obs), xStyle({
-      sz:9, bg: isProb ? XC.vermelhoFnd : zebra,
-      color: row.obs ? XC.cinzaEsc : XC.cinzaMed,
-      italic: !!(row.obs), wrap:true,
+    // Coluna D: patrimônio (só escadas)
+    const isEsc = isEscada(row.nome||'');
+    const patVal = isEsc ? cleanStr(row.patrimonio||'') : '';
+    setCell(ws, r, 3, patVal, xStyle({
+      sz:10,
+      bg: isEsc && patVal ? XC.azulFundo : (isProb ? XC.vermelhoFnd : (isNA ? XC.cinzaFnd : zebra)),
+      center:true,
+      bold: !!(isEsc && patVal),
+      color: isEsc && patVal ? XC.azulMedio : XC.cinzaMed,
       borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
     ws['!rows'].push({hpt:18}); r++;
   });
 
   if(!rows.length){
-    setCell(ws, r,0,'(nenhuma ferramenta registrada)',xStyle({sz:9,color:XC.cinzaMed,italic:true,bg:XC.cinzaFnd}));
+    setCell(ws,r,0,'(nenhuma ferramenta registrada)',xStyle({sz:9,color:XC.cinzaMed,italic:true,bg:XC.cinzaFnd}));
     setRange(ws,r,0,r,NCOLS-1);
     ws['!rows'].push({hpt:16}); r++;
   }
 
-  // ── Linha totalizadora ────────────────────────────────────────────
+  // ── Totalizador ───────────────────────────────────────────────────────
   setCell(ws,r,0,'  TOTAL DE FERRAMENTAS', xStyle({bold:true,sz:9,color:XC.branco,bg:XC.azulEscuro,borderStyle:'thin',borderColor:'0A1F5C'}));
   setCell(ws,r,1,'', xStyle({bg:XC.azulEscuro,borderStyle:'thin',borderColor:'0A1F5C'}));
   setCell(ws,r,2, rows.length, xStyle({bold:true,sz:11,color:XC.branco,bg:XC.azulEscuro,center:true,borderStyle:'thin',borderColor:'0A1F5C'}));
   setCell(ws,r,3, nProb > 0 ? nProb + ' com problema(s)' : 'Tudo em ordem', xStyle({bold:true,sz:9,color:nProb>0?XC.vermelhoFnd:XC.verdeClaro,bg:nProb>0?XC.vermelhoEsc:XC.verdeEscuro,center:true,borderStyle:'thin',borderColor:'0A1F5C'}));
+  ws['!rows'].push({hpt:18}); r++;
+  setCell(ws,r,4, nProb > 0 ? nProb + ' com problema(s)' : 'Tudo em ordem', xStyle({bold:true,sz:9,color:nProb>0?XC.vermelhoFnd:XC.verdeClaro,bg:nProb>0?XC.vermelhoEsc:XC.verdeEscuro,center:true,borderStyle:'thin',borderColor:'0A1F5C'}));
   ws['!rows'].push({hpt:18}); r++;
 
   // ── Histórico de inventários anteriores ───────────────────────────
