@@ -584,16 +584,37 @@ function _getCreds() {
     // Mantém compatibilidade: supervisores cadastrados no sistema também entram no painel de senha.
     // Assim, um supervisor novo criado no Admin consegue logar após recarregar/sair.
     if (Array.isArray(window.sups)) {
-      window.sups.forEach(nome => {
+      window.sups.filter(supervisorValido).forEach(nome => {
         if (nome && !creds.supervisores.find(x => x.nome === nome)) {
           creds.supervisores.push({ nome, senha: '' });
         }
       });
     }
+    creds.supervisores = creds.supervisores.filter(s => supervisorValido(s.nome));
     return creds;
   } catch(e) { return def; }
 }
+function supervisorValido(nome){
+  return !!String(nome||'').trim() && String(nome||'').trim().toLowerCase() !== 'teste';
+}
+function limparSupervisorTeste(){
+  try {
+    const raw = localStorage.getItem('lm_creds');
+    if(raw){
+      const c = JSON.parse(raw);
+      if(Array.isArray(c.supervisores)){
+        c.supervisores = c.supervisores.filter(s => supervisorValido(s.nome));
+        localStorage.setItem('lm_creds', JSON.stringify(c));
+      }
+    }
+    if(Array.isArray(window.sups)){ window.sups = window.sups.filter(supervisorValido); }
+    if(Array.isArray(window.techs)){ window.techs.forEach(t => { if(!supervisorValido(t.sup)) t.sup = ''; }); }
+  } catch(e){}
+}
 function _saveCreds(creds) {
+  if(creds && Array.isArray(creds.supervisores)){
+    creds.supervisores = creds.supervisores.filter(s => supervisorValido(s.nome));
+  }
   localStorage.setItem('lm_creds', JSON.stringify(creds));
 }
 
@@ -808,6 +829,7 @@ function addSupAdmin() {
   const nome  = (document.getElementById('newSupNome').value || '').trim();
   const senha = (document.getElementById('newSupSenha').value || '').trim();
   if (!nome || !senha) { toast('Preencha nome e senha', 'warn'); return; }
+  if (!supervisorValido(nome)) { toast('Nome de supervisor reservado/removido. Use outro nome.', 'warn'); return; }
   const creds = _getCreds();
   if (creds.supervisores.find(s => s.nome === nome)) { toast('Supervisor já existe', 'warn'); return; }
   creds.supervisores.push({ nome, senha });
@@ -1465,6 +1487,12 @@ async function idbLoadAll(){
     techs = t || []; loans = l || []; sups = s || [];
     hist  = h || []; banco = b || []; audit = a || [];
   }
+  const _oldSupsLen = sups.length;
+  sups = (sups || []).filter(supervisorValido);
+  if (_oldSupsLen !== sups.length) {
+    try { await idbSet('sups', sups); } catch(e) {}
+  }
+  limparSupervisorTeste();
 }
 
 async function idbSave(stores){
@@ -1987,14 +2015,14 @@ function openTeamInv(){
       <div style="font-size:9px;margin-top:3px;opacity:0.6">30 dias</div>
     </div>`;
 
-  // Tabela — colunas: Ferramenta | Em Uso | Danificado | Perdido | Não Recebeu | Patrimônio | Validade | ⚠️ Com Problema
+  // Tabela limpa — colunas: Ferramenta | Status por quantidade | Validade | Problema | A repor
+  // Patrimônio foi removido desta tela para melhorar a leitura. Ele continua aparecendo no inventário individual de cada técnico e no Excel.
   if(!tools.length){
     document.getElementById('teamInvTbl').innerHTML =
       '<tbody><tr><td style="padding:40px;text-align:center;color:var(--mid)">Nenhum inventário registrado para esta equipe ainda.</td></tr></tbody>';
   } else {
-    let html = '<thead><tr><th style="min-width:180px">Ferramenta</th>';
+    let html = '<thead><tr><th style="min-width:220px">Ferramenta</th>';
     TEAM_STAT_CFG.forEach(s => { html += `<th style="text-align:center">${s.lbl}</th>`; });
-    html += '<th style="text-align:center;color:var(--cyan)">🏷️ Patrimônio</th>';
     html += '<th style="text-align:center;color:#f5c518">⏳ Validade EPI</th>';
     html += '<th style="text-align:center;color:var(--red)">⚠️ Problema</th>';
     html += '<th style="text-align:center;color:#f5c518;font-weight:900">🛒 A REPOR</th></tr></thead><tbody>';
@@ -2004,55 +2032,41 @@ function openTeamInv(){
       const perdido  = t.byStatus['Perdido']||0;
       const naoRec   = (t.byStatus['Não Recebeu']||0) + (t.byStatus['NÃO RECEBEU']||0);
       const problema = danif + perdido + naoRec;
-      let aRepor = 0;
-      if(isCones(t.nome)){
-        const qtdNeg = t.totalQtd !== undefined ? Math.abs(Math.min(0, t.totalQtd)) : (danif + perdido) * 3;
-        aRepor = qtdNeg;
-      } else {
-        aRepor = danif + perdido + naoRec;
-      }
+      const aRepor   = problema;
       const rowStyle = aRepor>0 ? 'background:rgba(224,48,48,0.05)' : '';
 
-      const pats = [];
       const vals = [];
       (_teamInvCache.teamItems||[]).forEach(it => {
-        if(it.nome === t.nome) {
-          if(it.patrimonio) pats.push(`<span style="font-size:10px;color:var(--mid)">${escapeHtml(it.tecnico.split(' ')[0])}:</span> <span style="color:var(--cyan);font-weight:700">${escapeHtml(it.patrimonio)}</span>`);
-          if(it.validadeEpi || it.validade) {
-            const d = it.validadeEpi || it.validade;
-            vals.push(`<span style="font-size:10px;color:var(--mid)">${escapeHtml(it.tecnico.split(' ')[0])}:</span> <span style="font-weight:700">${escapeHtml(d)}</span> ${epiAlertBadge(d)}`);
-          }
+        if(it.nome === t.nome && (it.validadeEpi || it.validade)) {
+          const d = it.validadeEpi || it.validade;
+          vals.push(`<span style="font-size:10px;color:var(--mid)">${escapeHtml((it.tecnico||'').split(' ')[0])}:</span> <span style="font-weight:700">${escapeHtml(d)}</span> ${epiAlertBadge(d)}`);
         }
       });
-      const patrimonioHtml = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${pats.length ? pats.join('<br>') : '—'}</td>`;
-      const validadeHtml   = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${vals.length ? vals.join('<br>') : '—'}</td>`;
+      const validadeHtml = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${vals.length ? vals.join('<br>') : '—'}</td>`;
 
       html += `<tr style="${rowStyle}">`;
-      html += `<td style="font-weight:600;padding:8px 10px">${t.nome}</td>`;
+      html += `<td style="font-weight:700;padding:8px 10px">${escapeHtml(t.nome)}</td>`;
       html += `<td class="tcnt uso${emUso===0?' zero':''}">${emUso||0}</td>`;
       html += `<td class="tcnt dan${danif===0?' zero':''}">${danif||0}</td>`;
       html += `<td class="tcnt per${perdido===0?' zero':''}">${perdido||0}</td>`;
       html += `<td class="tcnt nr${naoRec===0?' zero':''}">${naoRec||0}</td>`;
-      html += patrimonioHtml;
       html += validadeHtml;
       html += `<td class="tcnt${problema>0?' warn':''}"><span style="${problema>0?'color:var(--red);font-weight:900':'color:rgba(255,255,255,0.15)'}">${problema>0?problema:'—'}</span></td>`;
       html += `<td class="tcnt"><span style="${aRepor>0?'color:#f5c518;font-weight:900;font-size:15px':'color:rgba(255,255,255,0.12)'}">${aRepor>0?aRepor:'—'}</span></td>`;
       html += '</tr>';
     });
-    // Linha de TOTAIS
     const tEmUso   = tools.reduce((a,t)=>a+(t.byStatus['Em Uso']||0),0);
     const tDanif   = tools.reduce((a,t)=>a+(t.byStatus['Danificado']||0),0);
     const tPerd    = tools.reduce((a,t)=>a+(t.byStatus['Perdido']||0),0);
     const tNaoRec  = tools.reduce((a,t)=>a+((t.byStatus['Não Recebeu']||0)+(t.byStatus['NÃO RECEBEU']||0)),0);
     const tProb    = tDanif + tPerd + tNaoRec;
-    const tRepor   = tDanif + tPerd + tNaoRec;
+    const tRepor   = tProb;
     html += `<tr style="border-top:2px solid rgba(255,255,255,0.2);background:rgba(0,194,224,0.05)">`;
     html += `<td style="padding:8px 10px;color:var(--cyan);font-size:11px;font-weight:900;letter-spacing:1px">TOTAL GERAL</td>`;
     html += `<td class="tcnt uso" style="font-weight:900">${tEmUso}</td>`;
     html += `<td class="tcnt dan" style="font-weight:900">${tDanif||'—'}</td>`;
     html += `<td class="tcnt per" style="font-weight:900">${tPerd||'—'}</td>`;
     html += `<td class="tcnt nr"  style="font-weight:900">${tNaoRec||'—'}</td>`;
-    html += `<td class="tcnt" style="color:var(--mid)">—</td>`;
     html += `<td class="tcnt" style="color:${epiAlerts.length?'#f5c518':'var(--green)'};font-weight:900">${epiAlerts.length?('⚠️ '+epiAlerts.length):'✅'}</td>`;
     html += `<td class="tcnt" style="color:var(--red);font-weight:900">${tProb||'—'}</td>`;
     html += `<td class="tcnt" style="color:#f5c518;font-weight:900;font-size:16px">${tRepor>0?'🛒 '+tRepor:'✅'}</td>`;
@@ -4060,98 +4074,119 @@ function buildTechSheet(tec, invs){
 }
 
 // ── ABA RESUMO DA EQUIPE ─────────────────────────────────────────────
+function sheetNameForTech(tec){
+  return fileClean(tec).slice(0,28);
+}
+
+// ── ABA RESUMO DA EQUIPE ─────────────────────────────────────────────
 function buildResumoSheet(histDoSup, techsDoSup){
+  // Modelo visual inspirado na planilha enviada: cabeçalho escuro, cards grandes e situação por técnico.
   const NCOLS = 8;
-  const allTools = [...new Set(histDoSup.flatMap(h=>(h.invRows||[]).map(r=>r.nome)))].sort();
-  const ws = {'!cols':[{wch:38},{wch:11},{wch:13},{wch:11},{wch:15},{wch:8},{wch:13},{wch:13}], '!rows':[]};
+  const ws = {'!cols':[{wch:22},{wch:14},{wch:20},{wch:12},{wch:12},{wch:12},{wch:12},{wch:16}], '!rows':[]};
   let r = 0;
-
-  // ── Banner azul escuro ────────────────────────────────────────────
-  setCell(ws,r,0,'RESUMO DA EQUIPE  —  INVENTARIO CONSOLIDADO', xStyle({bold:true,sz:16,color:XC.branco,bg:XC.azulEscuro,center:true,noBorder:true}));
-  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.azulEscuro,noBorder:true}));
-  setRange(ws,r,0,r,NCOLS-1);
-  ws['!rows'].push({hpt:36}); r++;
-
-  // ── Linha de info ─────────────────────────────────────────────────
+  const sup = localStorage.getItem('lm_cursup') || '';
   const today = new Date().toLocaleDateString('pt-BR');
-  const infoTxt = `Gerado em ${today}   |   ${techsDoSup.length} tecnico(s)   |   ${allTools.length} tipos de ferramenta`;
-  setCell(ws,r,0,infoTxt,xStyle({sz:9,italic:true,color:XC.azulEscuro,bg:XC.azulFundo,center:true,noBorder:true}));
-  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.azulFundo,noBorder:true}));
-  setRange(ws,r,0,r,NCOLS-1);
-  ws['!rows'].push({hpt:15}); r++;
+  const allTools = [...new Set(histDoSup.flatMap(h=>(h.invRows||[]).map(x=>x.nome)))].sort();
 
-  // Separador
-  for(let c=0;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'1E3A8A',noBorder:true}));
-  setRange(ws,r,0,r,NCOLS-1);
-  ws['!rows'].push({hpt:3}); r++;
+  // Título principal
+  setCell(ws,r,0,'LUMAR TELECOM · GESTÃO DE FERRAMENTAL', xStyle({bold:true,sz:20,color:XC.branco,bg:'0B1B2B',noBorder:true}));
+  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'0B1B2B',noBorder:true}));
+  setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:36}); r++;
 
-  ws['!rows'].push({hpt:6}); r++;
+  setCell(ws,r,0,`Inventário Consolidado  ·  Gerado em ${today}  ·  Supervisor: ${sup||'—'}`, xStyle({sz:9,italic:true,color:'B7D7FF',bg:'1B2E4A',noBorder:true}));
+  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'1B2E4A',noBorder:true}));
+  setCell(ws,r,7,`${techsDoSup.length} Técnicos  ·  ${allTools.length} Ferramentas`, xStyle({sz:9,bold:true,color:XC.branco,bg:'1B2E4A',right:true,noBorder:true}));
+  setRange(ws,r,0,r,6); ws['!rows'].push({hpt:18}); r++;
 
-  // ── Cabeçalhos com cores por categoria ───────────────────────────
-  const hdrDefs = [
-    {label:'  FERRAMENTA',   bg:XC.azulEscuro, center:false},
-    {label:'EM USO',         bg:'1E6B3A',       center:true},
-    {label:'DANIFICADO',     bg:XC.vermelhoEsc, center:true},
-    {label:'PERDIDO',        bg:XC.vermelhoEsc, center:true},
-    {label:'NAO RECEBEU',    bg:'7D6608',        center:true},
-    {label:'N/A',            bg:XC.cinzaEsc,    center:true},
-    {label:'PROBLEMA',       bg:'7B241C',        center:true},
-    {label:'A REPOR',        bg:XC.laranja,      center:true},
-  ];
-  hdrDefs.forEach(({label,bg,center},c)=>{
-    setCell(ws,r,c,label,xStyle({bold:true,sz:9,color:XC.branco,bg,center,borderStyle:'thin',borderColor:'000000'}));
+  for(let c=0;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'2F6BFF',noBorder:true}));
+  setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:8}); r++;
+  ws['!rows'].push({hpt:10}); r++;
+
+  // Último inventário por técnico
+  const latestByTech = {};
+  techsDoSup.forEach(tec => {
+    latestByTech[tec] = histDoSup.filter(h=>h.tec===tec).sort((a,b)=>(b.ts||0)-(a.ts||0) || (b.dt||'').localeCompare(a.dt||''))[0] || null;
   });
-  autoFilter(ws,r,0,NCOLS-1);
+
+  let totalEmUso=0,totalDanif=0,totalPerdido=0,totalNaoRec=0,totalOcor=0;
+  const rowsResumo = [];
+  techsDoSup.sort().forEach(tec => {
+    const h = latestByTech[tec];
+    const invRows = h ? (h.invRows||[]) : [];
+    const emUso   = invRows.reduce((a,x)=>a+((x.status==='Em Uso')?(numVal(x.qtd)||1):0),0);
+    const danif   = invRows.reduce((a,x)=>a+((x.status==='Danificado')?(numVal(x.qtd)||1):0),0);
+    const perdido = invRows.reduce((a,x)=>a+((x.status==='Perdido')?(numVal(x.qtd)||1):0),0);
+    const naoRec  = invRows.reduce((a,x)=>a+((x.status==='Não Recebeu'||x.status==='NÃO RECEBEU')?(numVal(x.qtd)||1):0),0);
+    const ocorr   = danif + perdido + naoRec;
+    const situacao = !h ? 'SEM INVENTÁRIO' : ocorr >= 15 ? 'CRÍTICO' : ocorr > 0 ? 'ATENÇÃO' : 'BOM';
+    totalEmUso += emUso; totalDanif += danif; totalPerdido += perdido; totalNaoRec += naoRec; totalOcor += ocorr;
+    rowsResumo.push({tec, h, emUso, danif, perdido, naoRec, ocorr, situacao});
+  });
+
+  // Cards KPI
+  const cardTop = r;
+  const cardData = [
+    {label:'FERRAMENTAS EM USO', val:totalEmUso, bg:'D9F7E5', color:'0BAA42', head:'18A84A'},
+    {label:'DANIFICADAS', val:totalDanif, bg:'FFF2CC', color:'E67E00', head:'E67E00'},
+    {label:'PERDIDAS', val:totalPerdido, bg:'F8D7DA', color:'E9272E', head:'E9272E'},
+    {label:'NÃO RECEBIDAS', val:totalNaoRec, bg:'F4F4F4', color:'475569', head:'475569'},
+    {label:'OCORRÊNCIAS TOTAIS', val:totalOcor, bg:'D9E8FF', color:'2563EB', head:'2563EB'},
+  ];
+  cardData.forEach((k,idx)=>{
+    const c1 = idx===0?0:idx===1?2:idx===2?4:idx===3?6:7;
+    const c2 = idx===0?1:idx===1?3:idx===2?5:idx===3?6:7;
+    for(let c=c1;c<=c2;c++) setCell(ws,r,c,'',xStyle({bg:k.head,noBorder:true}));
+    setRange(ws,r,c1,r,c2);
+    setCell(ws,r+1,c1,k.val,xStyle({bold:true,sz:20,color:k.color,bg:k.bg,center:true,noBorder:true}));
+    for(let c=c1+1;c<=c2;c++) setCell(ws,r+1,c,'',xStyle({bg:k.bg,noBorder:true}));
+    setRange(ws,r+1,c1,r+1,c2);
+    setCell(ws,r+2,c1,k.label,xStyle({bold:true,sz:9,color:k.color,bg:k.bg,center:true,noBorder:true}));
+    for(let c=c1+1;c<=c2;c++) setCell(ws,r+2,c,'',xStyle({bg:k.bg,noBorder:true}));
+    setRange(ws,r+2,c1,r+2,c2);
+  });
+  ws['!rows'].push({hpt:8}); ws['!rows'].push({hpt:32}); ws['!rows'].push({hpt:20}); r += 3;
+  ws['!rows'].push({hpt:18}); r++;
+
+  // Seção situação por técnico
+  setCell(ws,r,0,'▌  SITUAÇÃO POR TÉCNICO',xStyle({bold:true,sz:12,color:XC.preto,bg:XC.branco,noBorder:true}));
+  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.branco,noBorder:true}));
+  setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
+
+  const hdr = ['TÉCNICO','DATA','LOCAL','EM USO','DANIF.','PERDIDO','OCORR.','SITUAÇÃO'];
+  hdr.forEach((h,c)=> setCell(ws,r,c,h,xStyle({bold:true,sz:10,color:XC.branco,bg:'1B2E4A',center:true,borderStyle:'thin',borderColor:'000000'})) );
+  autoFilter(ws,r,0,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
+
+  rowsResumo.forEach((row,i)=>{
+    const z = i%2===0 ? 'F8FAFC' : XC.branco;
+    const brd = {borderStyle:'thin', borderColor:'D1D5DB'};
+    setCell(ws,r,0, cleanStr(row.tec), xStyle({sz:10,bold:true,color:'1D5BFF',bg:z,...brd}));
+    const a = XLSX.utils.encode_cell({r,c:0});
+    ws[a].l = { Target: "#'" + sheetNameForTech(row.tec).replace(/'/g,"''") + "'!A1", Tooltip: 'Abrir aba do técnico' };
+    ws[a].s.font.underline = true;
+    setCell(ws,r,1, row.h ? fmtDate(row.h.dt) : '—', xStyle({sz:9,color:'475569',bg:z,center:true,...brd}));
+    setCell(ws,r,2, cleanStr(row.h ? (row.h.local||'—') : '—'), xStyle({sz:9,color:'475569',bg:z,center:true,...brd}));
+    setCell(ws,r,3, row.emUso||'', xStyle({sz:10,bold:row.emUso>0,color:row.emUso>0?'0BAA42':'888888',bg:z,center:true,...brd}));
+    setCell(ws,r,4, row.danif||'', xStyle({sz:10,bold:row.danif>0,color:row.danif>0?'E67E00':'888888',bg:z,center:true,...brd}));
+    setCell(ws,r,5, row.perdido||'', xStyle({sz:10,bold:row.perdido>0,color:row.perdido>0?'E9272E':'888888',bg:z,center:true,...brd}));
+    setCell(ws,r,6, row.ocorr||'', xStyle({sz:10,bold:row.ocorr>0,color:row.ocorr>0?'E9272E':'111111',bg:z,center:true,...brd}));
+    const sitBg = row.situacao==='BOM' ? 'D9F7E5' : row.situacao==='ATENÇÃO' ? 'FFF2CC' : row.situacao==='SEM INVENTÁRIO' ? 'E5E7EB' : 'F8D7DA';
+    const sitColor = row.situacao==='BOM' ? '0BAA42' : row.situacao==='ATENÇÃO' ? 'E67E00' : row.situacao==='SEM INVENTÁRIO' ? '64748B' : 'E9272E';
+    const sitTxt = row.situacao==='BOM' ? '✓  BOM' : row.situacao==='ATENÇÃO' ? '!  ATENÇÃO' : row.situacao==='SEM INVENTÁRIO' ? '—  SEM INV.' : '×  CRÍTICO';
+    setCell(ws,r,7, sitTxt, xStyle({sz:10,bold:true,color:sitColor,bg:sitBg,center:true,...brd}));
+    ws['!rows'].push({hpt:21}); r++;
+  });
+
+  setCell(ws,r,0,'TOTAL GERAL',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,1,'',xStyle({bg:'0B1B2B',borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,2,'',xStyle({bg:'0B1B2B',borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,3,totalEmUso,xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,4,totalDanif||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,5,totalPerdido||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,6,totalOcor||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,7,'',xStyle({bg:'0B1B2B',borderStyle:'thin',borderColor:'000000'}));
   ws['!rows'].push({hpt:22}); r++;
 
-  // ── Dados ─────────────────────────────────────────────────────────
-  const totais={emUso:0,danif:0,perdido:0,naoRec:0,na:0,prob:0,repor:0};
-  allTools.forEach((tool,i)=>{
-    const byS = {};
-    histDoSup.forEach(h=>{
-      (h.invRows||[]).filter(x=>x.nome===tool).forEach(x=>{
-        const s = x.status==='NÃO RECEBEU'?'Não Recebeu':(x.status||'Em Uso');
-        byS[s] = (byS[s]||0) + (numVal(x.qtd)||1);
-      });
-    });
-    const emUso   = byS['Em Uso']||0;
-    const danif   = byS['Danificado']||0;
-    const perdido = byS['Perdido']||0;
-    const naoRec  = (byS['Não Recebeu']||0)+(byS['NÃO RECEBEU']||0);
-    const na      = byS['N/A']||0;
-    const prob    = danif+perdido+naoRec;
-    const repor   = prob;
-    totais.emUso+=emUso; totais.danif+=danif; totais.perdido+=perdido;
-    totais.naoRec+=naoRec; totais.na+=na; totais.prob+=prob; totais.repor+=repor;
-
-    const z = i%2===0 ? XC.branco : XC.cinzaFnd;
-    const hasProb = prob > 0;
-    const brd = {borderStyle:'thin', borderColor:XC.cinzaBorda};
-
-    setCell(ws,r,0,'  '+cleanStr(tool), xStyle({sz:10, bg:hasProb?XC.vermelhoFnd:z, bold:hasProb, color:hasProb?XC.vermelhoEsc:XC.preto, ...brd}));
-    setCell(ws,r,1, emUso||'',  xStyle({sz:10, bg:emUso>0?XC.verdeClaro:z,   color:emUso>0?XC.verdeEscuro:XC.cinzaMed,  center:true, bold:emUso>0,   ...brd}));
-    setCell(ws,r,2, danif||'',  xStyle({sz:10, bg:danif>0?XC.vermelhoFnd:z,  color:danif>0?XC.vermelhoEsc:XC.cinzaMed,  center:true, bold:danif>0,   ...brd}));
-    setCell(ws,r,3, perdido||'',xStyle({sz:10, bg:perdido>0?XC.vermelhoFnd:z,color:perdido>0?XC.vermelhoEsc:XC.cinzaMed,center:true, bold:perdido>0, ...brd}));
-    setCell(ws,r,4, naoRec||'', xStyle({sz:10, bg:naoRec>0?XC.amareloFnd:z,  color:naoRec>0?XC.amareloEsc:XC.cinzaMed,  center:true, bold:naoRec>0,  ...brd}));
-    setCell(ws,r,5, na||'',     xStyle({sz:10, bg:z,                          color:XC.cinzaMed,                           center:true,                 ...brd}));
-    setCell(ws,r,6, prob||'',   xStyle({sz:10, bg:prob>0?XC.vermelhoFnd:z,   color:prob>0?XC.vermelhoEsc:XC.cinzaMed,   center:true, bold:prob>0,    ...brd}));
-    setCell(ws,r,7, repor||'',  xStyle({sz:10, bg:repor>0?XC.larFundo:z,     color:repor>0?XC.laranja:XC.cinzaMed,       center:true, bold:repor>0,   ...brd}));
-    ws['!rows'].push({hpt:18}); r++;
-  });
-
-  // ── Linha de total ────────────────────────────────────────────────
-  ws['!rows'].push({hpt:6}); r++;
-  const brdTot = {borderStyle:'thin', borderColor:'000000'};
-  setCell(ws,r,0,'  TOTAL GERAL', xStyle({bold:true,sz:11,color:XC.branco,bg:XC.azulEscuro,...brdTot}));
-  setCell(ws,r,1,totais.emUso,    xStyle({bold:true,sz:11,color:XC.branco,bg:'1E6B3A',center:true,...brdTot}));
-  setCell(ws,r,2,totais.danif||'',xStyle({bold:true,sz:11,color:XC.branco,bg:totais.danif>0?XC.vermelhoEsc:XC.azulSub,center:true,...brdTot}));
-  setCell(ws,r,3,totais.perdido||'',xStyle({bold:true,sz:11,color:XC.branco,bg:totais.perdido>0?XC.vermelhoEsc:XC.azulSub,center:true,...brdTot}));
-  setCell(ws,r,4,totais.naoRec||'',xStyle({bold:true,sz:11,color:XC.branco,bg:totais.naoRec>0?'7D6608':XC.azulSub,center:true,...brdTot}));
-  setCell(ws,r,5,totais.na||'',   xStyle({bold:true,sz:11,color:XC.branco,bg:XC.cinzaEsc,center:true,...brdTot}));
-  setCell(ws,r,6,totais.prob||'', xStyle({bold:true,sz:12,color:XC.branco,bg:totais.prob>0?'7B241C':XC.azulSub,center:true,...brdTot}));
-  setCell(ws,r,7,totais.repor||'',xStyle({bold:true,sz:12,color:XC.branco,bg:totais.repor>0?XC.laranja:XC.azulSub,center:true,...brdTot}));
-  ws['!rows'].push({hpt:24}); r++;
-
+  ws['!freeze'] = {xSplit:0, ySplit:9};
   buildRef(ws);
   return ws;
 }
@@ -4247,21 +4282,22 @@ function exportTeamCSV(){
 
   if(!histDoSup.length){ toast('Nenhum inventario encontrado para esta equipe.','warn'); return; }
 
-  // Aba por técnico
+  // Aba resumo primeiro, seguindo o modelo enviado, com links clicáveis para os técnicos
+  const wsRes = buildResumoSheet(histDoSup, techsDoSup);
+  XLSX_LIB.utils.book_append_sheet(wb, wsRes, 'INVENTARIO DA EQUIPE');
+
+  // Aba por técnico — mantém Patrimônio e Validade EPI
   techsDoSup.sort().forEach(tec => {
     const invsTec = histDoSup.filter(h=>h.tec===tec).sort((a,b)=>(b.dt||'').localeCompare(a.dt||''));
     if(!invsTec.length) return;
     const ws  = buildTechSheet(tec, invsTec);
-    const tab = fileClean(tec).slice(0,28);
+    const tab = sheetNameForTech(tec);
     XLSX_LIB.utils.book_append_sheet(wb, ws, tab);
   });
 
-  // Aba resumo
-  const wsRes = buildResumoSheet(histDoSup, techsDoSup);
-  XLSX_LIB.utils.book_append_sheet(wb, wsRes, 'RESUMO DA EQUIPE');
-
   // Aba ocorrências
-
+  const wsOco = buildOcorrSheet(histDoSup, techsDoSup);
+  XLSX_LIB.utils.book_append_sheet(wb, wsOco, 'OCORRENCIAS');
 
   const supClean = fileClean(sup).slice(0,30);
   const fname    = 'Inventario_' + supClean + '_' + today + '.xlsx';
