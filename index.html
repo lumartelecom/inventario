@@ -575,8 +575,22 @@ function _getCreds() {
     ]
   };
   try {
-    const saved = localStorage.getItem('lm_creds');
-    return saved ? JSON.parse(saved) : def;
+    const savedRaw = localStorage.getItem('lm_creds');
+    const saved = savedRaw ? JSON.parse(savedRaw) : {};
+    const creds = {
+      adminPass: saved.adminPass || def.adminPass,
+      supervisores: Array.isArray(saved.supervisores) ? saved.supervisores : def.supervisores.slice()
+    };
+    // Mantém compatibilidade: supervisores cadastrados no sistema também entram no painel de senha.
+    // Assim, um supervisor novo criado no Admin consegue logar após recarregar/sair.
+    if (Array.isArray(window.sups)) {
+      window.sups.forEach(nome => {
+        if (nome && !creds.supervisores.find(x => x.nome === nome)) {
+          creds.supervisores.push({ nome, senha: '' });
+        }
+      });
+    }
+    return creds;
   } catch(e) { return def; }
 }
 function _saveCreds(creds) {
@@ -798,8 +812,13 @@ function addSupAdmin() {
   if (creds.supervisores.find(s => s.nome === nome)) { toast('Supervisor já existe', 'warn'); return; }
   creds.supervisores.push({ nome, senha });
   _saveCreds(creds);
-  // Adiciona também na lista de supervisores do sistema
-  if (!sups.includes(nome)) { sups.push(nome); save(); renderSupSel(); }
+  // Adiciona também na lista de supervisores do sistema e persiste em todos os armazenamentos.
+  if (!Array.isArray(window.sups)) window.sups = [];
+  if (!sups.includes(nome)) sups.push(nome);
+  save();
+  if (typeof idbSave === 'function' && _idb) idbSave(['sups']).catch(()=>{});
+  if (typeof cloudSave === 'function') cloudSave(true);
+  renderSupSel();
   document.getElementById('newSupNome').value = '';
   document.getElementById('newSupSenha').value = '';
   renderAdminSupList();
@@ -1186,10 +1205,11 @@ window.addEventListener('resize', updateMobileSupBar);
         </div>
         <table class="inv-table">
           <thead><tr>
-            <th style="width:40%">Ferramenta</th>
-            <th style="width:25%">Status</th>
-            <th style="width:10%">Qtd</th>
-            <th style="width:25%">Patrimônio</th>
+            <th style="width:32%">Ferramenta</th>
+            <th style="width:20%">Status</th>
+            <th style="width:8%">Qtd</th>
+            <th style="width:20%">Patrimônio</th>
+            <th style="width:20%">Validade EPI</th>
           </tr></thead>
           <tbody id="invBody"></tbody>
         </table>
@@ -1478,6 +1498,8 @@ function rebuildItems() {
         tecnico: tName,
         status: row.status,
         obs: row.obs || '',
+        patrimonio: row.patrimonio || '',
+        validadeEpi: row.validadeEpi || row.validade || '',
         fotos: []
       });
     });
@@ -1835,7 +1857,8 @@ function importBackup(input){
                   : (r.status || 'Em Uso'),
             qtd: r.qtd || 1,
             obs: r.obs || '',
-            patrimonio: r.patrimonio || ''
+            patrimonio: r.patrimonio || '',
+            validadeEpi: r.validadeEpi || r.validade || ''
           })) : [],
           atualizacoes: Array.isArray(h.atualizacoes) ? h.atualizacoes : []
         }));
@@ -1952,7 +1975,19 @@ function openTeamInv(){
     </div>`;
   }).join('');
 
-  // Tabela — colunas: Ferramenta | Em Uso | Danificado | Perdido | Não Recebeu | ⚠️ Com Problema
+  // Validades de EPI: mostra itens com vencimento em até 30 dias ou vencidos
+  const epiAlerts = [];
+  teamItems.forEach(it => {
+    const days = epiDaysLeft(it.validadeEpi || it.validade || '');
+    if(days !== null && days <= 30) epiAlerts.push({...it, days});
+  });
+  document.getElementById('teamInvStats').innerHTML += `<div class="tis-card per" title="EPIs vencidos ou próximos de vencer" style="cursor:default">
+      <div class="tis-num">${epiAlerts.length}</div>
+      <div class="tis-lbl">EPI a vencer</div>
+      <div style="font-size:9px;margin-top:3px;opacity:0.6">30 dias</div>
+    </div>`;
+
+  // Tabela — colunas: Ferramenta | Em Uso | Danificado | Perdido | Não Recebeu | Patrimônio | Validade | ⚠️ Com Problema
   if(!tools.length){
     document.getElementById('teamInvTbl').innerHTML =
       '<tbody><tr><td style="padding:40px;text-align:center;color:var(--mid)">Nenhum inventário registrado para esta equipe ainda.</td></tr></tbody>';
@@ -1960,6 +1995,7 @@ function openTeamInv(){
     let html = '<thead><tr><th style="min-width:180px">Ferramenta</th>';
     TEAM_STAT_CFG.forEach(s => { html += `<th style="text-align:center">${s.lbl}</th>`; });
     html += '<th style="text-align:center;color:var(--cyan)">🏷️ Patrimônio</th>';
+    html += '<th style="text-align:center;color:#f5c518">⏳ Validade EPI</th>';
     html += '<th style="text-align:center;color:var(--red)">⚠️ Problema</th>';
     html += '<th style="text-align:center;color:#f5c518;font-weight:900">🛒 A REPOR</th></tr></thead><tbody>';
     tools.forEach(t => {
@@ -1977,17 +2013,19 @@ function openTeamInv(){
       }
       const rowStyle = aRepor>0 ? 'background:rgba(224,48,48,0.05)' : '';
 
-      // Busca patrimônio das escadas nos inventários
-      let patrimonioHtml = '<td class="tcnt" style="color:var(--mid);font-size:11px">—</td>';
-      if(isEscada(t.nome)){
-        const pats = [];
-        (_teamInvCache.teamItems||[]).forEach(it => {
-          if(it.nome === t.nome && it.patrimonio) {
-            pats.push(`<span style="font-size:10px;color:var(--mid)">${it.tecnico.split(' ')[0]}:</span> <span style="color:var(--cyan);font-weight:700">${it.patrimonio}</span>`);
+      const pats = [];
+      const vals = [];
+      (_teamInvCache.teamItems||[]).forEach(it => {
+        if(it.nome === t.nome) {
+          if(it.patrimonio) pats.push(`<span style="font-size:10px;color:var(--mid)">${escapeHtml(it.tecnico.split(' ')[0])}:</span> <span style="color:var(--cyan);font-weight:700">${escapeHtml(it.patrimonio)}</span>`);
+          if(it.validadeEpi || it.validade) {
+            const d = it.validadeEpi || it.validade;
+            vals.push(`<span style="font-size:10px;color:var(--mid)">${escapeHtml(it.tecnico.split(' ')[0])}:</span> <span style="font-weight:700">${escapeHtml(d)}</span> ${epiAlertBadge(d)}`);
           }
-        });
-        patrimonioHtml = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${pats.length ? pats.join('<br>') : '—'}</td>`;
-      }
+        }
+      });
+      const patrimonioHtml = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${pats.length ? pats.join('<br>') : '—'}</td>`;
+      const validadeHtml   = `<td class="tcnt" style="font-size:11px;text-align:left;padding:4px 8px">${vals.length ? vals.join('<br>') : '—'}</td>`;
 
       html += `<tr style="${rowStyle}">`;
       html += `<td style="font-weight:600;padding:8px 10px">${t.nome}</td>`;
@@ -1996,6 +2034,7 @@ function openTeamInv(){
       html += `<td class="tcnt per${perdido===0?' zero':''}">${perdido||0}</td>`;
       html += `<td class="tcnt nr${naoRec===0?' zero':''}">${naoRec||0}</td>`;
       html += patrimonioHtml;
+      html += validadeHtml;
       html += `<td class="tcnt${problema>0?' warn':''}"><span style="${problema>0?'color:var(--red);font-weight:900':'color:rgba(255,255,255,0.15)'}">${problema>0?problema:'—'}</span></td>`;
       html += `<td class="tcnt"><span style="${aRepor>0?'color:#f5c518;font-weight:900;font-size:15px':'color:rgba(255,255,255,0.12)'}">${aRepor>0?aRepor:'—'}</span></td>`;
       html += '</tr>';
@@ -2013,6 +2052,8 @@ function openTeamInv(){
     html += `<td class="tcnt dan" style="font-weight:900">${tDanif||'—'}</td>`;
     html += `<td class="tcnt per" style="font-weight:900">${tPerd||'—'}</td>`;
     html += `<td class="tcnt nr"  style="font-weight:900">${tNaoRec||'—'}</td>`;
+    html += `<td class="tcnt" style="color:var(--mid)">—</td>`;
+    html += `<td class="tcnt" style="color:${epiAlerts.length?'#f5c518':'var(--green)'};font-weight:900">${epiAlerts.length?('⚠️ '+epiAlerts.length):'✅'}</td>`;
     html += `<td class="tcnt" style="color:var(--red);font-weight:900">${tProb||'—'}</td>`;
     html += `<td class="tcnt" style="color:#f5c518;font-weight:900;font-size:16px">${tRepor>0?'🛒 '+tRepor:'✅'}</td>`;
     html += '</tr>';
@@ -2492,10 +2533,31 @@ function loadBancoForInv(){
       nome: b.nome,
       status: prev ? (prev.status==='NÃO RECEBEU'?'Não Recebeu':prev.status==='Disponível'?'Em Uso':prev.status==='Manutenção'?'Em Uso':prev.status) : 'Em Uso',
       qtd: prev ? (prev.qtd || 1) : 1,
-      obs: prev ? (prev.obs || '') : ''
+      obs: prev ? (prev.obs || '') : '',
+      patrimonio: prev ? (prev.patrimonio || '') : '',
+      validadeEpi: prev ? (prev.validadeEpi || prev.validade || '') : ''
     };
   });
   renderInvRows();
+}
+
+
+function escapeHtml(v){
+  return String(v || '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+function epiDaysLeft(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((d - today) / 86400000);
+}
+function epiAlertBadge(dateStr){
+  const days = epiDaysLeft(dateStr);
+  if(days === null) return '';
+  if(days < 0) return `<div style="font-size:9px;margin-top:3px;color:var(--red);font-weight:900">VENCIDO há ${Math.abs(days)} dia${Math.abs(days)!==1?'s':''}</div>`;
+  if(days <= 30) return `<div style="font-size:9px;margin-top:3px;color:#f5c518;font-weight:900">⚠️ vence em ${days} dia${days!==1?'s':''}</div>`;
+  return `<div style="font-size:9px;margin-top:3px;color:var(--green);font-weight:700">OK</div>`;
 }
 
 const CONES_NOME = 'CONES';
@@ -2623,10 +2685,10 @@ function renderInvRows(){
 
     tr.setAttribute('style', rowStyle);
 
-    const isEsc = isEscada(row.nome);
-    const patrimonioCel = isEsc
-      ? `<td style="padding:6px 8px"><input type="text" class="inv-obs-in" value="${(row.patrimonio||'').replace(/"/g,'&quot;')}" placeholder="Nº patrimônio..." onchange="currentInvRows[${idx}].patrimonio=this.value" style="font-size:12px"></td>`
-      : `<td style="padding:6px 8px;color:var(--mid);font-size:11px;text-align:center">—</td>`;
+    const patVal = escapeHtml(row.patrimonio || '');
+    const valVal = escapeHtml(row.validadeEpi || row.validade || '');
+    const validadeCel = `<td style="padding:6px 8px"><input type="date" class="inv-obs-in" value="${valVal}" onchange="currentInvRows[${idx}].validadeEpi=this.value;renderInvRows()" style="font-size:12px">${epiAlertBadge(row.validadeEpi || row.validade || '')}</td>`;
+    const patrimonioCel = `<td style="padding:6px 8px"><input type="text" class="inv-obs-in" value="${patVal}" placeholder="Nº patrimônio..." onchange="currentInvRows[${idx}].patrimonio=this.value" style="font-size:12px"></td>`;
 
     tr.innerHTML =
       `<td style="font-size:13px;font-weight:600;padding:8px 12px">${row.nome}${coneTag}</td>`+
@@ -2638,7 +2700,8 @@ function renderInvRows(){
           style="width:50px;opacity:${qtyOpacity};color:${isCone?qtyColor:'inherit'}"
           onchange="currentInvRows[${idx}].qtd=+this.value;if(isCones(currentInvRows[${idx}].nome)){_updateStatusColor(${idx})}">
       </td>`+
-      patrimonioCel;
+      patrimonioCel+
+      validadeCel;
     body.appendChild(tr);
   });
 }
@@ -2744,8 +2807,8 @@ function editHist(id){
   currentInvRows = banco.map(b => {
     const p = prevByName[b.nome];
     const normStatus = s => s==='NÃO RECEBEU'?'Não Recebeu':s==='Disponível'?'Em Uso':s==='Manutenção'?'Em Uso':s;
-    return p ? {nome:b.nome, status:normStatus(p.status), qtd:p.qtd||1, obs:p.obs||''}
-             : {nome:b.nome, status:'Em Uso', qtd:1, obs:''};
+    return p ? {nome:b.nome, status:normStatus(p.status), qtd:p.qtd||1, obs:p.obs||'', patrimonio:p.patrimonio||'', validadeEpi:p.validadeEpi||p.validade||''}
+             : {nome:b.nome, status:'Em Uso', qtd:1, obs:'', patrimonio:'', validadeEpi:''};
   });
   // Carrega fotos existentes para o pending (edição)
   pendingHistPh = [...(h.fotos || [])];
@@ -2874,19 +2937,20 @@ function openInvTools(id){
   const highlight = (h.invRows||[]).filter(r => r.status !== 'Em Uso');
   const normal    = (h.invRows||[]).filter(r => r.status === 'Em Uso');
   let html = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:60vh;overflow-y:auto">
-    <div style="display:grid;grid-template-columns:2fr 1fr 60px 1.5fr;gap:0;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;padding:9px 14px;background:rgba(26,79,214,0.25);position:sticky;top:0">
-      <span>Ferramenta</span><span>Status</span><span>Qtd</span><span>Patrimônio</span>
+    <div style="display:grid;grid-template-columns:2fr 1fr 60px 1.2fr 1.3fr;gap:0;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;padding:9px 14px;background:rgba(26,79,214,0.25);position:sticky;top:0">
+      <span>Ferramenta</span><span>Status</span><span>Qtd</span><span>Patrimônio</span><span>Validade EPI</span>
     </div>`;
   [...highlight, ...normal].forEach(r => {
     const isAlert = r.status !== 'Em Uso';
-    const isEsc = isEscada(r.nome);
-    const patrimonioVal = isEsc ? (r.patrimonio || '—') : '—';
-    const patrimonioStyle = isEsc && r.patrimonio ? 'color:var(--cyan);font-weight:600' : 'color:var(--mid)';
-    html += `<div style="display:grid;grid-template-columns:2fr 1fr 60px 1.5fr;gap:0;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px${isAlert?';background:rgba(224,48,48,0.06)':''}">
+    const patrimonioVal = r.patrimonio || '—';
+    const patrimonioStyle = r.patrimonio ? 'color:var(--cyan);font-weight:600' : 'color:var(--mid)';
+    const validadeVal = r.validadeEpi || r.validade || '';
+    html += `<div style="display:grid;grid-template-columns:2fr 1fr 60px 1.2fr 1.3fr;gap:0;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px${isAlert?';background:rgba(224,48,48,0.06)':''}">
       <span style="font-weight:${isAlert?'600':'400'};cursor:pointer;text-decoration:underline dotted" onclick="openToolTimeline('${r.nome}')" title="Ver histórico desta ferramenta">${r.nome}</span>
       <span>${statusBadge(r.status)}</span>
       <span>${r.qtd||1}</span>
-      <span style="${patrimonioStyle};font-size:12px">${patrimonioVal}</span>
+      <span style="${patrimonioStyle};font-size:12px">${escapeHtml(patrimonioVal)}</span>
+      <span style="font-size:12px">${validadeVal ? escapeHtml(validadeVal) + epiAlertBadge(validadeVal) : '—'}</span>
     </div>`;
   });
   html += `</div>`;
@@ -3820,9 +3884,9 @@ function statusLabel(status){
 
 // ── ABA DE TÉCNICO ────────────────────────────────────────────────────
 function buildTechSheet(tec, invs){
-  const NCOLS = 4;
+  const NCOLS = 5;
   const ws = {
-    '!cols': [{wch:42},{wch:18},{wch:7},{wch:22}],
+    '!cols': [{wch:42},{wch:18},{wch:7},{wch:22},{wch:20}],
     '!rows': []
   };
   let r = 0;
@@ -3885,6 +3949,7 @@ function buildTechSheet(tec, invs){
     {label:'STATUS',       align:'center'},
     {label:'QTD',          align:'center'},
     {label:'PATRIMÔNIO',   align:'center'},
+    {label:'VALIDADE EPI', align:'center'},
   ];
   hdrCfg.forEach(({label, align}, c) => {
     setCell(ws, r, c, label, xStyle({
@@ -3928,16 +3993,25 @@ function buildTechSheet(tec, invs){
       center:true, color: qtdColor,
       borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
-    // Coluna D: patrimônio (só escadas)
-    const isEsc = isEscada(row.nome||'');
-    const patVal = isEsc ? cleanStr(row.patrimonio||'') : '';
+    // Coluna D: patrimônio
+    const patVal = cleanStr(row.patrimonio||'');
     setCell(ws, r, 3, patVal, xStyle({
       sz:10,
-      bg: isEsc && patVal ? XC.azulFundo : (isProb ? XC.vermelhoFnd : (isNA ? XC.cinzaFnd : zebra)),
+      bg: patVal ? XC.azulFundo : (isProb ? XC.vermelhoFnd : (isNA ? XC.cinzaFnd : zebra)),
       center:true,
-      bold: !!(isEsc && patVal),
-      color: isEsc && patVal ? XC.azulMedio : XC.cinzaMed,
+      bold: !!patVal,
+      color: patVal ? XC.azulMedio : XC.cinzaMed,
       borderStyle:'thin', borderColor: XC.cinzaBorda
+    }));
+    // Coluna E: validade do EPI
+    const valEpi = cleanStr(row.validadeEpi || row.validade || '');
+    const daysEpi = epiDaysLeft(valEpi);
+    const valTxt = valEpi ? (daysEpi !== null && daysEpi < 0 ? valEpi + ' - VENCIDO' : (daysEpi !== null && daysEpi <= 30 ? valEpi + ' - VENCE EM ' + daysEpi + ' DIAS' : valEpi)) : '';
+    const valBg = daysEpi !== null && daysEpi < 0 ? XC.vermelhoFnd : (daysEpi !== null && daysEpi <= 30 ? XC.amareloFnd : (valEpi ? XC.verdeFundo : (isNA ? XC.cinzaFnd : zebra)));
+    const valColor = daysEpi !== null && daysEpi < 0 ? XC.vermelhoEsc : (daysEpi !== null && daysEpi <= 30 ? XC.amareloEsc : (valEpi ? XC.verdeEscuro : XC.cinzaMed));
+    setCell(ws, r, 4, valTxt, xStyle({
+      sz:9, bg: valBg, center:true, bold: !!valEpi && daysEpi !== null && daysEpi <= 30,
+      color: valColor, borderStyle:'thin', borderColor: XC.cinzaBorda
     }));
     ws['!rows'].push({hpt:18}); r++;
   });
