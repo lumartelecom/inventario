@@ -439,6 +439,35 @@ tbody td{padding:10px 13px;vertical-align:middle}
   .db-grid{grid-template-columns:1fr}
 }
 
+
+/* ── AÇÕES DO HISTÓRICO / BOTÕES DE ATUALIZAÇÃO ── */
+.hist-actions{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+}
+.hist-actions .btn{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+}
+@media (max-width:700px){
+  .hist-card .hist-actions{
+    width:100%;
+    justify-content:flex-start;
+    margin-top:6px;
+  }
+  .hist-card .hist-actions .btn{
+    width:auto !important;
+    min-height:34px !important;
+    padding:6px 10px !important;
+    font-size:11px !important;
+  }
+}
+
 /* ── TOAST ── */
 #toastContainer{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 .toast{background:#1a2e52;border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.5px;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,0.5);display:flex;align-items:center;gap:10px;animation:toastIn .25s ease;pointer-events:none;max-width:90vw;text-align:center}
@@ -503,6 +532,8 @@ tr.inv-hidden{display:none}
         <label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--cyan);text-transform:uppercase;display:block;margin-bottom:8px">🛠️ Ferramentas do Sistema</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="exportBackup()" title="Exportar todos os dados em arquivo .json">💾 Backup</button>
+          <button class="btn btn-ghost btn-sm" onclick="backupCloudManual()" title="Salvar uma cópia de segurança no Firebase">☁️ Backup Nuvem</button>
+          <button class="btn btn-ghost btn-sm" onclick="openBackupModal()" title="Ver e restaurar backups salvos na nuvem">🕘 Restaurar Nuvem</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importBackupIn').click()" title="Restaurar dados de um arquivo .json">📥 Importar</button>
           <button class="btn btn-ghost btn-sm" onclick="closeAdminModal();openAuditModal()" style="color:#f5c518;border-color:rgba(245,197,24,0.4)" title="Log de auditoria">🔍 Auditoria</button>
         </div>
@@ -560,6 +591,26 @@ tr.inv-hidden{display:none}
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BACKUPS DA NUVEM -->
+<div class="modal-ov" id="backupModal" style="z-index:99997">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-hdr">
+      <span>🕘 Backups da Nuvem</span>
+      <button class="modal-close" onclick="closeBackupModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--mid);margin-bottom:12px">Use esta tela se algum inventário sumir ou se uma importação substituir dados por engano.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-cyan btn-sm" onclick="backupCloudManual()">☁️ Criar backup agora</button>
+        <button class="btn btn-green btn-sm" onclick="autoLocalJsonBackup('manual_local', true); loadBackupList(); toast('✅ Backup local criado!', 'success')">💾 Backup local agora</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportLastLocalBackup()">⬇️ Baixar último JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadBackupList()">🔄 Atualizar lista</button>
+      </div>
+      <div id="backupList" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
 </div>
@@ -652,9 +703,11 @@ function doLogin() {
 
 function _applyRole(role, supNome) {
   const btnAdmin      = document.getElementById('btnAdminPanel');
+  const btnBackupPanel = document.getElementById('btnBackupPanel');
   const btnLogout     = document.getElementById('btnLogout');
   const btnNovoSup    = document.getElementById('btnNovoSup');
   const btnNovoSupMob = document.getElementById('btnNovoSupMobile');
+  const btnBackupMobile = document.getElementById('btnBackupMobile');
   const btnSupLogado  = document.getElementById('btnSupLogado');
   const sel           = document.getElementById('supSel');
   const badge         = document.getElementById('headerUserBadge');
@@ -667,8 +720,10 @@ function _applyRole(role, supNome) {
     if (supBlockAdmin) supBlockAdmin.style.display = 'flex';
     if (mobileBar)     mobileBar.style.display     = isMobile ? 'flex' : 'none';
     if (btnAdmin)      btnAdmin.style.display       = 'inline-flex';
+    if (btnBackupPanel) btnBackupPanel.style.display = 'inline-flex';
     if (btnNovoSup)    btnNovoSup.style.display     = 'inline-flex';
     if (btnNovoSupMob) btnNovoSupMob.style.display  = 'inline-flex';
+    if (btnBackupMobile) btnBackupMobile.style.display = 'inline-flex';
     if (btnSupLogado)  btnSupLogado.style.display   = 'none';
     if (sel)           sel.disabled = false;
     if (badge) {
@@ -688,8 +743,10 @@ function _applyRole(role, supNome) {
     if (supBlockAdmin) supBlockAdmin.style.display = 'none';
     if (mobileBar)     mobileBar.style.display     = 'none';
     if (btnAdmin)      btnAdmin.style.display       = 'none';
+    if (btnBackupPanel) btnBackupPanel.style.display = 'none';
     if (btnNovoSup)    btnNovoSup.style.display     = 'none';
     if (btnNovoSupMob) btnNovoSupMob.style.display  = 'none';
+    if (btnBackupMobile) btnBackupMobile.style.display = 'none';
     if (sel) { sel.value = supNome; sel.disabled = true; }
     localStorage.setItem('lm_cursup', supNome);
     if (typeof syncSupFilter   === 'function') syncSupFilter(supNome);
@@ -722,11 +779,13 @@ function doLogout() {
   // Esconde botões
   const btnLogout    = document.getElementById('btnLogout');
   const btnAdmin     = document.getElementById('btnAdminPanel');
+  const btnBackupPanel = document.getElementById('btnBackupPanel');
   const btnNovoSup   = document.getElementById('btnNovoSup');
   const btnSupLogado = document.getElementById('btnSupLogado');
   const supBlockAdmin = document.getElementById('supBlockAdmin');
   if (btnLogout)     btnLogout.style.display     = 'none';
   if (btnAdmin)      btnAdmin.style.display      = 'none';
+  if (btnBackupPanel) btnBackupPanel.style.display = 'none';
   if (btnNovoSup)    btnNovoSup.style.display    = 'none';
   if (btnSupLogado)  btnSupLogado.style.display  = 'none';
   if (supBlockAdmin) supBlockAdmin.style.display = 'none';
@@ -860,19 +919,22 @@ function saveAdminPass() {
 
 function previewAdminLogo(inp) {
   const file = inp.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    localStorage.setItem('lm_logo', e.target.result);
-    document.getElementById('adminLogoPreview').innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
-    // Atualiza logo no header
+  const applyLogo = dataUrl => {
+    localStorage.setItem('lm_logo', dataUrl);
+    document.getElementById('adminLogoPreview').innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
     const logoEl = document.getElementById('headerLogo');
-    if (logoEl) logoEl.src = e.target.result;
+    if (logoEl) { logoEl.src = dataUrl; logoEl.style.display = 'block'; }
     const logoWrap = document.getElementById('headerLogoWrap');
     if (logoWrap) logoWrap.style.display = 'flex';
     cloudSave(true);
     toast('✅ Logo atualizado!', 'success');
   };
-  reader.readAsDataURL(file);
+  if (typeof compressImage === 'function') compressImage(file, applyLogo);
+  else {
+    const reader = new FileReader();
+    reader.onload = e => applyLogo(e.target.result);
+    reader.readAsDataURL(file);
+  }
 }
 
 function removeAdminLogo() {
@@ -972,9 +1034,10 @@ setInterval(_updateOfflineBanner, 5000);
       <span class="hdate" id="hdate"></span>
     </div>
     <div class="hright-bot">
-      <span id="cloudStatus" style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mid);opacity:0.4;transition:opacity .5s">☁️</span>
-      <button class="btn-xs" onclick="cloudSave(true).then(()=>toast('Sincronizado!','success')).catch(()=>toast('Falha','error'))">🔄 Sync</button>
+      <span id="cloudStatus" style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mid);opacity:0.4;transition:opacity .5s" title="Status da sincronização">☁️</span>
+      
       <button id="btnSupLogado" class="btn-xs" style="display:none;color:var(--cyan);border-color:rgba(0,194,224,0.4);font-weight:700"></button>
+      <button id="btnBackupPanel" class="btn-xs" onclick="openBackupModal()" style="display:none;color:var(--green);border-color:rgba(24,201,106,0.4)" title="Backups automáticos e restauração">💾 Backups</button>
       <button id="btnAdminPanel" class="btn-xs" onclick="openAdminModal()" style="display:none;color:#f5c518;border-color:rgba(245,197,24,0.4)">⚙️ Admin</button>
       <button id="btnLogout" class="btn-xs" onclick="doLogout()" style="display:none;color:var(--red);border-color:rgba(224,48,48,0.4)">🚪 Sair</button>
       <button id="installPWABtn" class="btn-xs" onclick="installPWA()" style="display:none;color:var(--green);border-color:rgba(24,201,106,0.4)">📲</button>
@@ -982,50 +1045,7 @@ setInterval(_updateOfflineBanner, 5000);
   </div>
 </header>
 <!-- BARRA DE SYNC / BACKUP AUTOMÁTICO -->
-<div class="sync-bar" id="syncBar" style="display:none"></div>
-<div class="sync-cfg-panel" id="syncCfgPanel" style="display:none"></div>
 
-<!-- BARRA MOBILE DO SUPERVISOR (visível só no mobile via CSS) -->
-<div id="mobileSupBar" style="display:none;align-items:center;gap:8px;padding:7px 12px;background:rgba(0,194,224,0.07);border-bottom:1px solid var(--border)">
-  <label style="font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap">Supervisor</label>
-  <select id="supSelMobile" onchange="document.getElementById('supSel').value=this.value;onSupChange()" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;padding:6px 8px;outline:none">
-    <option value="">— Selecione —</option>
-  </select>
-  <button id="btnNovoSupMobile" class="btn-xs" onclick="openSupModal()" style="display:none;white-space:nowrap">+ Novo</button>
-</div>
-
-<script>
-function syncMobileSupSel() {
-  const main = document.getElementById('supSel');
-  const mob  = document.getElementById('supSelMobile');
-  if (!main || !mob) return;
-  mob.innerHTML = main.innerHTML;
-  mob.value = main.value;
-  mob.disabled = main.disabled;
-  // Botão novo sup mobile
-  const btnNovoMob = document.getElementById('btnNovoSupMobile');
-  const btnNovo    = document.getElementById('btnNovoSup');
-  if (btnNovoMob && btnNovo) btnNovoMob.style.display = btnNovo.style.display;
-}
-function updateMobileSupBar() {
-  const bar = document.getElementById('mobileSupBar');
-  if (!bar) return;
-  const role = sessionStorage.getItem('lm_role');
-  // Só mostra no mobile E somente para admin
-  bar.style.display = (window.innerWidth <= 700 && role === 'admin') ? 'flex' : 'none';
-}
-window.addEventListener('resize', updateMobileSupBar);
-</script>
-
-
-
-<!-- BUSCA GLOBAL -->
-<div class="hsearch-row">
-  <div class="hsearch" style="position:relative">
-    <span class="sicon">🔍</span>
-    <input type="text" id="globalSearch" placeholder="Buscar técnico, ferramenta, empréstimo..." oninput="doGlobalSearch()" onfocus="doGlobalSearch()" onblur="setTimeout(()=>document.getElementById('searchResults').classList.remove('open'),200)">
-    <div class="search-results" id="searchResults"></div>
-  </div>
   <input type="file" id="importBackupIn" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
 </div>
 
@@ -1853,7 +1873,7 @@ function exportBackup(){
 function importBackup(input){
   const f = input.files[0]; if(!f) return;
   const r = new FileReader();
-  r.onload = e => {
+  r.onload = async e => {
     let data;
     try { data = JSON.parse(e.target.result); }
     catch(err){ alert('Arquivo inválido. Não é um JSON válido.'); input.value=''; return; }
@@ -1867,6 +1887,8 @@ function importBackup(input){
     }
     if(!confirm('ATENÇÃO: Isso substituirá TODOS os dados atuais (técnicos, ferramentas, empréstimos, inventários). Deseja continuar?')){ input.value=''; return; }
     try {
+      await cloudBackupCurrent('antes_importar_arquivo');
+      autoLocalJsonBackup('antes_importar_arquivo', true);
       if(Array.isArray(data.techs)) techs = data.techs;
       if(Array.isArray(data.sups))  sups  = data.sups;
       if(Array.isArray(data.banco)) banco = data.banco;
@@ -2269,7 +2291,7 @@ function updateSupBanner(value){
     if(ico) ico.textContent = '👔';
     txt.innerHTML = `Supervisor ativo: <span class="sb-name">${value}</span>` +
       supBannerCounts(value) +
-      `<button class="sb-clear" onclick="syncSupFilter('')">Ver todos ✕</button>`;
+      ``;
   } else {
     bar.classList.remove('active');
     bar.classList.add('inactive');
@@ -2935,7 +2957,7 @@ function renderHist(){
       let updHtml = '';
       card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;flex-wrap:wrap">
         <h4>📋 ${fmtDate(h.dt)}${h.local?` · ${h.local}`:''}</h4>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <div class="hist-actions">
           <button class="btn btn-green btn-sm" onclick="editHist('${h.id}')" title="Atualizar inventário" style="font-size:10px;padding:3px 7px;font-weight:700">✏️ Atualizar</button>
           <button class="btn btn-ghost btn-sm" onclick="openFotoMgr('${h.id}')" title="Gerenciar fotos" style="font-size:10px;padding:3px 7px">📷</button>
           <button class="btn btn-danger btn-sm" onclick="delHist('${h.id}')" style="font-size:10px;padding:3px 7px">🗑</button>
@@ -4552,15 +4574,262 @@ function _buildPayload() {
   return payload;
 }
 
+function _safeClone(obj){
+  try { return JSON.parse(JSON.stringify(obj || {})); } catch(e) { return obj; }
+}
+
+function localSafetyBackup(reason){
+  try {
+    const data = _buildPayload();
+    data.backupReason = reason || 'manual_local';
+    data.backupAt = new Date().toISOString();
+    const key = 'lm_local_backup_' + data.backupAt.replace(/[:.]/g,'-');
+    localStorage.setItem(key, JSON.stringify(data));
+    const list = JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]');
+    list.unshift({key, reason:data.backupReason, at:data.backupAt, techs:(techs||[]).length, hist:(hist||[]).length});
+    while(list.length > 8){
+      const old = list.pop();
+      if(old && old.key) localStorage.removeItem(old.key);
+    }
+    localStorage.setItem('lm_local_backup_index', JSON.stringify(list));
+    return key;
+  } catch(e) {
+    console.warn('Backup local falhou:', e);
+    return null;
+  }
+}
+
+
+function _backupSignature(){
+  try {
+    return JSON.stringify({
+      techs: Array.isArray(techs) ? techs.length : 0,
+      hist: Array.isArray(hist) ? hist.length : 0,
+      banco: Array.isArray(banco) ? banco.length : 0,
+      loans: Array.isArray(loans) ? loans.length : 0,
+      audit: Array.isArray(audit) ? audit.length : 0,
+      lastHist: Array.isArray(hist) && hist.length ? (hist[hist.length-1].id || hist[hist.length-1].ts || '') : '',
+      lastTech: Array.isArray(techs) && techs.length ? (techs[techs.length-1].id || techs[techs.length-1].nome || '') : ''
+    });
+  } catch(e) { return String(Date.now()); }
+}
+
+function autoLocalJsonBackup(reason, force){
+  try {
+    const now = Date.now();
+    const last = Number(localStorage.getItem('lm_last_auto_json_backup_ts') || '0');
+    const sig = _backupSignature();
+    const lastSig = localStorage.getItem('lm_last_auto_json_backup_sig') || '';
+    // Evita salvar dezenas de cópias iguais. Força quando importação/restauração/backup manual.
+    if(!force && sig === lastSig && (now - last) < 10*60*1000) return null;
+    if(!force && (now - last) < 2*60*1000) return null;
+    const key = localSafetyBackup(reason || 'auto_json');
+    if(key){
+      localStorage.setItem('lm_last_auto_json_backup_ts', String(now));
+      localStorage.setItem('lm_last_auto_json_backup_sig', sig);
+    }
+    return key;
+  } catch(e){
+    console.warn('Auto backup JSON local falhou:', e);
+    return null;
+  }
+}
+
+function _getLocalBackupIndex(){
+  try { return JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]'); }
+  catch(e){ return []; }
+}
+
+function exportLocalBackup(key){
+  try {
+    const raw = localStorage.getItem(key);
+    if(!raw){ toast('Backup local não encontrado.', 'error'); return; }
+    const data = JSON.parse(raw);
+    const stamp = (data.backupAt || new Date().toISOString()).slice(0,16).replace(/[:T]/g,'-');
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lumar-auto-backup-' + stamp + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e){ toast('Erro ao baixar backup: ' + (e.message||e), 'error'); }
+}
+
+function exportLastLocalBackup(){
+  const list = _getLocalBackupIndex();
+  if(!list.length){ toast('Ainda não existe backup local.', 'warn'); return; }
+  exportLocalBackup(list[0].key);
+}
+
+async function restoreLocalBackup(key){
+  if(!confirm('Restaurar este backup local? Os dados atuais serão salvos antes e depois substituídos.')) return;
+  try {
+    const raw = localStorage.getItem(key);
+    if(!raw){ toast('Backup local não encontrado.', 'error'); return; }
+    const data = JSON.parse(raw);
+    autoLocalJsonBackup('antes_restaurar_backup_local', true);
+    await cloudBackupCurrent('antes_restaurar_backup_local');
+    if(Array.isArray(data.techs)) techs = data.techs;
+    if(Array.isArray(data.loans)) loans = data.loans;
+    if(Array.isArray(data.sups))  sups  = data.sups.filter(supervisorValido);
+    if(Array.isArray(data.hist))  hist  = data.hist;
+    if(Array.isArray(data.banco)) banco = data.banco;
+    if(Array.isArray(data.audit)) audit = data.audit;
+    if(data.logo) localStorage.setItem('lm_logo', data.logo);
+    if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+    if(_idb) await idbSave('all');
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
+    await cloudSave(true);
+    auditLog('Backup Local Restaurado', key);
+    toast('✅ Backup local restaurado!', 'success', 3500);
+    closeBackupModal();
+  } catch(e){ toast('Erro ao restaurar backup local: ' + (e.message||e), 'error', 5000); }
+}
+
+function renderLocalBackupList(){
+  const list = _getLocalBackupIndex();
+  if(!list.length) return '<div style="font-size:12px;color:var(--mid);padding:8px 0">Nenhum backup local ainda. Ele será criado automaticamente após alterações.</div>';
+  return list.slice(0,10).map((b, i) => {
+    const dt = b.at ? new Date(b.at).toLocaleString('pt-BR') : 'sem data';
+    return `<div style="background:rgba(24,201,106,0.06);border:1px solid rgba(24,201,106,0.25);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:13px;font-weight:700;color:#fff">${i===0?'Mais recente · ':''}${dt}</div>
+        <div style="font-size:11px;color:var(--mid)">Motivo: ${b.reason || 'auto'} · Técnicos: ${b.techs||0} · Inventários: ${b.hist||0}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="exportLocalBackup('${b.key}')">Baixar JSON</button>
+      <button class="btn btn-green btn-sm" onclick="restoreLocalBackup('${b.key}')">Restaurar</button>
+    </div>`;
+  }).join('');
+}
+function _backupDocId(){
+  return new Date().toISOString().replace(/[:.]/g,'-');
+}
+
+async function cloudBackupCurrent(reason, sourcePayload){
+  try {
+    const db = await _initFirebase();
+    const payload = _safeClone(sourcePayload || _buildPayload());
+    if(!db || !payload) return false;
+    const backupAt = new Date().toISOString();
+    payload.backupAt = backupAt;
+    payload.backupReason = reason || 'manual';
+    payload.backupStats = {
+      techs: Array.isArray(payload.techs) ? payload.techs.length : 0,
+      hist: Array.isArray(payload.hist) ? payload.hist.length : 0,
+      banco: Array.isArray(payload.banco) ? payload.banco.length : 0,
+      loans: Array.isArray(payload.loans) ? payload.loans.length : 0
+    };
+    await db.collection('lumar_backups').doc(_backupDocId()).set(payload);
+    localStorage.setItem('lm_last_cloud_backup_ts', String(Date.now()));
+    return true;
+  } catch(e) {
+    console.warn('Backup na nuvem falhou:', e);
+    return false;
+  }
+}
+
+async function backupCloudManual(){
+  showCloudStatus('☁️ Criando backup...', 'var(--cyan)');
+  localSafetyBackup('manual');
+  const ok = await cloudBackupCurrent('manual');
+  showCloudStatus(ok ? '✅ Backup salvo' : '⚠️ Backup falhou', ok ? 'var(--green)' : 'var(--yellow)');
+  toast(ok ? '✅ Backup salvo na nuvem!' : '⚠️ Backup local criado, mas a nuvem falhou.', ok ? 'success' : 'warn', 3500);
+  if(document.getElementById('backupModal')?.classList.contains('open')) loadBackupList();
+}
+
+async function openBackupModal(){
+  closeAdminModal && closeAdminModal();
+  document.getElementById('backupModal').classList.add('open');
+  loadBackupList();
+}
+function closeBackupModal(){ document.getElementById('backupModal').classList.remove('open'); }
+
+async function loadBackupList(){
+  const box = document.getElementById('backupList');
+  if(!box) return;
+  box.innerHTML = '<div style="font-size:12px;color:var(--mid)">Carregando backups...</div>';
+  const localHtml = '<div style="font-family:Barlow Condensed,sans-serif;color:var(--green);font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-top:4px">💾 Backups locais automáticos</div>' + renderLocalBackupList() + '<div style="font-family:Barlow Condensed,sans-serif;color:var(--cyan);font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-top:12px">☁️ Backups na nuvem</div>';
+  try {
+    const db = await _initFirebase();
+    if(!db){ box.innerHTML = localHtml + '<div style="font-size:12px;color:var(--yellow);padding:8px 0">Firebase não conectado.</div>'; return; }
+    const snap = await db.collection('lumar_backups').orderBy('backupAt','desc').limit(12).get();
+    if(snap.empty){ box.innerHTML = localHtml + '<div style="font-size:12px;color:var(--mid);padding:8px 0">Nenhum backup na nuvem ainda.</div>'; return; }
+    let html = localHtml;
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      const st = d.backupStats || {};
+      const dt = d.backupAt ? new Date(d.backupAt).toLocaleString('pt-BR') : 'sem data';
+      html += `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:13px;font-weight:700;color:#fff">${dt}</div>
+          <div style="font-size:11px;color:var(--mid)">Motivo: ${d.backupReason || '—'} · Técnicos: ${st.techs||0} · Inventários: ${st.hist||0} · Ferramentas: ${st.banco||0}</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="restoreCloudBackup('${doc.id}')">Restaurar</button>
+      </div>`;
+    });
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = localHtml + '<div style="font-size:12px;color:var(--red);padding:8px 0">Erro ao carregar backups da nuvem: '+(e.message||e)+'</div>';
+  }
+}
+
+async function restoreCloudBackup(id){
+  if(!confirm('Restaurar este backup? Os dados atuais serão salvos antes e depois substituídos.')) return;
+  try {
+    const db = await _initFirebase();
+    await cloudBackupCurrent('antes_restaurar_backup');
+    localSafetyBackup('antes_restaurar_backup');
+    const snap = await db.collection('lumar_backups').doc(id).get();
+    if(!snap.exists){ toast('Backup não encontrado.', 'error'); return; }
+    const data = snap.data();
+    if(Array.isArray(data.techs)) techs = data.techs;
+    if(Array.isArray(data.loans)) loans = data.loans;
+    if(Array.isArray(data.sups))  sups  = data.sups.filter(supervisorValido);
+    if(Array.isArray(data.hist))  hist  = data.hist;
+    if(Array.isArray(data.banco)) banco = data.banco;
+    if(Array.isArray(data.audit)) audit = data.audit;
+    if(data.logo) localStorage.setItem('lm_logo', data.logo);
+    if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+    if(_idb) await idbSave('all');
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
+    await cloudSave(true);
+    auditLog('Backup Nuvem Restaurado', id);
+    toast('✅ Backup restaurado!', 'success', 3500);
+    closeBackupModal();
+  } catch(e) {
+    toast('Erro ao restaurar backup: ' + (e.message||e), 'error', 5000);
+  }
+}
+
+function renderSyncBar(text, cls){
+  const bar = document.getElementById('syncBar');
+  if(!bar) return;
+  const last = localStorage.getItem('lm_last_sync_ok');
+  const lastTxt = last ? new Date(Number(last)).toLocaleString('pt-BR') : 'ainda não sincronizado';
+  const dotCls = cls || 'ok';
+  bar.innerHTML = `<span class="sb-dot ${dotCls}"></span><span class="sb-msg">${text || 'Pronto'} · Último sync: ${lastTxt}</span><button class="sb-btn" onclick="backupCloudManual()">Backup nuvem</button>`;
+}
+
+async function forceCloudSync(){
+  renderSyncBar('Sincronizando com Firebase...', 'syncing');
+  showCloudStatus('🔄 Sincronizando...', 'var(--cyan)');
+  await cloudSave(true);
+}
+
 async function cloudSave(force = false) {
   if (!force) {
     clearTimeout(_cloudSyncTimer);
     _cloudSyncTimer = setTimeout(() => cloudSave(true), 3000);
+    renderSyncBar('Alterações pendentes para sincronizar...', 'syncing');
     return;
   }
   try {
     const db = await _initFirebase();
-    if (!db) { showCloudStatus('⚠️ Sem sync', 'var(--yellow)'); return; }
+    if (!db) { showCloudStatus('⚠️ Sem sync', 'var(--yellow)'); renderSyncBar('Sem conexão com Firebase. Dados salvos localmente.', 'err'); return; }
+
+    showCloudStatus('🔄 Sincronizando...', 'var(--cyan)');
+    renderSyncBar('Preparando sincronização...', 'syncing');
 
     // Migra fotos base64 para Firebase Storage
     const histComUrls = [];
@@ -4569,7 +4838,6 @@ async function cloudSave(force = false) {
       if (hasBase64) {
         const migrado = await migratePhotosToStorage(h);
         histComUrls.push(migrado);
-        // Atualiza no array local também
         const idx = hist.findIndex(x => x.id === h.id);
         if (idx >= 0) hist[idx] = migrado;
       } else {
@@ -4577,32 +4845,38 @@ async function cloudSave(force = false) {
       }
     }
 
-    const payload = {
-      ts: Date.now(),
-      techs: techs || [],
-      loans: loans || [],
-      sups:  (sups || []).filter(supervisorValido),
-      hist:  histComUrls,
-      banco: banco || [],
-      audit: (audit || []).slice(0, 100),
-      logo: localStorage.getItem('lm_logo') || null,
-      cursup: localStorage.getItem('lm_cursup') || ''
-    };
+    const payload = _buildPayload();
+    payload.ts = Date.now();
+    payload.hist = histComUrls;
 
-    // Remove logo se ainda muito grande
-    const json = JSON.stringify(payload);
-    if (json.length > 900000) {
-      payload.logo = null;
-      payload.techs = (techs||[]).map(t => ({...t, foto: null}));
+    // Antes de sobrescrever a nuvem, salva cópia quando houver risco de perda ou por intervalo.
+    let oldData = null;
+    try {
+      const oldSnap = await db.collection('lumar').doc('dados').get();
+      if (oldSnap.exists) oldData = oldSnap.data();
+    } catch(e) { console.warn('Não foi possível conferir dados antigos:', e); }
+
+    const oldHist = Array.isArray(oldData?.hist) ? oldData.hist.length : 0;
+    const newHist = Array.isArray(payload.hist) ? payload.hist.length : 0;
+    const oldTechs = Array.isArray(oldData?.techs) ? oldData.techs.length : 0;
+    const newTechs = Array.isArray(payload.techs) ? payload.techs.length : 0;
+    const lastBackupTs = Number(localStorage.getItem('lm_last_cloud_backup_ts') || '0');
+    const needsSafetyBackup = oldData && (oldHist > newHist || oldTechs > newTechs || Date.now() - lastBackupTs > 30*60*1000);
+    if (needsSafetyBackup) {
+      await cloudBackupCurrent(oldHist > newHist || oldTechs > newTechs ? 'auto_antes_sobrescrever_menos_dados' : 'auto_intervalo_30min', oldData);
     }
+    autoLocalJsonBackup('auto_ultimo_estado_local');
 
     _localSaveTs = payload.ts;
     await db.collection('lumar').doc('dados').set(payload);
+    localStorage.setItem('lm_last_sync_ok', String(Date.now()));
     showCloudStatus('✅ Sincronizado', 'var(--green)');
+    renderSyncBar('Dados sincronizados com Firebase.', 'ok');
     console.log('✅ Firebase salvo em', new Date(payload.ts).toLocaleString('pt-BR'));
   } catch(e) {
     console.warn('Cloud save falhou:', e);
     showCloudStatus('⚠️ Falha no sync', 'var(--yellow)');
+    renderSyncBar('Falha ao sincronizar. Os dados continuam salvos no aparelho.', 'err');
   }
 }
 
@@ -4655,10 +4929,13 @@ async function startRealtimeSync() {
     renderLoans();
     renderBanco();
     refreshDashboard();
+    localStorage.setItem('lm_last_sync_ok', String(Date.now()));
     showCloudStatus('🔄 Atualizado', 'var(--cyan)');
+    renderSyncBar('Dados recebidos de outro dispositivo.', 'ok');
     toast('🔄 Dados atualizados por outro dispositivo', 'info', 3000);
   }, err => {
     console.warn('Realtime sync erro:', err);
+    renderSyncBar('Erro no tempo real. Use o botão Sincronizar.', 'err');
   });
   console.log('✅ Sincronização em tempo real ativada');
 }
@@ -4677,11 +4954,13 @@ function _patchSaveWithCloud() {
   const origSave = window.save;
   window.save = function() {
     if (origSave) origSave.apply(this, arguments);
+    autoLocalJsonBackup('auto_alteracao');
     cloudSave();
   };
   const origSaveBanco = window.saveBanco;
   window.saveBanco = function() {
     if (origSaveBanco) origSaveBanco.apply(this, arguments);
+    autoLocalJsonBackup('auto_alteracao_banco');
     cloudSave();
   };
 }
@@ -4848,8 +5127,10 @@ async function bootApp(){
   // Sinaliza status inicial de sync
   if (cloudData) {
     showCloudStatus('☁️ Nuvem conectada', 'var(--cyan)');
+    renderSyncBar('Nuvem conectada.', 'ok');
   } else {
     showCloudStatus('⚠️ Salvando localmente', 'var(--yellow)');
+    renderSyncBar('Sem dados da nuvem no carregamento. Salvando localmente.', 'err');
   }
 
 
@@ -4877,5 +5158,6 @@ async function bootApp(){
 }
 bootApp();
 </script>
+<script>setTimeout(function(){ try{ autoLocalJsonBackup('auto_abertura', true); }catch(e){} }, 2500);</script>
 </body>
 </html>
