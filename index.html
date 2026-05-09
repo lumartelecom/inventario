@@ -468,6 +468,28 @@ tbody td{padding:10px 13px;vertical-align:middle}
   }
 }
 
+
+/* ── BACKUP IDEAL: histórico, comparação e restauração ── */
+.backup-panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.backup-stat{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.backup-stat b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--cyan)}
+.backup-stat span{font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.backup-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto;padding-right:4px}
+.backup-item{background:rgba(255,255,255,0.035);border:1px solid var(--border);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.backup-item h4{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#fff;letter-spacing:.8px;margin:0 0 3px}
+.backup-item p{font-size:11px;color:var(--mid);margin:1px 0}
+.backup-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.compare-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.compare-table th,.compare-table td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+.compare-table th{color:var(--cyan);font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.compare-up{color:var(--green);font-weight:700}
+.compare-down{color:var(--red);font-weight:700}
+.compare-same{color:var(--mid)}
+@media(max-width:700px){
+  .backup-item{grid-template-columns:1fr}
+  .backup-actions{justify-content:flex-start}
+}
+
 /* ── TOAST ── */
 #toastContainer{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 .toast{background:#1a2e52;border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.5px;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,0.5);display:flex;align-items:center;gap:10px;animation:toastIn .25s ease;pointer-events:none;max-width:90vw;text-align:center}
@@ -1847,9 +1869,336 @@ function srGoTab(name){
   showTab(name, null);
 }
 
+
+// ── BACKUP IDEAL: nuvem, diário, incremental leve, restauração e comparação ─────────────
+const BK_MAX_CLOUD = 20;
+const BK_COLL = 'lumar_backups';
+const BK_DAILY_PREFIX = 'daily-';
+let _bkLastHash = localStorage.getItem('lm_last_backup_hash') || '';
+
+function bkNowISO(){ return new Date().toISOString(); }
+function bkTodayKey(){ return new Date().toISOString().slice(0,10); }
+function bkShortDate(ts){
+  try { return new Date(ts).toLocaleString('pt-BR'); } catch(e){ return ts || '—'; }
+}
+function bkHash(str){
+  let h = 0, i = 0, chr;
+  if(!str) return '0';
+  for(i=0;i<str.length;i++){ chr=str.charCodeAt(i); h=((h<<5)-h)+chr; h|=0; }
+  return String(h);
+}
+function stripBase64ImagesDeep(obj){
+  // Remove base64 pesado do backup/Firestore. Mantém URLs do Firebase Storage/HTTP.
+  if(obj == null) return obj;
+  if(typeof obj === 'string'){
+    if(obj.startsWith('data:image/')) return '[imagem-removida-use-storage]';
+    return obj;
+  }
+  if(Array.isArray(obj)) return obj.map(stripBase64ImagesDeep);
+  if(typeof obj === 'object'){
+    const out = {};
+    Object.keys(obj).forEach(k => {
+      const v = obj[k];
+      const key = k.toLowerCase();
+      if(typeof v === 'string' && v.startsWith('data:image/')){
+        out[k] = '[imagem-removida-use-storage]';
+      } else if((key.includes('foto') || key.includes('photo') || key.includes('logo')) && Array.isArray(v)){
+        out[k] = v.map(stripBase64ImagesDeep);
+      } else {
+        out[k] = stripBase64ImagesDeep(v);
+      }
+    });
+    return out;
+  }
+  return obj;
+}
+function getBackupPayload(light=true){
+  const payload = {
+    app: 'Lumar Telecom Installer',
+    version: '2.0.0-backup-ideal',
+    exportedAt: bkNowISO(),
+    techs: Array.isArray(window.techs) ? window.techs : [],
+    sups: Array.isArray(window.sups) ? window.sups : [],
+    banco: Array.isArray(window.banco) ? window.banco : [],
+    loans: Array.isArray(window.loans) ? window.loans : [],
+    hist: Array.isArray(window.hist) ? window.hist : [],
+    audit: Array.isArray(window.audit) ? window.audit : [],
+    logo: localStorage.getItem('lm_logo') || null,
+    cursup: localStorage.getItem('lm_cursup') || ''
+  };
+  return light ? stripBase64ImagesDeep(payload) : payload;
+}
+function getBackupStats(data){
+  data = data || getBackupPayload(true);
+  return {
+    techs: Array.isArray(data.techs) ? data.techs.length : 0,
+    sups: Array.isArray(data.sups) ? data.sups.length : 0,
+    banco: Array.isArray(data.banco) ? data.banco.length : 0,
+    loans: Array.isArray(data.loans) ? data.loans.length : 0,
+    hist: Array.isArray(data.hist) ? data.hist.length : 0,
+    audit: Array.isArray(data.audit) ? data.audit.length : 0
+  };
+}
+function createLocalJsonBackup(reason='auto', download=false){
+  const data = getBackupPayload(true);
+  data.reason = reason;
+  const json = JSON.stringify(data, null, 2);
+  const backups = JSON.parse(localStorage.getItem('lm_auto_json_backups') || '[]');
+  backups.unshift({
+    id: 'local-' + Date.now(),
+    ts: data.exportedAt,
+    reason,
+    hash: bkHash(json),
+    stats: getBackupStats(data),
+    json
+  });
+  localStorage.setItem('lm_auto_json_backups', JSON.stringify(backups.slice(0,20)));
+  if(download){
+    const blob = new Blob([json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+    a.href = url;
+    a.download = 'lumar-backup-'+reason+'-'+stamp+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  return data;
+}
+async function createCloudBackup(reason='auto'){
+  const data = getBackupPayload(true);
+  data.reason = reason;
+  data.kind = reason === 'daily' ? 'daily' : 'instant';
+  data.stats = getBackupStats(data);
+  const json = JSON.stringify(data);
+  data.hash = bkHash(json);
+  data.sizeBytes = new Blob([json]).size;
+
+  // Incremental leve: se nada mudou, não cria outro backup instantâneo.
+  if(reason !== 'daily' && data.hash === _bkLastHash){
+    if(typeof toast === 'function') toast('Sem mudanças desde o último backup.', 'info');
+    return null;
+  }
+
+  createLocalJsonBackup(reason, false);
+
+  if(typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length || !window.db){
+    localStorage.setItem('lm_pending_cloud_backup', JSON.stringify(data));
+    if(typeof toast === 'function') toast('Backup local salvo. Firebase indisponível.', 'warn');
+    return data;
+  }
+
+  const docId = (data.kind === 'daily' ? BK_DAILY_PREFIX + bkTodayKey() : 'bk-' + Date.now());
+  await db.collection(BK_COLL).doc(docId).set({
+    meta: {
+      app: data.app,
+      version: data.version,
+      exportedAt: data.exportedAt,
+      reason: data.reason,
+      kind: data.kind,
+      hash: data.hash,
+      sizeBytes: data.sizeBytes,
+      stats: data.stats
+    },
+    data: data
+  }, {merge:true});
+
+  _bkLastHash = data.hash;
+  localStorage.setItem('lm_last_backup_hash', data.hash);
+  localStorage.setItem('lm_last_cloud_backup_at', data.exportedAt);
+
+  await pruneCloudBackups(BK_MAX_CLOUD);
+  if(typeof renderBackupList === 'function') renderBackupList();
+  if(typeof toast === 'function') toast(reason === 'daily' ? 'Backup diário salvo.' : 'Backup na nuvem salvo.', 'success');
+  return data;
+}
+async function pruneCloudBackups(max=20){
+  if(!window.db) return;
+  const snap = await db.collection(BK_COLL).orderBy('meta.exportedAt','desc').get();
+  const docs = snap.docs || [];
+  const toDelete = docs.slice(max);
+  for(const d of toDelete){ await d.ref.delete(); }
+}
+async function ensureDailyBackup(){
+  const today = bkTodayKey();
+  if(localStorage.getItem('lm_last_daily_backup') === today) return;
+  try{
+    await createCloudBackup('daily');
+    localStorage.setItem('lm_last_daily_backup', today);
+  }catch(e){
+    createLocalJsonBackup('daily-fallback', false);
+  }
+}
+function scheduleAutoBackup(){
+  clearTimeout(window._lmBackupTimer);
+  window._lmBackupTimer = setTimeout(() => {
+    createCloudBackup('auto').catch(() => createLocalJsonBackup('auto-fallback', false));
+  }, 1200);
+}
+function openBackupModal(){
+  document.getElementById('backupModal').classList.add('open');
+  renderBackupList();
+}
+function closeBackupModal(){
+  document.getElementById('backupModal').classList.remove('open');
+}
+async function renderBackupList(){
+  const list = document.getElementById('backupList');
+  const count = document.getElementById('bkCount');
+  const last = document.getElementById('bkLast');
+  if(!list) return;
+  list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Carregando backups...</div>';
+
+  let backups = [];
+  try{
+    if(window.db){
+      const snap = await db.collection(BK_COLL).orderBy('meta.exportedAt','desc').limit(BK_MAX_CLOUD).get();
+      backups = snap.docs.map(d => ({id:d.id, source:'cloud', ...d.data()}));
+    }
+  }catch(e){}
+
+  if(!backups.length){
+    try{
+      const locals = JSON.parse(localStorage.getItem('lm_auto_json_backups') || '[]');
+      backups = locals.map(b => ({id:b.id, source:'local', meta:{exportedAt:b.ts, reason:b.reason, kind:'local', stats:b.stats, hash:b.hash}, data: JSON.parse(b.json)}));
+    }catch(e){}
+  }
+
+  if(count) count.textContent = backups.length;
+  if(last) last.textContent = backups[0] ? bkShortDate(backups[0].meta?.exportedAt).split(',')[0] : '—';
+
+  if(!backups.length){
+    list.innerHTML = '<div class="empty"><span>💾</span><p>Nenhum backup encontrado ainda.</p></div>';
+    return;
+  }
+
+  window._backupCache = backups;
+  list.innerHTML = backups.map((b,idx) => {
+    const m = b.meta || {};
+    const s = m.stats || getBackupStats(b.data);
+    const tipo = m.kind === 'daily' ? 'Diário' : (m.kind === 'local' ? 'Local' : 'Instantâneo');
+    return `
+      <div class="backup-item">
+        <div>
+          <h4>${tipo} · ${bkShortDate(m.exportedAt)}</h4>
+          <p>Motivo: ${m.reason || 'auto'} · Tamanho: ${m.sizeBytes ? Math.round(m.sizeBytes/1024)+' KB' : '—'} · Origem: ${b.source || 'cloud'}</p>
+          <p>Téc: ${s.techs||0} · Ferr: ${s.banco||0} · Emp: ${s.loans||0} · Inventários: ${s.hist||0} · Auditoria: ${s.audit||0}</p>
+        </div>
+        <div class="backup-actions">
+          <button class="btn btn-ghost btn-sm" onclick="compareBackup(${idx})">Comparar</button>
+          <button class="btn btn-cyan btn-sm" onclick="downloadBackup(${idx})">JSON</button>
+          <button class="btn btn-green btn-sm" onclick="restoreBackupOneClick(${idx})">Restaurar</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+function compareBackup(idx){
+  const b = (window._backupCache || [])[idx]; if(!b) return;
+  const oldData = b.data || {};
+  const cur = getBackupPayload(true);
+  const oldS = getBackupStats(oldData);
+  const curS = getBackupStats(cur);
+  const rows = [
+    ['Técnicos','techs'],['Supervisores','sups'],['Ferramentas','banco'],
+    ['Empréstimos','loans'],['Inventários','hist'],['Auditoria','audit']
+  ];
+  const html = `
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+      <b style="color:var(--cyan)">Comparação antes/depois</b>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('backupCompareBox').style.display='none'">Fechar</button>
+    </div>
+    <table class="compare-table">
+      <thead><tr><th>Item</th><th>Backup</th><th>Atual</th><th>Diferença</th></tr></thead>
+      <tbody>
+        ${rows.map(([lbl,k]) => {
+          const diff = (oldS[k]||0) - (curS[k]||0);
+          const cls = diff > 0 ? 'compare-up' : diff < 0 ? 'compare-down' : 'compare-same';
+          const sign = diff > 0 ? '+'+diff : String(diff);
+          return `<tr><td>${lbl}</td><td>${oldS[k]||0}</td><td>${curS[k]||0}</td><td class="${cls}">${sign}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--mid);margin-top:8px">Diferença positiva significa que o backup tem mais registros que o estado atual.</div>
+  `;
+  const box = document.getElementById('backupCompareBox');
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+function downloadBackup(idx){
+  const b = (window._backupCache || [])[idx]; if(!b) return;
+  const json = JSON.stringify(b.data || {}, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = (b.meta?.exportedAt || new Date().toISOString()).slice(0,16).replace(/[:T]/g,'-');
+  a.href = url; a.download = 'lumar-backup-cloud-'+stamp+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function restoreBackupOneClick(idx){
+  const b = (window._backupCache || [])[idx]; if(!b || !b.data) return;
+  compareBackup(idx);
+  if(!confirm('Restaurar este backup agora? O estado atual será salvo antes da restauração.')) return;
+  try{
+    await createCloudBackup('before-restore');
+  }catch(e){ createLocalJsonBackup('before-restore-fallback', false); }
+  applyBackupData(b.data);
+  if(typeof save === 'function') save();
+  if(typeof saveBanco === 'function') saveBanco();
+  if(typeof rebuildItems === 'function') rebuildItems();
+  if(typeof renderSupSel === 'function') renderSupSel();
+  if(typeof renderTechs === 'function') renderTechs();
+  if(typeof renderBanco === 'function') renderBanco();
+  if(typeof renderLoans === 'function') renderLoans();
+  if(typeof renderHist === 'function') renderHist();
+  if(typeof refreshDashboard === 'function') refreshDashboard();
+  try{ await createCloudBackup('after-restore'); }catch(e){}
+  closeBackupModal();
+  if(typeof toast === 'function') toast('Backup restaurado com sucesso.', 'success');
+}
+function applyBackupData(data){
+  if(!data || typeof data !== 'object') throw new Error('Backup inválido');
+  if(Array.isArray(data.techs)) window.techs = techs = data.techs;
+  if(Array.isArray(data.sups))  window.sups  = sups  = data.sups;
+  if(Array.isArray(data.banco)) window.banco = banco = data.banco;
+  if(Array.isArray(data.loans)) window.loans = loans = data.loans;
+  if(Array.isArray(data.hist))  window.hist  = hist  = data.hist;
+  if(Array.isArray(data.audit)) window.audit = audit = data.audit;
+  if(data.logo && !String(data.logo).startsWith('data:image/')) localStorage.setItem('lm_logo', data.logo);
+  if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+}
+function validateStorageIdeal(){
+  const data = getBackupPayload(false);
+  const raw = JSON.stringify(data);
+  const hasBase64 = raw.includes('data:image/');
+  if(hasBase64 && typeof toast === 'function'){
+    toast('Atenção: existem imagens base64. O backup leve remove isso; ideal é Storage + links.', 'warn');
+  }
+  return !hasBase64;
+}
+// engancha nas gravações existentes sem quebrar o app
+(function(){
+  const wrap = fnName => {
+    const old = window[fnName];
+    if(typeof old !== 'function' || old._backupWrapped) return;
+    const wrapped = function(){
+      const r = old.apply(this, arguments);
+      try{ scheduleAutoBackup(); }catch(e){}
+      return r;
+    };
+    wrapped._backupWrapped = true;
+    window[fnName] = wrapped;
+  };
+  setTimeout(() => {
+    ['save','saveBanco','auditLog','idbSave'].forEach(wrap);
+    ensureDailyBackup();
+    validateStorageIdeal();
+  }, 1800);
+})();
+
 // ── BACKUP / IMPORTAR ─────────────────────────────────────────────────
 function exportBackup(){
-  const data = {
+  const data = (typeof getBackupPayload === 'function') ? getBackupPayload(true) : {
     app: 'Lumar Telecom Installer',
     version: '1.4.0',
     exportedAt: new Date().toISOString(),
@@ -1886,6 +2235,7 @@ function importBackup(input){
       if(!confirm('Este arquivo parece ser de outro aplicativo. Importar mesmo assim?')){ input.value=''; return; }
     }
     if(!confirm('ATENÇÃO: Isso substituirá TODOS os dados atuais (técnicos, ferramentas, empréstimos, inventários). Deseja continuar?')){ input.value=''; return; }
+    try { createLocalJsonBackup('before-import-auto', false); createCloudBackup('before-import-auto').catch(()=>{}); } catch(e){}
     try {
       await cloudBackupCurrent('antes_importar_arquivo');
       autoLocalJsonBackup('antes_importar_arquivo', true);
