@@ -508,6 +508,28 @@ tr.inv-hidden{display:none}
 /* ── DIRTY MODAL ── */
 .modal-dirty-bar{background:rgba(245,197,24,0.12);border-bottom:1px solid rgba(245,197,24,0.3);padding:6px 16px;font-size:11px;color:var(--yellow);display:none;align-items:center;gap:8px}
 .modal-dirty-bar.show{display:flex}
+
+
+/* ── REPOSIÇÃO RÁPIDA ── */
+.btn-repor{background:linear-gradient(135deg,#f5c518,#ff6b00);color:#08111f;border:1px solid rgba(245,197,24,.85);box-shadow:0 0 14px rgba(245,197,24,.22)}
+.btn-repor:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.repor-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:0 0 12px}
+.repor-card{background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:10px;padding:10px;text-align:center}
+.repor-card b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:26px;color:#f5c518;line-height:1}
+.repor-card span{font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.repor-table{width:100%;border-collapse:collapse;font-size:12px}
+.repor-table th{background:linear-gradient(90deg,rgba(245,197,24,.28),rgba(255,107,0,.18));color:#f5c518;padding:8px 10px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;position:sticky;top:0;z-index:1}
+.repor-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+.repor-table tr:nth-child(even) td{background:rgba(245,197,24,.035)}
+.repor-qtd{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#f5c518;text-align:center;white-space:nowrap}
+.repor-detail{font-size:11px;color:var(--mid);line-height:1.35}
+.repor-pill{display:inline-block;margin:1px 3px 1px 0;padding:2px 6px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.1)}
+.repor-empty{text-align:center;padding:32px 12px;color:var(--mid);font-size:13px}
+@media(max-width:700px){
+  .btn-repor{width:auto!important;min-height:34px!important;padding:6px 10px!important;font-size:11px!important}
+  .repor-table{min-width:620px}
+}
+
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1361,6 +1383,7 @@ setInterval(_updateOfflineBanner, 5000);
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-danger btn-sm" onclick="openFaltasModal()">⚠️ Quem está faltando</button>
+        <button class="btn btn-repor btn-sm" onclick="openReporModal()">🛒 Repor</button>
         <button class="btn btn-ghost btn-sm" onclick="printTeamInv()">🖨️ Imprimir</button>
         <button class="btn btn-ghost btn-sm" onclick="exportTeamCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
       </div>
@@ -1370,6 +1393,26 @@ setInterval(_updateOfflineBanner, 5000);
       <table class="team-tbl" id="teamInvTbl"></table>
     </div>
     <p style="color:var(--mid);font-size:11px;margin-top:8px">* Considera o status mais recente de cada ferramenta em cada técnico (último inventário registrado).</p>
+  </div>
+</div>
+
+
+<!-- MODAL: LISTA RÁPIDA DE REPOSIÇÃO -->
+<div class="modal-ov" id="reporModal" style="z-index:1150">
+  <div class="modal" style="max-width:760px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
+    <button class="modal-close" onclick="closeReporModal()">✕</button>
+    <h2>🛒 Lista rápida de reposição</h2>
+    <p id="reporIntro" style="font-size:12px;color:var(--mid);margin-top:-8px;margin-bottom:12px"></p>
+    <div class="repor-summary" id="reporSummary"></div>
+    <div style="overflow:auto;flex:1;border:1px solid var(--border);border-radius:8px">
+      <table class="repor-table" id="reporTbl"></table>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="copyReporList()">📋 Copiar</button>
+      <button class="btn btn-ghost" onclick="printReporList()">🖨️ Imprimir</button>
+      <button class="btn btn-ghost" onclick="exportReporXLSX()" style="color:#2ecc71;border-color:#2ecc71">📊 XLSX</button>
+      <button class="btn btn-cyan" onclick="closeReporModal()">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -2552,6 +2595,143 @@ function openFaltasModal(){
   document.getElementById('faltasModal').classList.add('open');
 }
 function closeFaltasModal(){ document.getElementById('faltasModal').classList.remove('open'); }
+
+// ── LISTA RÁPIDA DE REPOSIÇÃO ─────────────────────────────────────────
+function buildReporList(){
+  if(!_teamInvCache || !Array.isArray(_teamInvCache.teamItems)) return [];
+  const problemStatus = ['Danificado','Perdido','Não Recebeu','NÃO RECEBEU'];
+  const mapa = {};
+  (_teamInvCache.teamItems || []).forEach(it => {
+    const status = it.status === 'NÃO RECEBEU' ? 'Não Recebeu' : it.status;
+    if(!problemStatus.includes(status)) return;
+    const qtd = qtdParaRelatorio(it) || 1;
+    const nome = it.nome || 'Sem nome';
+    if(!mapa[nome]) mapa[nome] = { ferramenta:nome, total:0, danificado:0, perdido:0, naoRecebeu:0, detalhes:[] };
+    mapa[nome].total += qtd;
+    if(status === 'Danificado') mapa[nome].danificado += qtd;
+    if(status === 'Perdido') mapa[nome].perdido += qtd;
+    if(status === 'Não Recebeu') mapa[nome].naoRecebeu += qtd;
+    mapa[nome].detalhes.push({ tecnico: it.tecnico || 'Sem técnico', status, qtd });
+  });
+  return Object.values(mapa).sort((a,b) => (b.total - a.total) || a.ferramenta.localeCompare(b.ferramenta));
+}
+
+function openReporModal(){
+  const lista = buildReporList();
+  const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
+  const totalFerr = lista.length;
+  const totalItens = lista.reduce((a,x)=>a+x.total,0);
+  const totalDan = lista.reduce((a,x)=>a+x.danificado,0);
+  const totalPer = lista.reduce((a,x)=>a+x.perdido,0);
+  const totalNr  = lista.reduce((a,x)=>a+x.naoRecebeu,0);
+
+  document.getElementById('reporIntro').innerHTML = `Supervisor: <strong>${escapeHtml(sup)}</strong> · Compra calculada por itens com status <strong>Danificado</strong>, <strong>Perdido</strong> e <strong>Não Recebeu</strong>.`;
+  document.getElementById('reporSummary').innerHTML = `
+    <div class="repor-card"><b>${totalItens}</b><span>Total a comprar</span></div>
+    <div class="repor-card"><b>${totalFerr}</b><span>Tipos de ferramenta</span></div>
+    <div class="repor-card"><b>${totalDan}</b><span>Danificados</span></div>
+    <div class="repor-card"><b>${totalPer + totalNr}</b><span>Perdidos / não recebidos</span></div>`;
+
+  const tbl = document.getElementById('reporTbl');
+  if(!lista.length){
+    tbl.innerHTML = `<tbody><tr><td class="repor-empty">✅ Nenhuma ferramenta precisa de reposição no momento.</td></tr></tbody>`;
+  } else {
+    let html = `<thead><tr>
+      <th style="min-width:210px">Ferramenta</th>
+      <th style="text-align:center">Qtd. comprar</th>
+      <th style="text-align:center">Danificado</th>
+      <th style="text-align:center">Perdido</th>
+      <th style="text-align:center">Não recebeu</th>
+      <th style="min-width:220px">Técnicos / motivo</th>
+    </tr></thead><tbody>`;
+    lista.forEach(item => {
+      const detalhes = item.detalhes.map(d => `<span class="repor-pill">${escapeHtml((d.tecnico||'').split(' ')[0])}: ${escapeHtml(d.status)}</span>`).join(' ');
+      html += `<tr>
+        <td style="font-weight:800;color:#fff">${escapeHtml(item.ferramenta)}</td>
+        <td class="repor-qtd">${item.total}</td>
+        <td class="tcnt dan${item.danificado===0?' zero':''}">${item.danificado || '—'}</td>
+        <td class="tcnt per${item.perdido===0?' zero':''}">${item.perdido || '—'}</td>
+        <td class="tcnt nr${item.naoRecebeu===0?' zero':''}">${item.naoRecebeu || '—'}</td>
+        <td class="repor-detail">${detalhes || '—'}</td>
+      </tr>`;
+    });
+    html += `<tr style="border-top:2px solid rgba(245,197,24,.35);background:rgba(245,197,24,.08)">
+      <td style="font-weight:900;color:#f5c518">TOTAL GERAL</td>
+      <td class="repor-qtd">${totalItens}</td>
+      <td class="tcnt dan" style="font-weight:900">${totalDan || '—'}</td>
+      <td class="tcnt per" style="font-weight:900">${totalPer || '—'}</td>
+      <td class="tcnt nr" style="font-weight:900">${totalNr || '—'}</td>
+      <td></td>
+    </tr>`;
+    html += '</tbody>';
+    tbl.innerHTML = html;
+  }
+  document.getElementById('reporModal').classList.add('open');
+}
+
+function closeReporModal(){ document.getElementById('reporModal').classList.remove('open'); }
+
+function reporText(){
+  const lista = buildReporList();
+  const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
+  if(!lista.length) return `LISTA DE REPOSIÇÃO - ${sup}\n\nNenhuma ferramenta precisa de reposição no momento.`;
+  const total = lista.reduce((a,x)=>a+x.total,0);
+  return [
+    `LISTA DE REPOSIÇÃO - ${sup}`,
+    `Total geral: ${total} item(ns)`,
+    '',
+    ...lista.map(x => `- ${x.ferramenta}: ${x.total} | Danificado: ${x.danificado || 0} | Perdido: ${x.perdido || 0} | Não recebeu: ${x.naoRecebeu || 0}`)
+  ].join('\n');
+}
+
+function copyReporList(){
+  const texto = reporText();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(texto).then(()=>toast('Lista de reposição copiada.','success')).catch(()=>alert(texto));
+  } else {
+    alert(texto);
+  }
+}
+
+function printReporList(){
+  const lista = buildReporList();
+  const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
+  const total = lista.reduce((a,x)=>a+x.total,0);
+  let rows = '';
+  if(!lista.length){
+    rows = '<tr><td colspan="5" style="text-align:center;padding:18px">Nenhuma ferramenta precisa de reposição.</td></tr>';
+  } else {
+    lista.forEach(x => rows += `<tr><td>${escapeHtml(x.ferramenta)}</td><td>${x.total}</td><td>${x.danificado||''}</td><td>${x.perdido||''}</td><td>${x.naoRecebeu||''}</td></tr>`);
+    rows += `<tr><td><strong>TOTAL GERAL</strong></td><td><strong>${total}</strong></td><td colspan="3"></td></tr>`;
+  }
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Reposição - ${escapeHtml(sup)}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#222}h1{font-size:20px;color:#1a4fd6;margin:0 0 4px}.sub{font-size:12px;color:#666;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f5c518;color:#111;padding:8px;text-align:left}td{border-bottom:1px solid #eee;padding:7px}td:nth-child(n+2){text-align:center;font-weight:700}.foot{margin-top:18px;font-size:10px;color:#666;text-align:center;border-top:1px solid #ccc;padding-top:8px}</style>
+    </head><body><h1>Lista de Reposição — ${escapeHtml(sup)}</h1><div class="sub">Total a comprar: ${total} item(ns)</div><table><thead><tr><th>Ferramenta</th><th>Qtd. comprar</th><th>Danificado</th><th>Perdido</th><th>Não recebeu</th></tr></thead><tbody>${rows}</tbody></table><div class="foot">Gerado em ${nowStr()} · Lumar Telecom</div></body></html>`;
+  if(typeof openPrintWindow === 'function') openPrintWindow(html);
+  else { const w = window.open('', '_blank'); w.document.write(html); w.document.close(); setTimeout(()=>w.print(), 300); }
+}
+
+function exportReporXLSX(){
+  const lista = buildReporList();
+  if(!lista.length){ toast('Nenhuma ferramenta para repor.','info'); return; }
+  if(!window.XLSX){ toast('Biblioteca de exportação não carregada. Recarregue a página.','error'); return; }
+  const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
+  const data = [['Ferramenta','Qtd. comprar','Danificado','Perdido','Não recebeu','Técnicos / motivo']];
+  lista.forEach(x => {
+    const det = x.detalhes.map(d => `${d.tecnico}: ${d.status}`).join(' | ');
+    data.push([x.ferramenta, x.total, x.danificado, x.perdido, x.naoRecebeu, det]);
+  });
+  data.push(['TOTAL GERAL', lista.reduce((a,x)=>a+x.total,0), lista.reduce((a,x)=>a+x.danificado,0), lista.reduce((a,x)=>a+x.perdido,0), lista.reduce((a,x)=>a+x.naoRecebeu,0), '']);
+  const ws = window.XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:34},{wch:14},{wch:13},{wch:12},{wch:14},{wch:50}];
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, ws, 'REPOSICAO');
+  const today = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  const fname = 'Reposicao_' + fileClean(sup).slice(0,30) + '_' + today + '.xlsx';
+  window.XLSX.writeFile(wb, fname);
+  toast('Lista de reposição exportada: ' + fname, 'success', 4000);
+}
+
 function printTeamInv(){
   const sup   = localStorage.getItem('lm_cursup') || 'Equipe';
   const title = (document.getElementById('teamInvTitle').textContent || '').trim() || ('Inventário da Equipe — ' + sup);
