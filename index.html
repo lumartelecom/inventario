@@ -3165,10 +3165,21 @@ function loadBancoForInv(){
   // Monta linhas para TODAS as ferramentas do banco
   currentInvRows = banco.map(b => {
     const prev = lastRows.find(r => r.nome === b.nome);
+    const status = prev ? (prev.status==='NÃO RECEBEU'?'Não Recebeu':prev.status==='Disponível'?'Em Uso':prev.status==='Manutenção'?'Em Uso':prev.status) : 'Em Uso';
+    const qtdPrev = prev ? (parseInt(prev.qtd, 10) || 0) : 0;
+    const qtd = !prev
+      ? (isCones(b.nome) ? 3 : 1)
+      : status === STATUS_NA
+        ? 0
+        : isCones(b.nome) && STATUS_COMPRA.includes(status)
+          ? (qtdPrev > 0 ? qtdPrev : 3)
+          : ['Danificado','Perdido','Não Recebeu'].includes(status)
+            ? 0
+            : (qtdPrev || (isCones(b.nome) ? 3 : 1));
     return {
       nome: b.nome,
-      status: prev ? (prev.status==='NÃO RECEBEU'?'Não Recebeu':prev.status==='Disponível'?'Em Uso':prev.status==='Manutenção'?'Em Uso':prev.status) : 'Em Uso',
-      qtd: prev ? (['Danificado','Perdido','Não Recebeu','N/A','NÃO RECEBEU'].includes(prev.status) ? 0 : (prev.qtd || 1)) : 1,
+      status,
+      qtd,
       obs: prev ? (prev.obs || '') : '',
       patrimonio: prev ? (prev.patrimonio || '') : '',
       validadeEpi: prev ? (prev.validadeEpi || prev.validade || '') : ''
@@ -3205,32 +3216,60 @@ const STATUS_COMPRA = ['Danificado','Perdido','Não Recebeu','NÃO RECEBEU'];
 function normalizaInventarioCompra(rows){
   return (rows||[]).map(r => {
     const status = r.status === 'NÃO RECEBEU' ? 'Não Recebeu' : r.status;
-    const zerar = ['Danificado','Perdido','Não Recebeu','N/A'].includes(status);
-    return {...r, status, qtd: zerar ? 0 : (parseInt(r.qtd)||1)};
+    const qtd = parseInt(r.qtd, 10) || 0;
+    if(status === STATUS_NA) return {...r, status, qtd: 0};
+    if(isCones(r.nome) && STATUS_COMPRA.includes(status)){
+      return {...r, status, qtd: qtd > 0 ? qtd : 3};
+    }
+    const zerar = ['Danificado','Perdido','Não Recebeu'].includes(status);
+    return {...r, status, qtd: zerar ? 0 : (qtd || (isCones(r.nome) ? 3 : 1))};
   });
 }
 function qtdParaRelatorio(row){
   const status = row.status === 'NÃO RECEBEU' ? 'Não Recebeu' : row.status;
-  return STATUS_COMPRA.includes(status) ? 1 : (parseInt(row.qtd)||0);
+  const qtd = parseInt(row.qtd, 10) || 0;
+  if(STATUS_COMPRA.includes(status)){
+    if(isCones(row.nome)) return qtd > 0 ? qtd : 3;
+    return qtd > 0 ? qtd : 1;
+  }
+  return qtd || 0;
 }
 
 function isCones(nome){ return (nome||'').toUpperCase().trim() === CONES_NOME; }
 function isEscada(nome){ return (nome||'').toUpperCase().includes('ESCADA'); }
 
 function conesQtdForStatus(status, qtdAtual){
-  // Regra atual: qualquer status que gere compra/ocorrência fica com quantidade 0 no inventário.
+  const qtd = parseInt(qtdAtual, 10) || 0;
   if(status === 'Em Uso') return 3;
-  if(['Danificado','Perdido','Não Recebeu','N/A'].includes(status)) return 0;
+  if(status === 'N/A') return 0;
+  if(STATUS_COMPRA.includes(status)) return qtd > 0 ? qtd : 3;
   return 1;
 }
 
 function onInvStatusChange(idx, val){
   currentInvRows[idx].status = val === 'NÃO RECEBEU' ? 'Não Recebeu' : val;
   const qInput = document.getElementById('inv-qty-'+idx);
+  const statusAtual = currentInvRows[idx].status;
+  const cone = isCones(currentInvRows[idx].nome);
 
-  // Regra: Danificado, Perdido, Não Recebeu e N/A sempre ficam zerados no inventário.
-  // Esses status entram no relatório de compras/reposição pelo status, não pela quantidade digitada.
-  if(['Danificado','Perdido','Não Recebeu','N/A'].includes(currentInvRows[idx].status)){
+  if(statusAtual === 'N/A'){
+    currentInvRows[idx].qtd = 0;
+    if(qInput){
+      qInput.value = 0;
+      qInput.readOnly = true;
+      qInput.style.opacity = '0.5';
+      qInput.style.color = 'var(--mid)';
+    }
+  } else if(cone && STATUS_COMPRA.includes(statusAtual)){
+    const qtd = parseInt(currentInvRows[idx].qtd, 10) || 3;
+    currentInvRows[idx].qtd = qtd;
+    if(qInput){
+      qInput.value = qtd;
+      qInput.readOnly = false;
+      qInput.style.opacity = '1';
+      qInput.style.color = qtd === 3 ? 'var(--cyan)' : 'var(--light)';
+    }
+  } else if(['Danificado','Perdido','Não Recebeu'].includes(statusAtual)){
     currentInvRows[idx].qtd = 0;
     if(qInput){
       qInput.value = 0;
@@ -3239,7 +3278,7 @@ function onInvStatusChange(idx, val){
       qInput.style.color = 'var(--mid)';
     }
   } else {
-    const padrao = isCones(currentInvRows[idx].nome) ? 3 : 1;
+    const padrao = cone ? 3 : 1;
     currentInvRows[idx].qtd = padrao;
     if(qInput){
       qInput.value = padrao;
@@ -3267,7 +3306,7 @@ function _updateStatusColor(idx) {
     if (qInput) {
       const q = +qInput.value;
       qInput.style.color = q < 0 ? 'var(--red)' : (q === 3 ? 'var(--cyan)' : 'var(--light)');
-      qInput.readOnly = ['Danificado','Perdido','Não Recebeu','N/A'].includes(sel.value);
+      qInput.readOnly = sel.value === 'N/A';
     }
   }
 }
@@ -3285,8 +3324,13 @@ function renderInvRows(){
     const idx = row._origIdx; // índice real no array
     const isCone = isCones(row.nome);
 
-    // Garante regra de quantidade: problema/compra fica 0; em uso segue padrão.
-    if(['Danificado','Perdido','Não Recebeu','N/A'].includes(row.status)){
+    // CONES conta como kit de 3 por técnico, inclusive quando gera reposição.
+    if(row.status === STATUS_NA){
+      row.qtd = 0; currentInvRows[idx].qtd = 0;
+    } else if(isCone && STATUS_COMPRA.includes(row.status)){
+      const qtd = parseInt(row.qtd, 10) || 3;
+      row.qtd = qtd; currentInvRows[idx].qtd = qtd;
+    } else if(!isCone && STATUS_ZERO_QTD.includes(row.status)){
       row.qtd = 0; currentInvRows[idx].qtd = 0;
     } else if(isCone && (!row.qtd || row.qtd <= 0)){
       row.qtd = 3; currentInvRows[idx].qtd = 3;
@@ -3308,7 +3352,7 @@ function renderInvRows(){
     if(isCone){
       const q = +row.qtd;
       qtyColor  = q < 0 ? 'var(--red)' : (q === 3 ? 'var(--cyan)' : 'var(--light)');
-      qtyReadonly = ['Danificado','Perdido','Não Recebeu','N/A'].includes(row.status) ? ' readonly' : '';
+      qtyReadonly = isNAStatus ? ' readonly' : '';
       qtyOpacity = isNAStatus ? '0.4' : '1';
       coneTag = `<span style="font-size:9px;color:${qtyColor};margin-left:5px;font-weight:700">${q>0?'+'+q:q}</span>`;
     } else {
@@ -3448,8 +3492,17 @@ function editHist(id){
   currentInvRows = banco.map(b => {
     const p = prevByName[b.nome];
     const normStatus = s => s==='NÃO RECEBEU'?'Não Recebeu':s==='Disponível'?'Em Uso':s==='Manutenção'?'Em Uso':s;
-    return p ? {nome:b.nome, status:normStatus(p.status), qtd:['Danificado','Perdido','Não Recebeu','N/A','NÃO RECEBEU'].includes(normStatus(p.status)) ? 0 : (p.qtd||1), obs:p.obs||'', patrimonio:p.patrimonio||'', validadeEpi:p.validadeEpi||p.validade||''}
-             : {nome:b.nome, status:'Em Uso', qtd:1, obs:'', patrimonio:'', validadeEpi:''};
+    if(!p) return {nome:b.nome, status:'Em Uso', qtd:isCones(b.nome)?3:1, obs:'', patrimonio:'', validadeEpi:''};
+    const status = normStatus(p.status);
+    const qtdPrev = parseInt(p.qtd, 10) || 0;
+    const qtd = status === STATUS_NA
+      ? 0
+      : isCones(b.nome) && STATUS_COMPRA.includes(status)
+        ? (qtdPrev > 0 ? qtdPrev : 3)
+        : ['Danificado','Perdido','Não Recebeu'].includes(status)
+          ? 0
+          : (qtdPrev || (isCones(b.nome) ? 3 : 1));
+    return {nome:b.nome, status, qtd, obs:p.obs||'', patrimonio:p.patrimonio||'', validadeEpi:p.validadeEpi||p.validade||''};
   });
   // Carrega fotos existentes para o pending (edição)
   pendingHistPh = [...(h.fotos || [])];
