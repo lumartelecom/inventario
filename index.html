@@ -712,6 +712,33 @@ function _saveCreds(creds) {
   }
   localStorage.setItem('lm_creds', JSON.stringify(creds));
 }
+function _mergeCreds(base, incoming) {
+  const merged = {
+    adminPass: (incoming && incoming.adminPass) || (base && base.adminPass) || 'admin@2026',
+    supervisores: []
+  };
+  const add = s => {
+    if(!s || !supervisorValido(s.nome)) return;
+    const found = merged.supervisores.find(x => x.nome === s.nome);
+    if(found){ if(s.senha) found.senha = s.senha; }
+    else merged.supervisores.push({ nome: s.nome, senha: s.senha || '' });
+  };
+  ((base && base.supervisores) || []).forEach(add);
+  ((incoming && incoming.supervisores) || []).forEach(add);
+  return merged;
+}
+function applyCloudCreds(creds) {
+  if(!creds || typeof creds !== 'object') return;
+  _saveCreds(_mergeCreds(_getCreds(), creds));
+}
+function mergeSupList(incoming) {
+  const merged = [];
+  [...(Array.isArray(sups) ? sups : []), ...(Array.isArray(incoming) ? incoming : [])].forEach(nome => {
+    nome = String(nome || '').trim();
+    if(supervisorValido(nome) && !merged.includes(nome)) merged.push(nome);
+  });
+  return merged;
+}
 
 function doLogin() {
   const pass = (document.getElementById('loginPass').value || '').trim();
@@ -1357,6 +1384,7 @@ setInterval(_updateOfflineBanner, 5000);
     <h2>Novo Supervisor</h2>
     <div class="fg">
       <div class="full"><label>Nome *</label><input type="text" id="supNome" placeholder="Nome completo"></div>
+      <div class="full"><label>Senha de acesso *</label><input type="password" id="supSenha" placeholder="Senha do supervisor"></div>
     </div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="document.getElementById('supModal').classList.remove('open')">Cancelar</button>
@@ -1986,14 +2014,15 @@ function getBackupPayload(light=true){
     app: 'Lumar Telecom Installer',
     version: '2.0.0-backup-ideal',
     exportedAt: bkNowISO(),
-    techs: Array.isArray(window.techs) ? window.techs : [],
-    sups: Array.isArray(window.sups) ? window.sups : [],
-    banco: Array.isArray(window.banco) ? window.banco : [],
-    loans: Array.isArray(window.loans) ? window.loans : [],
-    hist: Array.isArray(window.hist) ? window.hist : [],
-    audit: Array.isArray(window.audit) ? window.audit : [],
+    techs: Array.isArray(techs) ? techs : [],
+    sups: Array.isArray(sups) ? sups : [],
+    banco: Array.isArray(banco) ? banco : [],
+    loans: Array.isArray(loans) ? loans : [],
+    hist: Array.isArray(hist) ? hist : [],
+    audit: Array.isArray(audit) ? audit : [],
     logo: localStorage.getItem('lm_logo') || null,
-    cursup: localStorage.getItem('lm_cursup') || ''
+    cursup: localStorage.getItem('lm_cursup') || '',
+    creds: _getCreds()
   };
   return light ? stripBase64ImagesDeep(payload) : payload;
 }
@@ -2050,10 +2079,10 @@ async function createCloudBackup(reason='auto'){
   }
 
   createLocalJsonBackup(reason, false);
-
-  if(typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length || !window.db){
+  const db = typeof _initFirebase === 'function' ? await _initFirebase() : null;
+  if(!db){
     localStorage.setItem('lm_pending_cloud_backup', JSON.stringify(data));
-    if(typeof toast === 'function') toast('Backup local salvo. Firebase indisponível.', 'warn');
+    if(typeof toast === 'function' && !['auto','daily'].includes(reason)) toast('Backup local salvo. Firebase indisponivel.', 'warn');
     return data;
   }
 
@@ -2082,7 +2111,8 @@ async function createCloudBackup(reason='auto'){
   return data;
 }
 async function pruneCloudBackups(max=20){
-  if(!window.db) return;
+  const db = typeof _initFirebase === 'function' ? await _initFirebase() : null;
+  if(!db) return;
   const snap = await db.collection(BK_COLL).orderBy('meta.exportedAt','desc').get();
   const docs = snap.docs || [];
   const toDelete = docs.slice(max);
@@ -2120,7 +2150,8 @@ async function renderBackupList(){
 
   let backups = [];
   try{
-    if(window.db){
+    const db = typeof _initFirebase === 'function' ? await _initFirebase() : null;
+    if(db){
       const snap = await db.collection(BK_COLL).orderBy('meta.exportedAt','desc').limit(BK_MAX_CLOUD).get();
       backups = snap.docs.map(d => ({id:d.id, source:'cloud', ...d.data()}));
     }
@@ -2228,13 +2259,14 @@ async function restoreBackupOneClick(idx){
 function applyBackupData(data){
   if(!data || typeof data !== 'object') throw new Error('Backup inválido');
   if(Array.isArray(data.techs)) window.techs = techs = data.techs;
-  if(Array.isArray(data.sups))  window.sups  = sups  = data.sups;
+  if(Array.isArray(data.sups))  window.sups  = sups  = mergeSupList(data.sups);
   if(Array.isArray(data.banco)) window.banco = banco = data.banco;
   if(Array.isArray(data.loans)) window.loans = loans = data.loans;
   if(Array.isArray(data.hist))  window.hist  = hist  = data.hist;
   if(Array.isArray(data.audit)) window.audit = audit = data.audit;
   if(data.logo && !String(data.logo).startsWith('data:image/')) localStorage.setItem('lm_logo', data.logo);
   if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+  if(data.creds) applyCloudCreds(data.creds);
 }
 function validateStorageIdeal(){
   const data = getBackupPayload(false);
@@ -2277,7 +2309,8 @@ function exportBackup(){
     loans: loans,
     hist: hist,
     logo: localStorage.getItem('lm_logo') || null,
-    cursup: localStorage.getItem('lm_cursup') || ''
+    cursup: localStorage.getItem('lm_cursup') || '',
+    creds: _getCreds()
   };
   auditLog('Backup Exportado', `Techs: ${techs.length}, Hist: ${hist.length}, Banco: ${banco.length}`);
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
@@ -2309,7 +2342,7 @@ function importBackup(input){
       await cloudBackupCurrent('antes_importar_arquivo');
       autoLocalJsonBackup('antes_importar_arquivo', true);
       if(Array.isArray(data.techs)) techs = data.techs;
-      if(Array.isArray(data.sups))  sups  = data.sups;
+      if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
       if(Array.isArray(data.banco)) banco = data.banco;
       if(Array.isArray(data.loans)) loans = data.loans;
       if(Array.isArray(data.hist)){
@@ -2335,6 +2368,7 @@ function importBackup(input){
       }
       if(data.logo) localStorage.setItem('lm_logo', data.logo);
       if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+    if(data.creds) applyCloudCreds(data.creds);
       if(_idb){ idbSave('all').catch(()=>{}); } save(); saveBanco(); rebuildItems();
       renderSupSel(); renderTechs(); renderBanco(); renderLoans(); renderHist();
       refreshDashboard();
@@ -2844,12 +2878,27 @@ function updateSupBanner(value){
     txt.textContent = 'Nenhum supervisor selecionado · vendo todos os dados';
   }
 }
-function openSupModal(){ document.getElementById('supNome').value=''; document.getElementById('supModal').classList.add('open'); }
+function openSupModal(){
+  document.getElementById('supNome').value='';
+  const passEl = document.getElementById('supSenha');
+  if(passEl) passEl.value='';
+  document.getElementById('supModal').classList.add('open');
+}
 function saveSup(){
   const n = document.getElementById('supNome').value.trim();
+  const passEl = document.getElementById('supSenha');
+  const senha = passEl ? passEl.value.trim() : '';
   if(!n){ alert('Informe o nome.'); return; }
+  if(!supervisorValido(n)){ toast('Nome de supervisor reservado/removido. Use outro nome.', 'warn'); return; }
+  const creds = _getCreds();
+  const cred = creds.supervisores.find(s => s.nome === n);
+  if(!cred && !senha){ alert('Informe a senha de acesso do supervisor.'); return; }
+  if(cred && senha) cred.senha = senha;
+  if(!cred) creds.supervisores.push({ nome:n, senha });
+  _saveCreds(creds);
   if(!sups.includes(n)) sups.push(n);
   save(); renderSupSel();
+  if(typeof cloudSave === 'function') cloudSave(true);
   document.getElementById('supSel').value = n; onSupChange();
   document.getElementById('supModal').classList.remove('open');
 }
@@ -3305,8 +3354,6 @@ async function saveHist(){
   if(!supSel){ alert('⚠️ Selecione o supervisor.'); return; }
   const tName = document.getElementById('hTec').value;
   if(!tName){ alert('⚠️ Selecione o técnico na grade.'); return; }
-  const wasEditingHist = !!editingHistId;
-
   // Faz upload das fotos base64 para Firebase Storage antes de salvar
   let fotosFinais = [...pendingHistPh];
   const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
@@ -3369,7 +3416,7 @@ async function saveHist(){
   refreshDashboard();
   clearHistDirty();
   closeHM(); renderHist(); renderTechs();
-  auditLog(wasEditingHist ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${tName}`, `Local: ${document.getElementById('hLocal')?.value?.trim()||'—'}`);
+  auditLog(editingHistId ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${tName}`, `Local: ${document.getElementById('hLocal')?.value?.trim()||'—'}`);
   editingHistId = null;
   toast('✅ Inventário salvo com sucesso!', 'success');
   } catch(err){
@@ -5148,6 +5195,7 @@ async function _initFirebase() {
     }
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
+    window.db = _db;
     // Habilita persistência offline
     try {
       await _db.enablePersistence({synchronizeTabs: true});
@@ -5178,7 +5226,8 @@ function _buildPayload() {
     banco: banco || [],
     audit: (audit || []).slice(0, 100),
     logo: localStorage.getItem('lm_logo') || null,
-    cursup: localStorage.getItem('lm_cursup') || ''
+    cursup: localStorage.getItem('lm_cursup') || '',
+    creds: _getCreds()
   };
   const json = JSON.stringify(payload);
   if (json.length > 900000) {
@@ -5288,12 +5337,13 @@ async function restoreLocalBackup(key){
     await cloudBackupCurrent('antes_restaurar_backup_local');
     if(Array.isArray(data.techs)) techs = data.techs;
     if(Array.isArray(data.loans)) loans = data.loans;
-    if(Array.isArray(data.sups))  sups  = data.sups.filter(supervisorValido);
+    if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if(Array.isArray(data.hist))  hist  = data.hist;
     if(Array.isArray(data.banco)) banco = data.banco;
     if(Array.isArray(data.audit)) audit = data.audit;
     if(data.logo) localStorage.setItem('lm_logo', data.logo);
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+    if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
     rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
     await cloudSave(true);
@@ -5401,12 +5451,13 @@ async function restoreCloudBackup(id){
     const data = snap.data();
     if(Array.isArray(data.techs)) techs = data.techs;
     if(Array.isArray(data.loans)) loans = data.loans;
-    if(Array.isArray(data.sups))  sups  = data.sups.filter(supervisorValido);
+    if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if(Array.isArray(data.hist))  hist  = data.hist;
     if(Array.isArray(data.banco)) banco = data.banco;
     if(Array.isArray(data.audit)) audit = data.audit;
     if(data.logo) localStorage.setItem('lm_logo', data.logo);
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
+    if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
     rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
     await cloudSave(true);
@@ -5507,6 +5558,7 @@ async function cloudLoad() {
     }
     const data = snap.data();
     if (Array.isArray(data.sups)) data.sups = data.sups.filter(supervisorValido);
+    if (data.creds) applyCloudCreds(data.creds);
     if (Array.isArray(data.techs)) data.techs = data.techs.map(t => supervisorValido(t.sup) ? t : {...t, sup: ''});
     console.log('✅ Firebase carregado, ts:', new Date(data.ts||0).toLocaleString('pt-BR'));
     return data;
@@ -5532,11 +5584,12 @@ async function startRealtimeSync() {
     // Aplica dados recebidos
     if (Array.isArray(data.techs)) techs = data.techs.map(t => supervisorValido(t.sup) ? t : {...t, sup: ''});
     if (Array.isArray(data.loans)) loans = data.loans;
-    if (Array.isArray(data.sups))  sups  = data.sups.filter(supervisorValido);
+    if (Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if (Array.isArray(data.hist))  hist  = data.hist;
     if (Array.isArray(data.banco)) banco = data.banco;
     if (Array.isArray(data.audit)) audit = data.audit;
     if (data.logo) localStorage.setItem('lm_logo', data.logo);
+    if (data.creds) applyCloudCreds(data.creds);
     // Re-renderiza tudo
     rebuildItems();
     renderSupSel();
@@ -5666,12 +5719,13 @@ async function bootApp(){
     if (cloudData.ts > idbTs || cloudHist > localHist) {
       if (Array.isArray(cloudData.techs)) techs = cloudData.techs;
       if (Array.isArray(cloudData.loans)) loans = cloudData.loans;
-      if (Array.isArray(cloudData.sups))  sups  = cloudData.sups;
+      if (Array.isArray(cloudData.sups))  sups  = mergeSupList(cloudData.sups);
       if (Array.isArray(cloudData.hist))  hist  = cloudData.hist;
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
       if (cloudData.cursup) localStorage.setItem('lm_cursup', cloudData.cursup);
+      if (cloudData.creds) applyCloudCreds(cloudData.creds);
       // Persiste no IDB local também
       if (_idb) {
         idbSave('all').catch(() => {});
