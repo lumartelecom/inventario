@@ -3106,7 +3106,6 @@ function selectHistTech(name){
 // Carrega TODO o banco de ferramentas para o inventário de campo
 function loadBancoForInv(){
   const tName = document.getElementById('hTec').value;
-  const wasEditingHist = !!editingHistId;
   if(!tName){ document.getElementById('invSection').style.display='none'; currentInvRows = []; return; }
   document.getElementById('invSection').style.display = 'block';
 
@@ -3306,6 +3305,7 @@ async function saveHist(){
   if(!supSel){ alert('⚠️ Selecione o supervisor.'); return; }
   const tName = document.getElementById('hTec').value;
   if(!tName){ alert('⚠️ Selecione o técnico na grade.'); return; }
+  const wasEditingHist = !!editingHistId;
 
   // Faz upload das fotos base64 para Firebase Storage antes de salvar
   let fotosFinais = [...pendingHistPh];
