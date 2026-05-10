@@ -1227,6 +1227,13 @@ setInterval(_updateOfflineBanner, 5000);
         <option value="">Todas as categorias</option>
         <option>Óptica</option><option>HFC</option><option>Segurança</option><option>Outros</option>
       </select>
+      <select id="dbTipoF" onchange="renderBanco()" style="min-width:170px">
+        <option value="">Todos os tipos</option>
+        <option value="manutencao">Manutenção</option>
+        <option value="instalacao">Instalação</option>
+        <option value="desconexao">Desconexão</option>
+        <option value="mdu">Construção MDU</option>
+      </select>
       <button class="btn btn-cyan" onclick="openDbModal()">+ Adicionar</button>
     </div>
     <div class="db-grid" id="bancoGrid"></div>
@@ -1300,7 +1307,7 @@ setInterval(_updateOfflineBanner, 5000);
     <button class="modal-close" onclick="closeHM()">✕</button>
     <h2>Novo Inventário de Campo</h2>
     <div class="fg">
-      <div><label>Supervisor Responsável *</label>
+      <div id="hSupWrap"><label>Supervisor Responsável *</label>
         <select id="hSup" onchange="filterHistTechs()"><option value="">— Selecione o supervisor —</option></select>
       </div>
       <div><label>Data</label><input type="date" id="hDt"></div>
@@ -1402,6 +1409,14 @@ setInterval(_updateOfflineBanner, 5000);
       <div><label>Nome *</label><input type="text" id="dbNome" placeholder="Ex: OTDR"></div>
       <div><label>Categoria</label>
         <select id="dbCat"><option>Óptica</option><option>HFC</option><option>Segurança</option><option>Outros</option></select>
+      </div>
+      <div class="full"><label>Tipos de técnico</label>
+        <div id="dbTiposTec" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:rgba(255,255,255,0.03)">
+          <label style="display:flex;gap:7px;align-items:center;font-size:12px;color:var(--light)"><input type="checkbox" value="manutencao"> Manutenção</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:12px;color:var(--light)"><input type="checkbox" value="instalacao"> Instalação</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:12px;color:var(--light)"><input type="checkbox" value="desconexao"> Desconexão</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:12px;color:var(--light)"><input type="checkbox" value="mdu"> Construção MDU</label>
+        </div>
       </div>
       <div><label>Ícone (emoji)</label><input type="text" id="dbIcon" placeholder="🔧" maxlength="4"></div>
       <div><label>Valor Referência (R$)</label><input type="number" id="dbVal" placeholder="0,00" step="0.01" min="0"></div>
@@ -1616,7 +1631,7 @@ async function idbLoadAll(){
     hist  = h || []; banco = b || []; audit = a || [];
   }
   if(!Array.isArray(banco) || banco.length === 0){
-    banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:''}));
+    banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
     try { await idbSet('banco', banco); } catch(e) {}
   }
   const _oldSupsLen = sups.length;
@@ -1793,7 +1808,7 @@ const defaultBanco = [
   {nome:'CINTO PARAQUEDISTA E TALABARTE',cat:'Segurança',icon:'🦺'},
 ];
 if(banco.length === 0){
-  banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:''}));
+  banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
   saveBanco();
 }
 
@@ -1831,6 +1846,25 @@ function saveBanco(){
 function fmtMoney(v){ return (v!=null&&v!=='')?'R$ '+parseFloat(v).toFixed(2).replace('.',','):'—'; }
 function fmtDate(d){ if(!d)return'—'; const[y,m,dy]=d.split('-'); return`${dy}/${m}/${y}`; }
 function curSup(){ return document.getElementById('supSel').value || '___________________'; }
+function currentRole(){ return sessionStorage.getItem('lm_role') || ''; }
+function currentSupervisor(){ return sessionStorage.getItem('lm_sup_logado') || ''; }
+function lockedSupervisor(){ return currentRole() === 'supervisor' ? currentSupervisor() : ''; }
+function activeSupervisorFilter(selectId){
+  const locked = lockedSupervisor();
+  if(locked) return locked;
+  const el = selectId ? document.getElementById(selectId) : null;
+  return el ? (el.value || '') : '';
+}
+function setSupervisorFilterVisibility(){
+  const locked = lockedSupervisor();
+  ['histSupF','loanSupF'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.style.display = locked ? 'none' : '';
+    el.disabled = !!locked;
+    if(locked) el.value = locked;
+  });
+}
 function nowStr(){ return new Date().toLocaleString('pt-BR'); }
 function statusBadge(s){
   // Normaliza status legado
@@ -1839,6 +1873,45 @@ function statusBadge(s){
   return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
 }
 const funcColors = {'Técnico de Manutenção':'#18c96a','Técnico de Adesão':'#00c2e0','Técnico de Construção MDU':'#f5c518','Desconexão':'#ff6b00'};
+const TOOL_TECH_TYPES = [
+  {id:'manutencao', label:'Manutenção', funcs:['Técnico de Manutenção']},
+  {id:'instalacao', label:'Instalação', funcs:['Técnico de Adesão','Técnico de Instalação']},
+  {id:'desconexao', label:'Desconexão', funcs:['Desconexão']},
+  {id:'mdu', label:'Construção MDU', funcs:['Técnico de Construção MDU']}
+];
+function normalizaTiposFerramenta(tool){
+  const arr = Array.isArray(tool && tool.tiposTec) ? tool.tiposTec : [];
+  return [...new Set(arr.filter(id => TOOL_TECH_TYPES.some(t => t.id === id)))];
+}
+function tipoTecLabel(id){
+  const t = TOOL_TECH_TYPES.find(x => x.id === id);
+  return t ? t.label : id;
+}
+function tipoTecIdFromFunc(func){
+  const f = String(func || '').trim();
+  const item = TOOL_TECH_TYPES.find(t => t.funcs.includes(f));
+  return item ? item.id : '';
+}
+function ferramentaMarcadaParaTipo(tool, func){
+  const tipos = normalizaTiposFerramenta(tool);
+  if(!tipos.length) return true;
+  const tipo = tipoTecIdFromFunc(func);
+  return !tipo || tipos.includes(tipo);
+}
+function setDbTipoChecks(tipos){
+  const set = new Set(Array.isArray(tipos) ? tipos : []);
+  document.querySelectorAll('#dbTiposTec input[type="checkbox"]').forEach(ch => {
+    ch.checked = set.has(ch.value);
+  });
+}
+function getDbTipoChecks(){
+  return Array.from(document.querySelectorAll('#dbTiposTec input[type="checkbox"]:checked')).map(ch => ch.value);
+}
+function tiposFerramentaHtml(tool){
+  const tipos = normalizaTiposFerramenta(tool);
+  if(!tipos.length) return '<span style="font-size:10px;color:var(--mid);opacity:.75">Sem tipo marcado</span>';
+  return tipos.map(id => `<span style="font-size:9px;border:1px solid rgba(0,194,224,.35);border-radius:999px;padding:2px 6px;color:var(--cyan);background:rgba(0,194,224,.08)">${tipoTecLabel(id)}</span>`).join(' ');
+}
 
 // ── TABS ──────────────────────────────────────────────────────────────
 function showTab(id, btn){
@@ -2835,6 +2908,8 @@ function onSupChange(){
 // Inventário / Empréstimos). Quando o usuário muda em um lugar, todos
 // os outros filtros refletem a mesma escolha automaticamente.
 function syncSupFilter(value){
+  const locked = lockedSupervisor();
+  if(locked) value = locked;
   localStorage.setItem('lm_cursup', value || '');
   // Atualiza os 3 selects (sem disparar onchange em loop)
   ['supSel','histSupF','loanSupF'].forEach(id => {
@@ -2850,6 +2925,7 @@ function syncSupFilter(value){
       if(Array.from(el.options).some(o => o.value === value)) el.value = value;
     }
   });
+  setSupervisorFilterVisibility();
   // Atualiza a barra indicadora no topo
   updateSupBanner(value);
   // Re-renderiza tudo que depende do filtro
@@ -3099,12 +3175,16 @@ function openHistModal(){
 
   // Popula select de supervisores
   const hSup = document.getElementById('hSup');
+  const hSupWrap = document.getElementById('hSupWrap');
+  const locked = lockedSupervisor();
   hSup.innerHTML = '<option value="">— Selecione o supervisor —</option>';
   sups = (sups || []).filter(supervisorValido);
   sups.forEach(s => hSup.innerHTML += `<option value="${s}">${s}</option>`);
   // Pré-seleciona o supervisor atual do cabeçalho, se existir
-  const cur = document.getElementById('supSel').value;
+  const cur = locked || document.getElementById('supSel').value;
   if(cur && sups.includes(cur)) hSup.value = cur;
+  hSup.disabled = !!locked;
+  if(hSupWrap) hSupWrap.style.display = locked ? 'none' : '';
 
   filterHistTechs();
   document.getElementById('invSection').style.display = 'none';
@@ -3116,7 +3196,10 @@ function closeHM(){ document.getElementById('histModal').classList.remove('open'
 
 // Filtra o select de técnicos pelo supervisor escolhido
 function filterHistTechs(){
-  const sup = document.getElementById('hSup').value;
+  const locked = lockedSupervisor();
+  const hSup = document.getElementById('hSup');
+  if(locked && hSup) hSup.value = locked;
+  const sup = locked || (hSup ? hSup.value : '');
   const sel = document.getElementById('hTec');
   const msg = document.getElementById('hTecMsg');
   // Limpa seleção atual ao trocar supervisor
@@ -3394,10 +3477,14 @@ function renderInvRows(){
 
 async function saveHist(){
   try {
-  const supSel = document.getElementById('hSup').value;
+  const supSel = lockedSupervisor() || document.getElementById('hSup').value;
   if(!supSel){ alert('⚠️ Selecione o supervisor.'); return; }
   const tName = document.getElementById('hTec').value;
   if(!tName){ alert('⚠️ Selecione o técnico na grade.'); return; }
+  if(!techs.some(t => t.nome === tName && t.sup === supSel)){
+    alert('Este técnico não pertence ao supervisor selecionado.');
+    return;
+  }
   // Faz upload das fotos base64 para Firebase Storage antes de salvar
   let fotosFinais = [...pendingHistPh];
   const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
@@ -3473,6 +3560,14 @@ async function saveHist(){
 function editHist(id){
   const h = hist.find(x => x.id === id);
   if(!h) return;
+  const locked = lockedSupervisor();
+  if(locked){
+    const techsDoSup = techs.filter(t => t.sup === locked).map(t => t.nome);
+    if(h.sup !== locked && !techsDoSup.includes(h.tec)){
+      toast('Este inventário não pertence ao supervisor logado.', 'warn');
+      return;
+    }
+  }
   openHistModal();
   editingHistId = id;
   const titleEl = document.querySelector('#histModal .modal-title, #histModal h3, #histModal h2');
@@ -3482,6 +3577,9 @@ function editHist(id){
   document.getElementById('hLocal').value = h.local || '';
   document.getElementById('hObs').value = h.obs || '';
   if(h.sup){ document.getElementById('hSup').value = h.sup; }
+  const hSupWrap = document.getElementById('hSupWrap');
+  if(hSupWrap) hSupWrap.style.display = locked ? 'none' : '';
+  document.getElementById('hSup').disabled = !!locked;
   filterHistTechs();
   // Seleciona o técnico na grade
   if(h.tec){ selectHistTech(h.tec); }
@@ -3517,13 +3615,16 @@ function renderHist(){
 
   // Mantém o select de filtro de supervisor sempre atualizado
   const supFEl = document.getElementById('histSupF');
+  const lockedSup = lockedSupervisor();
   if(supFEl){
-    const cur = supFEl.value || localStorage.getItem('lm_cursup') || '';
+    const cur = lockedSup || supFEl.value || localStorage.getItem('lm_cursup') || '';
     supFEl.innerHTML = '<option value="">👔 Todos os supervisores</option>';
     sups.forEach(s => supFEl.innerHTML += `<option value="${s}">${s}</option>`);
     if(cur && sups.includes(cur)) supFEl.value = cur;
+    supFEl.style.display = lockedSup ? 'none' : '';
+    supFEl.disabled = !!lockedSup;
   }
-  const supFilter = supFEl ? supFEl.value : '';
+  const supFilter = lockedSup || (supFEl ? supFEl.value : '');
 
   // Filtro de técnico
   const tecFEl = document.getElementById('histTecF');
@@ -3550,6 +3651,7 @@ function renderHist(){
     const techsDoSup = techs.filter(t => t.sup === supFilter).map(t => t.nome);
     baseHist = hist.filter(h => h.sup === supFilter || techsDoSup.includes(h.tec));
   }
+  const totalEscopo = baseHist.length;
   // Filtro de técnico
   if(tecFilter){ baseHist = baseHist.filter(h => h.tec === tecFilter); }
   // Filtro de datas
@@ -3558,10 +3660,11 @@ function renderHist(){
   // Contador de resultados
   const countEl = document.getElementById('histCount');
   if(countEl){
-    const hasFilter = supFilter || tecFilter || dtDe || dtAte;
+    const hasFilter = tecFilter || dtDe || dtAte;
+    const totalRef = supFilter ? totalEscopo : hist.length;
     countEl.textContent = hasFilter
-      ? `${baseHist.length} de ${hist.length} inventário${hist.length!==1?'s':''}`
-      : `${hist.length} inventário${hist.length!==1?'s':''}`;
+      ? `${baseHist.length} de ${totalRef} inventário${totalRef!==1?'s':''}`
+      : `${totalRef} inventário${totalRef!==1?'s':''}`;
   }
 
   // Agrupa por técnico, mostrando apenas técnicos que têm histórico
@@ -3619,7 +3722,7 @@ function renderHist(){
     grid.appendChild(section);
   });
 }
-function delHist(id){ if(!confirm('Remover histórico?'))return; const h=hist.find(x=>x.id===id); auditLog('Inventário Excluído', h?`Técnico: ${h.tec}`:id); hist=hist.filter(h=>h.id!==id); save(); rebuildItems(); renderHist(); renderTechs(); }
+function delHist(id){ const h=hist.find(x=>x.id===id); const locked=lockedSupervisor(); if(locked && h){ const techsDoSup=techs.filter(t=>t.sup===locked).map(t=>t.nome); if(h.sup!==locked && !techsDoSup.includes(h.tec)){ toast('Este inventário não pertence ao supervisor logado.','warn'); return; } } if(!confirm('Remover histórico?'))return; auditLog('Inventário Excluído', h?`Técnico: ${h.tec}`:id); hist=hist.filter(h=>h.id!==id); save(); rebuildItems(); renderHist(); renderTechs(); }
 
 // Abre popup com a tabela completa de ferramentas de um inventário
 function openInvTools(id){
@@ -3654,11 +3757,29 @@ function openInvTools(id){
 function closeInvTools(){ document.getElementById('invToolsModal').classList.remove('open'); }
 
 // ── LOANS ─────────────────────────────────────────────────────────────
+function filterLoansBySupervisor(list, supFilter){
+  if(!supFilter) return Array.isArray(list) ? list : [];
+  const techsDoSup = techs.filter(t => t.sup === supFilter).map(t => t.nome);
+  const pertence = (nome, tipo) => {
+    if(tipo === 'supervisor') return nome === supFilter;
+    return techsDoSup.includes(nome);
+  };
+  return (Array.isArray(list) ? list : []).filter(l =>
+    pertence(l.emp, l.tipoE) || pertence(l.rec, l.tipoR)
+  );
+}
+function visibleLoans(){
+  const supFilter = activeSupervisorFilter('loanSupF');
+  return filterLoansBySupervisor(loans, supFilter);
+}
 function fillLoanPeople(){
   const tE = document.getElementById('lTipoE').value;
   const tR = document.getElementById('lTipoR').value;
-  const lE = tE==='supervisor' ? sups : techs.map(t=>t.nome);
-  const lR = tR==='supervisor' ? sups : techs.map(t=>t.nome);
+  const locked = lockedSupervisor();
+  const teamTechs = locked ? techs.filter(t => t.sup === locked).map(t=>t.nome) : techs.map(t=>t.nome);
+  const supList = locked ? [locked] : sups;
+  const lE = tE==='supervisor' ? supList : teamTechs;
+  const lR = tR==='supervisor' ? supList : teamTechs;
   const eS = document.getElementById('lEmp'); const rS = document.getElementById('lRec');
   eS.innerHTML = '<option value="">Selecione...</option>';
   rS.innerHTML = '<option value="">Selecione...</option>';
@@ -3683,6 +3804,11 @@ function saveLoan(){
   const emp  = document.getElementById('lEmp').value;
   const rec  = document.getElementById('lRec').value;
   if(!ferr||!emp||!rec){ alert('Preencha ferramenta e ambos os responsáveis.'); return; }
+  const locked = lockedSupervisor();
+  if(locked){
+    const permitido = filterLoansBySupervisor([{emp, rec, tipoE:document.getElementById('lTipoE').value, tipoR:document.getElementById('lTipoR').value}], locked).length > 0;
+    if(!permitido){ alert('Este empréstimo não pertence ao supervisor logado.'); return; }
+  }
   loans.push({id:Date.now().toString(), ferr, emp, rec, tipoE:document.getElementById('lTipoE').value, tipoR:document.getElementById('lTipoR').value, dtS:document.getElementById('lDtS').value, dtR:document.getElementById('lDtR').value, obs:document.getElementById('lObs').value.trim(), status:'Ativo'});
   auditLog('Empréstimo Criado',`${ferr}: ${emp}→${rec}`);
   save(); closeLM(); renderLoans();
@@ -3692,27 +3818,20 @@ function renderLoans(){
 
   // Mantém o select de filtro de supervisor sempre atualizado
   const supFEl = document.getElementById('loanSupF');
+  const lockedSup = lockedSupervisor();
   if(supFEl){
-    const cur = supFEl.value || localStorage.getItem('lm_cursup') || '';
+    const cur = lockedSup || supFEl.value || localStorage.getItem('lm_cursup') || '';
     supFEl.innerHTML = '<option value="">👔 Todos os supervisores</option>';
     sups.forEach(s => supFEl.innerHTML += `<option value="${s}">${s}</option>`);
     if(cur && sups.includes(cur)) supFEl.value = cur;
+    supFEl.style.display = lockedSup ? 'none' : '';
+    supFEl.disabled = !!lockedSup;
   }
-  const supFilter = supFEl ? supFEl.value : '';
+  const supFilter = lockedSup || (supFEl ? supFEl.value : '');
 
   // Aplica filtro: mostra só empréstimos cujo emprestando OU recebendo seja
   // o próprio supervisor, ou um técnico vinculado a ele
-  let baseLoans = loans;
-  if(supFilter){
-    const techsDoSup = techs.filter(t => t.sup === supFilter).map(t => t.nome);
-    const pertence = (nome, tipo) => {
-      if(tipo === 'supervisor') return nome === supFilter;
-      return techsDoSup.includes(nome);
-    };
-    baseLoans = loans.filter(l =>
-      pertence(l.emp, l.tipoE) || pertence(l.rec, l.tipoR)
-    );
-  }
+  const baseLoans = filterLoansBySupervisor(loans, supFilter);
 
   if(!baseLoans.length){
     document.getElementById('loanEmpty').style.display='block';
@@ -3741,11 +3860,14 @@ function renderLoans(){
     tbody.appendChild(tr);
   });
 }
-function returnLoan(id){ const l=loans.find(x=>x.id===id); if(!l)return; auditLog('Empréstimo Devolvido',`${l.emp} → ${l.rec}`,`Ferramenta: ${l.ferr||'—'}`); l.status='Devolvido'; l.dtDev=new Date().toISOString().slice(0,10); save(); renderLoans(); }
-function delLoan(id){ if(!confirm('Remover?'))return; const ld=loans.find(l=>l.id===id); auditLog('Empréstimo Excluído',ld?`${ld.ferr||'—'}: ${ld.emp}→${ld.rec}`:id); loans=loans.filter(l=>l.id!==id); save(); renderLoans(); }
+function returnLoan(id){ const l=loans.find(x=>x.id===id); if(!l)return; const locked=lockedSupervisor(); if(locked && !filterLoansBySupervisor([l], locked).length){ toast('Este empréstimo não pertence ao supervisor logado.','warn'); return; } auditLog('Empréstimo Devolvido',`${l.emp} → ${l.rec}`,`Ferramenta: ${l.ferr||'—'}`); l.status='Devolvido'; l.dtDev=new Date().toISOString().slice(0,10); save(); renderLoans(); }
+function delLoan(id){ const locked=lockedSupervisor(); const ld=loans.find(l=>l.id===id); if(locked && ld && !filterLoansBySupervisor([ld], locked).length){ toast('Este empréstimo não pertence ao supervisor logado.','warn'); return; } if(!confirm('Remover?'))return; auditLog('Empréstimo Excluído',ld?`${ld.ferr||'—'}: ${ld.emp}→${ld.rec}`:id); loans=loans.filter(l=>l.id!==id); save(); renderLoans(); }
 
 function printLoans(){
-  const sup = curSup(); const now = nowStr();
+  const lista = visibleLoans();
+  if(!lista.length){ alert('Nenhum empréstimo para imprimir.'); return; }
+  const sup = activeSupervisorFilter('loanSupF') || 'Todos os supervisores';
+  const now = nowStr();
   let html = `<div class="pp-page">
     <div class="pp-hdr"><h2>LUMAR TELECOM – REGISTRO DE EMPRÉSTIMOS / MOVIMENTAÇÕES</h2>
       <p>Supervisor: <strong>${sup}</strong> &nbsp;|&nbsp; Emitido em: ${now}</p>
@@ -3753,12 +3875,12 @@ function printLoans(){
     <table class="pp-tbl"><thead><tr class="lt-hdr">
       <th>#</th><th>Ferramenta</th><th>Emprestando</th><th>Tipo</th><th>Recebendo</th><th>Tipo</th><th>Saída</th><th>Devolução</th><th>Status</th><th>Obs.</th>
     </tr></thead><tbody>`;
-  loans.forEach((l,i) => {
+  lista.forEach((l,i) => {
     html += `<tr><td>${i+1}</td><td>${l.ferr}</td><td>${l.emp}</td><td>${l.tipoE}</td><td>${l.rec}</td><td>${l.tipoR}</td>
       <td>${fmtDate(l.dtS)}</td><td>${fmtDate(l.dtR)}</td><td>${l.status}</td><td>${l.obs||'—'}</td></tr>`;
   });
   html += `</tbody></table>`;
-  loans.filter(l => l.status==='Ativo').forEach(l => {
+  lista.filter(l => l.status==='Ativo').forEach(l => {
     html += `<div class="sign-blk">
       <p style="font-size:12px;font-weight:bold;margin-bottom:6px">Termo de Empréstimo: <strong>${l.ferr}</strong></p>
       <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
@@ -3777,7 +3899,8 @@ function printLoans(){
 // ── EXPORTAR TERMOS INDIVIDUAIS EM PDF ────────────────────────────────
 // Gera UM arquivo PDF por empréstimo, baixado automaticamente. Usa jsPDF.
 function exportLoansPdf(){
-  if(!loans.length){ alert('Nenhum empréstimo para exportar.'); return; }
+  const lista = visibleLoans();
+  if(!lista.length){ alert('Nenhum empréstimo para exportar.'); return; }
   // Se o jsPDF não carregou (sem internet / Electron offline), usa fallback
   // de impressão: abre uma janela com todos os termos formatados em A4 e
   // o próprio diálogo do sistema permite "Salvar como PDF".
@@ -3787,14 +3910,14 @@ function exportLoansPdf(){
     }
     return;
   }
-  if(!confirm('Serão gerados ' + loans.length + ' arquivos PDF (um por empréstimo). Deseja continuar?')) return;
+  if(!confirm('Serão gerados ' + lista.length + ' arquivos PDF (um por empréstimo). Deseja continuar?')) return;
 
   const { jsPDF } = window.jspdf;
-  const sup = curSup();
+  const sup = activeSupervisorFilter('loanSupF') || 'Todos os supervisores';
   const now = nowStr();
   let count = 0;
 
-  loans.forEach((l, i) => {
+  lista.forEach((l, i) => {
     const doc = new jsPDF({ unit:'mm', format:'a4' });
     const pageW = 210;
     const margin = 14;
@@ -3928,12 +4051,14 @@ function exportLoansPdf(){
 // Cada empréstimo vira uma página A4. O usuário escolhe "Salvar como PDF"
 // no próprio diálogo do sistema operacional.
 function exportLoansPdfFallback(){
-  const sup = curSup();
+  const lista = visibleLoans();
+  if(!lista.length){ alert('Nenhum empréstimo para exportar.'); return; }
+  const sup = activeSupervisorFilter('loanSupF') || 'Todos os supervisores';
   const now = nowStr();
   const logoData = localStorage.getItem('lm_logo');
   const logoTag = logoData ? `<img src="${logoData}" style="height:42px;margin-right:10px;background:#fff;padding:2px;border-radius:4px">` : '';
   let html = '';
-  loans.forEach((l, i) => {
+  lista.forEach((l, i) => {
     html += `<div class="pp-page" style="font-family:Arial,sans-serif">
       <div style="background:#0a1628;color:#fff;padding:14px;display:flex;align-items:center;border-bottom:3px solid #00c2e0">
         ${logoTag}
@@ -3971,7 +4096,7 @@ function exportLoansPdfFallback(){
       </div>
     </div>`;
   });
-  openPrintWindow(html, 'Termos de Empréstimo (' + loans.length + ')');
+  openPrintWindow(html, 'Termos de Empréstimo (' + lista.length + ')');
 }
 
 // ── BANCO ─────────────────────────────────────────────────────────────
@@ -3985,10 +4110,12 @@ function openDbModal(id=null){
     document.getElementById('dbIcon').value = b.icon||'🔧';
     document.getElementById('dbVal').value  = b.valor||'';
     document.getElementById('dbDesc').value = b.desc||'';
+    setDbTipoChecks(normalizaTiposFerramenta(b));
   } else {
     ['dbNome','dbDesc','dbVal'].forEach(f => document.getElementById(f).value='');
     document.getElementById('dbCat').value  = 'Óptica';
     document.getElementById('dbIcon').value = '🔧';
+    setDbTipoChecks([]);
   }
   document.getElementById('dbModal').classList.add('open');
 }
@@ -3996,7 +4123,8 @@ function closeDB(){ document.getElementById('dbModal').classList.remove('open');
 function saveDb(){
   const nome = document.getElementById('dbNome').value.trim();
   if(!nome){ alert('Informe o nome.'); return; }
-  const obj = {id:editDbId||Date.now().toString(), nome, categoria:document.getElementById('dbCat').value, icon:document.getElementById('dbIcon').value||'🔧', valor:document.getElementById('dbVal').value, desc:document.getElementById('dbDesc').value.trim()};
+  const prev = editDbId ? banco.find(b => b.id === editDbId) : null;
+  const obj = {...(prev || {}), id:editDbId||Date.now().toString(), nome, categoria:document.getElementById('dbCat').value, icon:document.getElementById('dbIcon').value||'🔧', valor:document.getElementById('dbVal').value, desc:document.getElementById('dbDesc').value.trim(), tiposTec:getDbTipoChecks()};
   if(editDbId){ const i=banco.findIndex(b=>b.id===editDbId); banco[i]=obj; }
   else banco.push(obj);
   saveBanco(); closeDB(); renderBanco();
@@ -4004,7 +4132,12 @@ function saveDb(){
 function renderBanco(){
   const search = document.getElementById('dbSearch').value.toLowerCase();
   const fC = document.getElementById('dbCatF').value;
-  const filtered = banco.filter(b => (!search||(b.nome+b.desc+b.categoria).toLowerCase().includes(search))&&(!fC||b.categoria===fC));
+  const fT = document.getElementById('dbTipoF') ? document.getElementById('dbTipoF').value : '';
+  const filtered = banco.filter(b => {
+    const tipos = normalizaTiposFerramenta(b);
+    const texto = (b.nome + ' ' + (b.desc||'') + ' ' + (b.categoria||'') + ' ' + tipos.map(tipoTecLabel).join(' ')).toLowerCase();
+    return (!search || texto.includes(search)) && (!fC || b.categoria === fC) && (!fT || tipos.includes(fT));
+  });
   const grid = document.getElementById('bancoGrid'); grid.innerHTML = '';
   document.getElementById('bancoEmpty').style.display = filtered.length ? 'none' : 'block';
   filtered.forEach(b => {
@@ -4012,6 +4145,7 @@ function renderBanco(){
     div.innerHTML = `<div class="db-icon">${b.icon||'🔧'}</div>
       <h4>${escapeHtml(b.nome)}</h4>
       <p>${escapeHtml(b.categoria)}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:5px">${tiposFerramentaHtml(b)}</div>
       ${b.valor?`<p style="color:var(--green);font-weight:600;margin-top:3px">${fmtMoney(b.valor)}</p>`:''}
       ${b.desc?`<p style="font-size:10px;margin-top:3px;opacity:.6">${escapeHtml(b.desc.slice(0,55))}${b.desc.length>55?'...':''}</p>`:''}
       <div style="display:flex;gap:5px;margin-top:9px;justify-content:center">
