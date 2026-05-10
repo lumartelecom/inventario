@@ -513,20 +513,19 @@ tr.inv-hidden{display:none}
 /* ── BOTÃO / MODAL DE REPOSIÇÃO ── */
 .btn-repor{background:linear-gradient(135deg,#f5c518,#ff6b00);color:#08111f;border:1px solid rgba(245,197,24,.85);box-shadow:0 0 14px rgba(245,197,24,.22)}
 .btn-repor:hover{filter:brightness(1.08);transform:translateY(-1px)}
-.repor-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:0 0 12px}
-.repor-card{background:rgba(245,197,24,.09);border:1px solid rgba(245,197,24,.35);border-radius:10px;padding:10px;text-align:center}
-.repor-card b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#f5c518;line-height:1}
+.repor-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:0 0 12px}
+.repor-card{background:rgba(245,197,24,.09);border:1px solid rgba(245,197,24,.35);border-radius:8px;padding:8px 10px;text-align:center}
+.repor-card b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:#f5c518;line-height:1}
 .repor-card span{display:block;font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
-.repor-table{width:100%;border-collapse:collapse;font-size:12px}
+.repor-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .repor-table th{background:linear-gradient(90deg,rgba(245,197,24,.28),rgba(255,107,0,.18));color:#f5c518;padding:8px 10px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;position:sticky;top:0;z-index:1}
 .repor-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
 .repor-table tr:nth-child(even) td{background:rgba(245,197,24,.035)}
-.repor-qtd{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#f5c518;text-align:center}
-.repor-pill{display:inline-flex;margin:2px;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--border);font-size:10px;color:var(--mid)}
+.repor-qtd{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:900;color:#f5c518;text-align:center}
 .repor-empty{text-align:center;padding:30px!important;color:var(--mid)}
 @media(max-width:700px){
   .btn-repor{width:auto!important;min-height:34px!important;padding:6px 10px!important;font-size:11px!important}
-  .repor-table{min-width:620px}
+  .repor-table{min-width:360px}
 }
 
 </style>
@@ -657,6 +656,7 @@ tr.inv-hidden{display:none}
     </div>
   </div>
 </div>
+<div id="toastContainer"></div>
 
 <script>
 // ── SISTEMA DE LOGIN ──────────────────────────────────────────────────
@@ -1087,6 +1087,21 @@ setInterval(_updateOfflineBanner, 5000);
     </div>
   </div>
 </header>
+<div class="sync-bar" id="syncBar">
+  <span class="sb-dot"></span>
+  <span class="sb-msg">Inicializando sincronizacao...</span>
+  <button class="sb-btn" onclick="forceCloudSync()">Sincronizar</button>
+</div>
+<div class="sup-banner inactive" id="supBanner">
+  <span class="sb-ico">👔</span>
+  <span id="supBannerText">Nenhum supervisor ativo</span>
+</div>
+<div class="hsearch-row">
+  <div class="hsearch" style="position:relative">
+    <span class="sicon">🔍</span>
+    <input type="text" id="globalSearch" placeholder="Buscar tecnicos, ferramentas, emprestimos e inventarios..." oninput="doGlobalSearch()" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
 <!-- BARRA DE SYNC / BACKUP AUTOMÁTICO -->
 
   <input type="file" id="importBackupIn" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
@@ -1382,7 +1397,6 @@ setInterval(_updateOfflineBanner, 5000);
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-danger btn-sm" onclick="openFaltasModal()">⚠️ Quem está faltando</button>
-        <button class="btn btn-repor btn-sm" onclick="openReporModal()">🛒 Repor</button>
         <button class="btn btn-ghost btn-sm" onclick="printTeamInv()">🖨️ Imprimir</button>
         <button class="btn btn-ghost btn-sm" onclick="exportTeamCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
       </div>
@@ -1573,6 +1587,10 @@ async function idbLoadAll(){
     techs = t || []; loans = l || []; sups = s || [];
     hist  = h || []; banco = b || []; audit = a || [];
   }
+  if(!Array.isArray(banco) || banco.length === 0){
+    banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:''}));
+    try { await idbSet('banco', banco); } catch(e) {}
+  }
   const _oldSupsLen = sups.length;
   sups = (sups || []).filter(supervisorValido);
   if (_oldSupsLen !== sups.length) {
@@ -1584,7 +1602,7 @@ async function idbLoadAll(){
 async function idbSave(stores){
   // stores = array de nomes ou 'all'
   const toSave = stores === 'all' ? IDB_STORES : stores;
-  const map = {techs, loans, sups, hist, banco};
+  const map = {techs, loans, sups, hist, banco, audit};
   await Promise.all(toSave.map(s => idbSet(s, map[s])));
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
@@ -1765,11 +1783,19 @@ function save(){
         localStorage.setItem('lm_hist',  JSON.stringify(hist));
       } catch(le){ console.warn('localStorage fallback falhou:', le); }
     });
+  } else {
+    try {
+      localStorage.setItem('lm_techs', JSON.stringify(techs));
+      localStorage.setItem('lm_loans', JSON.stringify(loans));
+      localStorage.setItem('lm_sups',  JSON.stringify(sups));
+      localStorage.setItem('lm_hist',  JSON.stringify(hist));
+    } catch(le){ console.warn('localStorage save falhou:', le); }
   }
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
 function saveBanco(){
   if(_idb){ idbSave(['banco']).catch(e => { try{ localStorage.setItem('lm_banco', JSON.stringify(banco)); }catch(le){} }); }
+  else { try{ localStorage.setItem('lm_banco', JSON.stringify(banco)); }catch(le){} }
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
 
@@ -2078,11 +2104,11 @@ function scheduleAutoBackup(){
     createCloudBackup('auto').catch(() => createLocalJsonBackup('auto-fallback', false));
   }, 1200);
 }
-function openBackupModal(){
+function openBackupModalLegacy(){
   document.getElementById('backupModal').classList.add('open');
   renderBackupList();
 }
-function closeBackupModal(){
+function closeBackupModalLegacy(){
   document.getElementById('backupModal').classList.remove('open');
 }
 async function renderBackupList(){
@@ -2425,7 +2451,12 @@ function openTeamInv(){
     const days = epiDaysLeft(it.validadeEpi || it.validade || '');
     if(days !== null && days <= 30) epiAlerts.push({...it, days});
   });
-  document.getElementById('teamInvStats').innerHTML += `<div class="tis-card per" title="EPIs vencidos ou próximos de vencer" style="cursor:default">
+  document.getElementById('teamInvStats').innerHTML += `<div class="tis-card repor-action" title="Abrir lista de reposicao" onclick="openReporModal()" style="cursor:pointer;background:linear-gradient(135deg,rgba(245,197,24,.18),rgba(255,107,0,.12));border-color:rgba(245,197,24,.55)">
+      <div class="tis-num" style="color:#f5c518">${totalARepor}</div>
+      <div class="tis-lbl" style="color:#f5c518">A repor</div>
+      <div style="font-size:9px;margin-top:3px;opacity:0.75">Abrir lista</div>
+    </div>
+    <div class="tis-card per" title="EPIs vencidos ou proximos de vencer" style="cursor:default">
       <div class="tis-num">${epiAlerts.length}</div>
       <div class="tis-lbl">EPI a vencer</div>
       <div style="font-size:9px;margin-top:3px;opacity:0.6">30 dias</div>
@@ -2626,47 +2657,29 @@ function openReporModal(){
   const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
   const totalFerr = lista.length;
   const totalItens = lista.reduce((a,x)=>a+x.total,0);
-  const totalDan = lista.reduce((a,x)=>a+x.danificado,0);
-  const totalPer = lista.reduce((a,x)=>a+x.perdido,0);
-  const totalNr  = lista.reduce((a,x)=>a+x.naoRecebeu,0);
 
-  document.getElementById('reporIntro').innerHTML = `Supervisor: <strong>${escapeHtml(sup)}</strong> · Compra calculada por itens com status <strong>Danificado</strong>, <strong>Perdido</strong> e <strong>Não Recebeu</strong>.`;
+  document.getElementById('reporIntro').innerHTML = `Supervisor: <strong>${escapeHtml(sup)}</strong> · lista simples de compra por ferramenta.`;
   document.getElementById('reporSummary').innerHTML = `
     <div class="repor-card"><b>${totalItens}</b><span>Total a comprar</span></div>
-    <div class="repor-card"><b>${totalFerr}</b><span>Tipos de ferramenta</span></div>
-    <div class="repor-card"><b>${totalDan}</b><span>Danificados</span></div>
-    <div class="repor-card"><b>${totalPer + totalNr}</b><span>Perdidos / não recebidos</span></div>`;
+    <div class="repor-card"><b>${totalFerr}</b><span>Tipos de ferramenta</span></div>`;
 
   const tbl = document.getElementById('reporTbl');
   if(!lista.length){
-    tbl.innerHTML = `<tbody><tr><td class="repor-empty">✅ Nenhuma ferramenta precisa de reposição no momento.</td></tr></tbody>`;
+    tbl.innerHTML = `<tbody><tr><td class="repor-empty" colspan="2">Nenhuma ferramenta precisa de reposição no momento.</td></tr></tbody>`;
   } else {
     let html = `<thead><tr>
-      <th style="min-width:210px">Ferramenta</th>
-      <th style="text-align:center">Qtd. comprar</th>
-      <th style="text-align:center">Danificado</th>
-      <th style="text-align:center">Perdido</th>
-      <th style="text-align:center">Não recebeu</th>
-      <th style="min-width:220px">Técnicos / motivo</th>
+      <th>Ferramenta</th>
+      <th style="text-align:center;width:140px">Quantidade</th>
     </tr></thead><tbody>`;
     lista.forEach(item => {
-      const detalhes = item.detalhes.map(d => `<span class="repor-pill">${escapeHtml((d.tecnico||'').split(' ')[0])}: ${escapeHtml(d.status)}</span>`).join(' ');
       html += `<tr>
         <td style="font-weight:800;color:#fff">${escapeHtml(item.ferramenta)}</td>
         <td class="repor-qtd">${item.total}</td>
-        <td class="tcnt dan${item.danificado===0?' zero':''}">${item.danificado || '—'}</td>
-        <td class="tcnt per${item.perdido===0?' zero':''}">${item.perdido || '—'}</td>
-        <td class="tcnt nr${item.naoRecebeu===0?' zero':''}">${item.naoRecebeu || '—'}</td>
-        <td class="repor-detail">${detalhes || '—'}</td>
       </tr>`;
     });
     html += `<tr style="border-top:2px solid rgba(245,197,24,.35);background:rgba(245,197,24,.08)">
       <td style="font-weight:900;color:#f5c518">TOTAL GERAL</td>
       <td class="repor-qtd">${totalItens}</td>
-      <td class="tcnt dan" style="font-weight:900">${totalDan || '—'}</td>
-      <td class="tcnt per" style="font-weight:900">${totalPer || '—'}</td>
-      <td class="tcnt nr" style="font-weight:900">${totalNr || '—'}</td>
-      <td></td>
     </tr>`;
     html += '</tbody>';
     tbl.innerHTML = html;
@@ -2685,7 +2698,7 @@ function reporText(){
     `LISTA DE REPOSIÇÃO - ${sup}`,
     `Total geral: ${total} item(ns)`,
     '',
-    ...lista.map(x => `- ${x.ferramenta}: ${x.total} | Danificado: ${x.danificado || 0} | Perdido: ${x.perdido || 0} | Não recebeu: ${x.naoRecebeu || 0}`)
+    ...lista.map(x => `- ${x.ferramenta}: ${x.total}`)
   ].join('\n');
 }
 
@@ -2704,14 +2717,14 @@ function printReporList(){
   const total = lista.reduce((a,x)=>a+x.total,0);
   let rows = '';
   if(!lista.length){
-    rows = '<tr><td colspan="5" style="text-align:center;padding:18px">Nenhuma ferramenta precisa de reposição.</td></tr>';
+    rows = '<tr><td colspan="2" style="text-align:center;padding:18px">Nenhuma ferramenta precisa de reposição.</td></tr>';
   } else {
-    lista.forEach(x => rows += `<tr><td>${escapeHtml(x.ferramenta)}</td><td>${x.total}</td><td>${x.danificado||''}</td><td>${x.perdido||''}</td><td>${x.naoRecebeu||''}</td></tr>`);
-    rows += `<tr><td><strong>TOTAL GERAL</strong></td><td><strong>${total}</strong></td><td colspan="3"></td></tr>`;
+    lista.forEach(x => rows += `<tr><td>${escapeHtml(x.ferramenta)}</td><td>${x.total}</td></tr>`);
+    rows += `<tr><td><strong>TOTAL GERAL</strong></td><td><strong>${total}</strong></td></tr>`;
   }
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Reposição - ${escapeHtml(sup)}</title>
-    <style>body{font-family:Arial,sans-serif;padding:24px;color:#222}h1{font-size:20px;color:#1a4fd6;margin:0 0 4px}.sub{font-size:12px;color:#666;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f5c518;color:#111;padding:8px;text-align:left}td{border-bottom:1px solid #eee;padding:7px}td:nth-child(n+2){text-align:center;font-weight:700}.foot{margin-top:18px;font-size:10px;color:#666;text-align:center;border-top:1px solid #ccc;padding-top:8px}</style>
-    </head><body><h1>Lista de Reposição — ${escapeHtml(sup)}</h1><div class="sub">Total a comprar: ${total} item(ns)</div><table><thead><tr><th>Ferramenta</th><th>Qtd. comprar</th><th>Danificado</th><th>Perdido</th><th>Não recebeu</th></tr></thead><tbody>${rows}</tbody></table><div class="foot">Gerado em ${nowStr()} · Lumar Telecom</div></body></html>`;
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#222}h1{font-size:20px;color:#1a4fd6;margin:0 0 4px}.sub{font-size:12px;color:#666;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f5c518;color:#111;padding:8px;text-align:left}td{border-bottom:1px solid #eee;padding:7px}td:nth-child(2){text-align:center;font-weight:700}.foot{margin-top:18px;font-size:10px;color:#666;text-align:center;border-top:1px solid #ccc;padding-top:8px}</style>
+    </head><body><h1>Lista de Reposição — ${escapeHtml(sup)}</h1><div class="sub">Total a comprar: ${total} item(ns)</div><table><thead><tr><th>Ferramenta</th><th>Quantidade</th></tr></thead><tbody>${rows}</tbody></table><div class="foot">Gerado em ${nowStr()} · Lumar Telecom</div></body></html>`;
   if(typeof openPrintWindow === 'function') openPrintWindow(html);
   else { const w = window.open('', '_blank'); w.document.write(html); w.document.close(); setTimeout(()=>w.print(), 300); }
 }
@@ -2721,14 +2734,11 @@ function exportReporXLSX(){
   if(!lista.length){ toast('Nenhuma ferramenta para repor.','info'); return; }
   if(!window.XLSX){ toast('Biblioteca de exportação não carregada. Recarregue a página.','error'); return; }
   const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
-  const data = [['Ferramenta','Qtd. comprar','Danificado','Perdido','Não recebeu','Técnicos / motivo']];
-  lista.forEach(x => {
-    const det = x.detalhes.map(d => `${d.tecnico}: ${d.status}`).join(' | ');
-    data.push([x.ferramenta, x.total, x.danificado, x.perdido, x.naoRecebeu, det]);
-  });
-  data.push(['TOTAL GERAL', lista.reduce((a,x)=>a+x.total,0), lista.reduce((a,x)=>a+x.danificado,0), lista.reduce((a,x)=>a+x.perdido,0), lista.reduce((a,x)=>a+x.naoRecebeu,0), '']);
+  const data = [['Ferramenta','Quantidade']];
+  lista.forEach(x => data.push([x.ferramenta, x.total]));
+  data.push(['TOTAL GERAL', lista.reduce((a,x)=>a+x.total,0)]);
   const ws = window.XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:34},{wch:14},{wch:13},{wch:12},{wch:14},{wch:50}];
+  ws['!cols'] = [{wch:42},{wch:14}];
   const wb = window.XLSX.utils.book_new();
   window.XLSX.utils.book_append_sheet(wb, ws, 'REPOSICAO');
   const today = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
@@ -2858,14 +2868,16 @@ function renderTechs(){
     const ini = t.nome.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const tc = items.filter(i => i.tecnico === t.nome).length;
     const col = funcColors[t.func] || '#7eb3ff';
+    const safeId = escapeHtml(t.id);
+    const safeFoto = escapeHtml(t.foto || '');
     const d = document.createElement('div'); d.className = 'tech-card';
     d.onclick = () => openTechInv(t);
-    d.innerHTML = `<div class="tav">${t.foto?`<img src="${t.foto}">`:`<span>${ini}</span>`}</div>
-      <h3>${t.nome}</h3>
+    d.innerHTML = `<div class="tav">${t.foto?`<img src="${safeFoto}">`:`<span>${escapeHtml(ini)}</span>`}</div>
+      <h3>${escapeHtml(t.nome)}</h3>
       <span class="trole" style="color:${col};border:1px solid ${col}44;background:${col}18">${t.func||'Técnico'}</span>
-      ${t.sup?`<p>Sup: <span style="color:#fff">${t.sup}</span></p>`:''}
-      ${t.mat?`<p>Mat: ${t.mat}</p>`:''}
-      ${t.tel?`<p style="color:var(--cyan)">${t.tel}</p>`:''}
+      ${t.sup?`<p>Sup: <span style="color:#fff">${escapeHtml(t.sup)}</span></p>`:''}
+      ${t.mat?`<p>Mat: ${escapeHtml(t.mat)}</p>`:''}
+      ${t.tel?`<p style="color:var(--cyan)">${escapeHtml(t.tel)}</p>`:''}
       <div class="tcount">🔧 ${tc} item${tc!==1?'s':''}</div>
       <div style="display:flex;gap:5px;margin-top:4px" onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-sm" onclick="openTechModal('${t.id}')">✏️ Editar</button>
@@ -3094,6 +3106,7 @@ function selectHistTech(name){
 // Carrega TODO o banco de ferramentas para o inventário de campo
 function loadBancoForInv(){
   const tName = document.getElementById('hTec').value;
+  const wasEditingHist = !!editingHistId;
   if(!tName){ document.getElementById('invSection').style.display='none'; currentInvRows = []; return; }
   document.getElementById('invSection').style.display = 'block';
 
@@ -3354,10 +3367,10 @@ async function saveHist(){
   save();
   rebuildItems();
   refreshDashboard();
-  editingHistId = null;
   clearHistDirty();
   closeHM(); renderHist(); renderTechs();
-  auditLog(editingHistId ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${tName}`, `Local: ${document.getElementById('hLocal')?.value?.trim()||'—'}`);
+  auditLog(wasEditingHist ? 'Inventário Atualizado' : 'Inventário Salvo', `Técnico: ${tName}`, `Local: ${document.getElementById('hLocal')?.value?.trim()||'—'}`);
+  editingHistId = null;
   toast('✅ Inventário salvo com sucesso!', 'success');
   } catch(err){
     console.error('Erro ao salvar inventário:', err);
@@ -3614,9 +3627,9 @@ function renderLoans(){
     const sb = l.status==='Devolvido' ? `<span class="badge b-ok">Devolvido</span>` : overdue ? `<span class="badge b-bad">Atrasado</span>` : `<span class="badge b-emp">Em Uso</span>`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td style="color:var(--mid);font-size:11px">${idx+1}</td>
-      <td style="font-weight:600">${l.ferr}</td>
-      <td>${l.emp}<br><span style="font-size:10px;color:var(--mid)">${l.tipoE}</span></td>
-      <td>${l.rec}<br><span style="font-size:10px;color:var(--mid)">${l.tipoR}</span></td>
+      <td style="font-weight:600">${escapeHtml(l.ferr)}</td>
+      <td>${escapeHtml(l.emp)}<br><span style="font-size:10px;color:var(--mid)">${escapeHtml(l.tipoE)}</span></td>
+      <td>${escapeHtml(l.rec)}<br><span style="font-size:10px;color:var(--mid)">${escapeHtml(l.tipoR)}</span></td>
       <td style="font-size:12px">${fmtDate(l.dtS)}</td>
       <td style="font-size:12px">${fmtDate(l.dtR)}</td>
       <td>${sb}</td>
@@ -3897,10 +3910,10 @@ function renderBanco(){
   filtered.forEach(b => {
     const div = document.createElement('div'); div.className = 'db-item';
     div.innerHTML = `<div class="db-icon">${b.icon||'🔧'}</div>
-      <h4>${b.nome}</h4>
-      <p>${b.categoria}</p>
+      <h4>${escapeHtml(b.nome)}</h4>
+      <p>${escapeHtml(b.categoria)}</p>
       ${b.valor?`<p style="color:var(--green);font-weight:600;margin-top:3px">${fmtMoney(b.valor)}</p>`:''}
-      ${b.desc?`<p style="font-size:10px;margin-top:3px;opacity:.6">${b.desc.slice(0,55)}${b.desc.length>55?'...':''}</p>`:''}
+      ${b.desc?`<p style="font-size:10px;margin-top:3px;opacity:.6">${escapeHtml(b.desc.slice(0,55))}${b.desc.length>55?'...':''}</p>`:''}
       <div style="display:flex;gap:5px;margin-top:9px;justify-content:center">
         <button class="btn btn-ghost btn-sm" onclick="openDbModal('${b.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="delDb('${b.id}')">🗑</button>
@@ -4858,21 +4871,21 @@ function buildReporDataForExport(histDoSup, techsDoSup){
 function buildReporSheet(histDoSup, techsDoSup){
   const lista = buildReporDataForExport(histDoSup, techsDoSup);
   const sup = localStorage.getItem('lm_cursup') || '';
-  const ws = {'!cols':[{wch:36},{wch:14},{wch:13},{wch:12},{wch:14},{wch:52}], '!rows':[]};
+  const ws = {'!cols':[{wch:42},{wch:14}], '!rows':[]};
   let r = 0;
-  const NCOLS = 6;
+  const NCOLS = 2;
   const total = lista.reduce((a,x)=>a+x.total,0);
 
   setCell(ws,r,0,'LISTA DE REPOSIÇÃO  —  COMPRAR FERRAMENTAS', xStyle({bold:true,sz:16,color:XC.preto,bg:'F5C518',center:true,noBorder:true}));
-  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'F5C518',noBorder:true}));
+  setCell(ws,r,1,'',xStyle({bg:'F5C518',noBorder:true}));
   setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:34}); r++;
 
   setCell(ws,r,0,`Supervisor: ${sup || '—'}  ·  Total a comprar: ${total} item(ns)`, xStyle({sz:10,bold:true,color:'7A4A00',bg:'FFF7CC',center:true,noBorder:true}));
-  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'FFF7CC',noBorder:true}));
+  setCell(ws,r,1,'',xStyle({bg:'FFF7CC',noBorder:true}));
   setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:18}); r++;
 
   ws['!rows'].push({hpt:8}); r++;
-  const hdr = ['FERRAMENTA','QTD. COMPRAR','DANIFICADO','PERDIDO','NÃO RECEBEU','TÉCNICOS / MOTIVO'];
+  const hdr = ['FERRAMENTA','QUANTIDADE'];
   hdr.forEach((h,c)=>setCell(ws,r,c,h,xStyle({bold:true,sz:10,color:XC.preto,bg:'FFD966',center:c>0,borderStyle:'thin',borderColor:'A16207'})));
   autoFilter(ws,r,0,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
 
@@ -4883,21 +4896,12 @@ function buildReporSheet(histDoSup, techsDoSup){
     lista.forEach((item,i)=>{
       const z = i%2===0 ? XC.branco : 'FFFDF0';
       const brd = {borderStyle:'thin',borderColor:'E5D28A'};
-      const detalhes = (item.detalhes||[]).map(d => `${primeiroNome(d.tecnico)}: ${d.status}`).join(' | ');
       setCell(ws,r,0,cleanStr(item.ferramenta),xStyle({sz:10,bold:true,color:'111111',bg:z,...brd}));
       setCell(ws,r,1,item.total,xStyle({sz:12,bold:true,color:'B77900',bg:'FFF7CC',center:true,...brd}));
-      setCell(ws,r,2,item.danificado||'',xStyle({sz:10,color:item.danificado?'E67E00':'888888',bg:z,center:true,...brd}));
-      setCell(ws,r,3,item.perdido||'',xStyle({sz:10,color:item.perdido?'E9272E':'888888',bg:z,center:true,...brd}));
-      setCell(ws,r,4,item.naoRecebeu||'',xStyle({sz:10,color:item.naoRecebeu?'475569':'888888',bg:z,center:true,...brd}));
-      setCell(ws,r,5,detalhes,xStyle({sz:9,color:'475569',bg:z,wrap:true,...brd}));
       ws['!rows'].push({hpt:22}); r++;
     });
     setCell(ws,r,0,'TOTAL GERAL',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',borderStyle:'thin',borderColor:'A16207'}));
     setCell(ws,r,1,total,xStyle({bold:true,sz:12,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
-    setCell(ws,r,2,lista.reduce((a,x)=>a+x.danificado,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
-    setCell(ws,r,3,lista.reduce((a,x)=>a+x.perdido,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
-    setCell(ws,r,4,lista.reduce((a,x)=>a+x.naoRecebeu,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
-    setCell(ws,r,5,'',xStyle({bg:'F5C518',borderStyle:'thin',borderColor:'A16207'}));
     ws['!rows'].push({hpt:24}); r++;
   }
 
