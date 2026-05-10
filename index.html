@@ -1894,9 +1894,14 @@ function tipoTecIdFromFunc(func){
 }
 function ferramentaMarcadaParaTipo(tool, func){
   const tipos = normalizaTiposFerramenta(tool);
-  if(!tipos.length) return true;
+  if(!tipos.length) return false;
   const tipo = tipoTecIdFromFunc(func);
-  return !tipo || tipos.includes(tipo);
+  return !!tipo && tipos.includes(tipo);
+}
+function ferramentasParaTecnico(nomeTecnico){
+  const tec = techs.find(t => t.nome === nomeTecnico);
+  if(!tec) return [];
+  return banco.filter(b => ferramentaMarcadaParaTipo(b, tec.func));
 }
 function setDbTipoChecks(tipos){
   const set = new Set(Array.isArray(tipos) ? tipos : []);
@@ -3235,7 +3240,7 @@ function selectHistTech(name){
   loadBancoForInv();
 }
 
-// Carrega TODO o banco de ferramentas para o inventário de campo
+// Carrega apenas as ferramentas marcadas para o tipo do técnico selecionado.
 function loadBancoForInv(){
   const tName = document.getElementById('hTec').value;
   if(!tName){ document.getElementById('invSection').style.display='none'; currentInvRows = []; return; }
@@ -3245,8 +3250,8 @@ function loadBancoForInv(){
   const lastHist = hist.filter(h => h.tec === tName).sort((a,b) => b.ts - a.ts)[0];
   const lastRows = lastHist ? lastHist.invRows || [] : [];
 
-  // Monta linhas para TODAS as ferramentas do banco
-  currentInvRows = banco.map(b => {
+  const bancoDoTecnico = ferramentasParaTecnico(tName);
+  currentInvRows = bancoDoTecnico.map(b => {
     const prev = lastRows.find(r => r.nome === b.nome);
     const status = prev ? (prev.status==='NÃO RECEBEU'?'Não Recebeu':prev.status==='Disponível'?'Em Uso':prev.status==='Manutenção'?'Em Uso':prev.status) : 'Em Uso';
     const qtdPrev = prev ? (parseInt(prev.qtd, 10) || 0) : 0;
@@ -3402,6 +3407,14 @@ function renderInvRows(){
   const normais = currentInvRows.filter((r, i) => { r._origIdx = i; return r.status !== STATUS_NA; });
   const naRows  = currentInvRows.filter((r, i) => { r._origIdx = i; return r.status === STATUS_NA; });
   const ordered = [...normais, ...naRows];
+  if(!ordered.length){
+    body.innerHTML = `<tr><td colspan="5" style="padding:22px;text-align:center;color:var(--mid);font-size:12px">
+      Nenhuma ferramenta marcada para o tipo deste técnico.
+    </td></tr>`;
+    const count = document.getElementById('invSearchCount');
+    if(count) count.textContent = '0 ferramenta(s)';
+    return;
+  }
 
   ordered.forEach((row) => {
     const idx = row._origIdx; // índice real no array
@@ -3583,11 +3596,10 @@ function editHist(id){
   filterHistTechs();
   // Seleciona o técnico na grade
   if(h.tec){ selectHistTech(h.tec); }
-  // Mescla as linhas: começa com TODAS as ferramentas do banco atual,
-  // sobrepondo com o que já estava no inventário (mantém status/qtd/obs anteriores).
+  // Mescla as linhas marcadas para o tipo do técnico, mantendo status/qtd/obs anteriores.
   const prevByName = {};
   (h.invRows||[]).forEach(r => { prevByName[r.nome] = r; });
-  currentInvRows = banco.map(b => {
+  currentInvRows = ferramentasParaTecnico(h.tec).map(b => {
     const p = prevByName[b.nome];
     const normStatus = s => s==='NÃO RECEBEU'?'Não Recebeu':s==='Disponível'?'Em Uso':s==='Manutenção'?'Em Uso':s;
     if(!p) return {nome:b.nome, status:'Em Uso', qtd:isCones(b.nome)?3:1, obs:'', patrimonio:'', validadeEpi:''};
