@@ -510,21 +510,20 @@ tr.inv-hidden{display:none}
 .modal-dirty-bar.show{display:flex}
 
 
-/* ── REPOSIÇÃO RÁPIDA ── */
+/* ── BOTÃO / MODAL DE REPOSIÇÃO ── */
 .btn-repor{background:linear-gradient(135deg,#f5c518,#ff6b00);color:#08111f;border:1px solid rgba(245,197,24,.85);box-shadow:0 0 14px rgba(245,197,24,.22)}
 .btn-repor:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .repor-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:0 0 12px}
-.repor-card{background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:10px;padding:10px;text-align:center}
-.repor-card b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:26px;color:#f5c518;line-height:1}
-.repor-card span{font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase}
+.repor-card{background:rgba(245,197,24,.09);border:1px solid rgba(245,197,24,.35);border-radius:10px;padding:10px;text-align:center}
+.repor-card b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#f5c518;line-height:1}
+.repor-card span{display:block;font-size:10px;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
 .repor-table{width:100%;border-collapse:collapse;font-size:12px}
 .repor-table th{background:linear-gradient(90deg,rgba(245,197,24,.28),rgba(255,107,0,.18));color:#f5c518;padding:8px 10px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;position:sticky;top:0;z-index:1}
 .repor-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
 .repor-table tr:nth-child(even) td{background:rgba(245,197,24,.035)}
-.repor-qtd{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#f5c518;text-align:center;white-space:nowrap}
-.repor-detail{font-size:11px;color:var(--mid);line-height:1.35}
-.repor-pill{display:inline-block;margin:1px 3px 1px 0;padding:2px 6px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.1)}
-.repor-empty{text-align:center;padding:32px 12px;color:var(--mid);font-size:13px}
+.repor-qtd{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#f5c518;text-align:center}
+.repor-pill{display:inline-flex;margin:2px;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--border);font-size:10px;color:var(--mid)}
+.repor-empty{text-align:center;padding:30px!important;color:var(--mid)}
 @media(max-width:700px){
   .btn-repor{width:auto!important;min-height:34px!important;padding:6px 10px!important;font-size:11px!important}
   .repor-table{min-width:620px}
@@ -1395,6 +1394,7 @@ setInterval(_updateOfflineBanner, 5000);
     <p style="color:var(--mid);font-size:11px;margin-top:8px">* Considera o status mais recente de cada ferramenta em cada técnico (último inventário registrado).</p>
   </div>
 </div>
+
 
 
 <!-- MODAL: LISTA RÁPIDA DE REPOSIÇÃO -->
@@ -2597,11 +2597,10 @@ function openFaltasModal(){
 function closeFaltasModal(){ document.getElementById('faltasModal').classList.remove('open'); }
 
 // ── LISTA RÁPIDA DE REPOSIÇÃO ─────────────────────────────────────────
-function buildReporList(){
-  if(!_teamInvCache || !Array.isArray(_teamInvCache.teamItems)) return [];
+function buildReporFromTeamItems(teamItems){
   const problemStatus = ['Danificado','Perdido','Não Recebeu','NÃO RECEBEU'];
   const mapa = {};
-  (_teamInvCache.teamItems || []).forEach(it => {
+  (teamItems || []).forEach(it => {
     const status = it.status === 'NÃO RECEBEU' ? 'Não Recebeu' : it.status;
     if(!problemStatus.includes(status)) return;
     const qtd = qtdParaRelatorio(it) || 1;
@@ -2616,7 +2615,13 @@ function buildReporList(){
   return Object.values(mapa).sort((a,b) => (b.total - a.total) || a.ferramenta.localeCompare(b.ferramenta));
 }
 
+function buildReporList(){
+  if(!_teamInvCache || !Array.isArray(_teamInvCache.teamItems)) return [];
+  return buildReporFromTeamItems(_teamInvCache.teamItems);
+}
+
 function openReporModal(){
+  if(!_teamInvCache){ openTeamInv(); }
   const lista = buildReporList();
   const sup = (_teamInvCache && _teamInvCache.sup) || localStorage.getItem('lm_cursup') || 'Equipe';
   const totalFerr = lista.length;
@@ -4691,7 +4696,7 @@ function buildResumoSheet(histDoSup, techsDoSup){
     {label:'DANIFICADAS', val:totalDanif, bg:'FFF2CC', color:'E67E00', head:'E67E00'},
     {label:'PERDIDAS', val:totalPerdido, bg:'F8D7DA', color:'E9272E', head:'E9272E'},
     {label:'NÃO RECEBIDAS', val:totalNaoRec, bg:'F4F4F4', color:'475569', head:'475569'},
-    {label:'OCORRÊNCIAS TOTAIS', val:totalOcor, bg:'D9E8FF', color:'2563EB', head:'2563EB'},
+    {label:'A REPOR', val:totalOcor, bg:'FFF7CC', color:'B77900', head:'F5C518'},
   ];
   cardData.forEach((k,idx)=>{
     const c1 = idx===0?0:idx===1?2:idx===2?4:idx===3?6:7;
@@ -4713,7 +4718,7 @@ function buildResumoSheet(histDoSup, techsDoSup){
   for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:XC.branco,noBorder:true}));
   setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
 
-  const hdr = ['TÉCNICO','DATA','LOCAL','EM USO','DANIF.','PERDIDO','OCORR.','SITUAÇÃO'];
+  const hdr = ['TÉCNICO','DATA','LOCAL','EM USO','DANIF.','PERDIDO','A REPOR','SITUAÇÃO'];
   hdr.forEach((h,c)=> setCell(ws,r,c,h,xStyle({bold:true,sz:10,color:XC.branco,bg:'1B2E4A',center:true,borderStyle:'thin',borderColor:'000000'})) );
   autoFilter(ws,r,0,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
 
@@ -4729,7 +4734,7 @@ function buildResumoSheet(histDoSup, techsDoSup){
     setCell(ws,r,3, row.emUso||'', xStyle({sz:10,bold:row.emUso>0,color:row.emUso>0?'0BAA42':'888888',bg:z,center:true,...brd}));
     setCell(ws,r,4, row.danif||'', xStyle({sz:10,bold:row.danif>0,color:row.danif>0?'E67E00':'888888',bg:z,center:true,...brd}));
     setCell(ws,r,5, row.perdido||'', xStyle({sz:10,bold:row.perdido>0,color:row.perdido>0?'E9272E':'888888',bg:z,center:true,...brd}));
-    setCell(ws,r,6, row.ocorr||'', xStyle({sz:10,bold:row.ocorr>0,color:row.ocorr>0?'E9272E':'111111',bg:z,center:true,...brd}));
+    setCell(ws,r,6, row.ocorr||'', xStyle({sz:10,bold:row.ocorr>0,color:row.ocorr>0?'B77900':'111111',bg:row.ocorr>0?'FFF7CC':z,center:true,...brd}));
     const sitBg = row.situacao==='BOM' ? 'D9F7E5' : row.situacao==='ATENÇÃO' ? 'FFF2CC' : row.situacao==='SEM INVENTÁRIO' ? 'E5E7EB' : 'F8D7DA';
     const sitColor = row.situacao==='BOM' ? '0BAA42' : row.situacao==='ATENÇÃO' ? 'E67E00' : row.situacao==='SEM INVENTÁRIO' ? '64748B' : 'E9272E';
     const sitTxt = row.situacao==='BOM' ? '✓  BOM' : row.situacao==='ATENÇÃO' ? '!  ATENÇÃO' : row.situacao==='SEM INVENTÁRIO' ? '—  SEM INV.' : '×  CRÍTICO';
@@ -4743,7 +4748,7 @@ function buildResumoSheet(histDoSup, techsDoSup){
   setCell(ws,r,3,totalEmUso,xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
   setCell(ws,r,4,totalDanif||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
   setCell(ws,r,5,totalPerdido||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
-  setCell(ws,r,6,totalOcor||'',xStyle({bold:true,sz:10,color:XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
+  setCell(ws,r,6,totalOcor?('🛒 '+totalOcor):'',xStyle({bold:true,sz:10,color:totalOcor?'FFD966':XC.branco,bg:'0B1B2B',center:true,borderStyle:'thin',borderColor:'000000'}));
   setCell(ws,r,7,'',xStyle({bg:'0B1B2B',borderStyle:'thin',borderColor:'000000'}));
   ws['!rows'].push({hpt:22}); r++;
 
@@ -4828,6 +4833,79 @@ function buildOcorrSheet(histDoSup, techsDoSup){
   return ws;
 }
 
+
+
+// ── ABA REPOSIÇÃO ─────────────────────────────────────────────────────
+function buildReporDataForExport(histDoSup, techsDoSup){
+  const latestItems = [];
+  (techsDoSup || []).forEach(tec => {
+    const ultimo = (histDoSup || [])
+      .filter(h => h.tec === tec)
+      .sort((a,b)=>(b.ts||0)-(a.ts||0) || (b.dt||'').localeCompare(a.dt||''))[0];
+    if(!ultimo) return;
+    (ultimo.invRows || []).forEach(row => {
+      latestItems.push({
+        ...row,
+        nome: row.nome,
+        tecnico: tec,
+        status: row.status === 'NÃO RECEBEU' ? 'Não Recebeu' : row.status
+      });
+    });
+  });
+  return buildReporFromTeamItems(latestItems);
+}
+
+function buildReporSheet(histDoSup, techsDoSup){
+  const lista = buildReporDataForExport(histDoSup, techsDoSup);
+  const sup = localStorage.getItem('lm_cursup') || '';
+  const ws = {'!cols':[{wch:36},{wch:14},{wch:13},{wch:12},{wch:14},{wch:52}], '!rows':[]};
+  let r = 0;
+  const NCOLS = 6;
+  const total = lista.reduce((a,x)=>a+x.total,0);
+
+  setCell(ws,r,0,'LISTA DE REPOSIÇÃO  —  COMPRAR FERRAMENTAS', xStyle({bold:true,sz:16,color:XC.preto,bg:'F5C518',center:true,noBorder:true}));
+  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'F5C518',noBorder:true}));
+  setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:34}); r++;
+
+  setCell(ws,r,0,`Supervisor: ${sup || '—'}  ·  Total a comprar: ${total} item(ns)`, xStyle({sz:10,bold:true,color:'7A4A00',bg:'FFF7CC',center:true,noBorder:true}));
+  for(let c=1;c<NCOLS;c++) setCell(ws,r,c,'',xStyle({bg:'FFF7CC',noBorder:true}));
+  setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:18}); r++;
+
+  ws['!rows'].push({hpt:8}); r++;
+  const hdr = ['FERRAMENTA','QTD. COMPRAR','DANIFICADO','PERDIDO','NÃO RECEBEU','TÉCNICOS / MOTIVO'];
+  hdr.forEach((h,c)=>setCell(ws,r,c,h,xStyle({bold:true,sz:10,color:XC.preto,bg:'FFD966',center:c>0,borderStyle:'thin',borderColor:'A16207'})));
+  autoFilter(ws,r,0,NCOLS-1); ws['!rows'].push({hpt:22}); r++;
+
+  if(!lista.length){
+    setCell(ws,r,0,'Nenhuma ferramenta precisa de reposição no momento.',xStyle({sz:11,bold:true,color:XC.verdeEscuro,bg:XC.verdeClaro,center:true,noBorder:true}));
+    setRange(ws,r,0,r,NCOLS-1); ws['!rows'].push({hpt:26}); r++;
+  } else {
+    lista.forEach((item,i)=>{
+      const z = i%2===0 ? XC.branco : 'FFFDF0';
+      const brd = {borderStyle:'thin',borderColor:'E5D28A'};
+      const detalhes = (item.detalhes||[]).map(d => `${primeiroNome(d.tecnico)}: ${d.status}`).join(' | ');
+      setCell(ws,r,0,cleanStr(item.ferramenta),xStyle({sz:10,bold:true,color:'111111',bg:z,...brd}));
+      setCell(ws,r,1,item.total,xStyle({sz:12,bold:true,color:'B77900',bg:'FFF7CC',center:true,...brd}));
+      setCell(ws,r,2,item.danificado||'',xStyle({sz:10,color:item.danificado?'E67E00':'888888',bg:z,center:true,...brd}));
+      setCell(ws,r,3,item.perdido||'',xStyle({sz:10,color:item.perdido?'E9272E':'888888',bg:z,center:true,...brd}));
+      setCell(ws,r,4,item.naoRecebeu||'',xStyle({sz:10,color:item.naoRecebeu?'475569':'888888',bg:z,center:true,...brd}));
+      setCell(ws,r,5,detalhes,xStyle({sz:9,color:'475569',bg:z,wrap:true,...brd}));
+      ws['!rows'].push({hpt:22}); r++;
+    });
+    setCell(ws,r,0,'TOTAL GERAL',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',borderStyle:'thin',borderColor:'A16207'}));
+    setCell(ws,r,1,total,xStyle({bold:true,sz:12,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
+    setCell(ws,r,2,lista.reduce((a,x)=>a+x.danificado,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
+    setCell(ws,r,3,lista.reduce((a,x)=>a+x.perdido,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
+    setCell(ws,r,4,lista.reduce((a,x)=>a+x.naoRecebeu,0)||'',xStyle({bold:true,sz:10,color:XC.preto,bg:'F5C518',center:true,borderStyle:'thin',borderColor:'A16207'}));
+    setCell(ws,r,5,'',xStyle({bg:'F5C518',borderStyle:'thin',borderColor:'A16207'}));
+    ws['!rows'].push({hpt:24}); r++;
+  }
+
+  ws['!freeze'] = {xSplit:0, ySplit:4};
+  buildRef(ws);
+  return ws;
+}
+
 // ── EXPORT INVENTÁRIO DA EQUIPE ───────────────────────────────────────
 function exportTeamCSV(){
   if(!window.XLSX){ toast('Biblioteca de exportacao nao carregada. Recarregue a pagina.','error'); return; }
@@ -4855,6 +4933,10 @@ function exportTeamCSV(){
     const tab = sheetNameForTech(tec);
     XLSX_LIB.utils.book_append_sheet(wb, ws, tab);
   });
+
+  // Aba reposição — lista rápida do que precisa comprar
+  const wsRep = buildReporSheet(histDoSup, techsDoSup);
+  XLSX_LIB.utils.book_append_sheet(wb, wsRep, 'REPOSICAO');
 
   // Aba ocorrências
   const wsOco = buildOcorrSheet(histDoSup, techsDoSup);
