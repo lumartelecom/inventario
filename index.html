@@ -42,15 +42,10 @@ body{font-family:'Barlow',sans-serif;background:var(--navy);color:var(--light);m
 header{background:linear-gradient(135deg,#06101f,#0f2045 60%,#0a1628);border-bottom:2px solid var(--cyan);padding:0 20px;display:grid;grid-template-columns:1fr auto 1fr;grid-template-areas:"left center right";align-items:center;gap:16px;min-height:80px;position:relative;overflow:hidden}
 header::before{content:'';position:absolute;top:-40px;right:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,194,224,0.12) 0%,transparent 70%);pointer-events:none}
 .logo-area{display:flex;align-items:center;gap:10px;justify-content:center;grid-area:center}
-.logo-box{width:52px;height:52px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:#fff;cursor:pointer;position:relative;overflow:hidden;border:2px dashed rgba(255,255,255,0.2);transition:border-color .2s;flex-shrink:0}
-.logo-box:hover{border-color:var(--cyan)}
-.logo-box img{width:100%;height:100%;object-fit:contain;border-radius:8px}
-.logo-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);font-size:7px;text-align:center;padding:1px 0}
-#logoInput{display:none}
 .htitles h1{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:1px;color:#fff;line-height:1;text-transform:uppercase}
 .htitles h1 span{color:var(--cyan)}
 .htitles p{font-size:10px;font-weight:500;color:var(--mid);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
-/* Centro do header — removido, logo centralizada */
+/* Centro do header — somente nome */
 .hcenter{display:none}
 .sup-block{display:flex;align-items:center;gap:8px;background:rgba(0,194,224,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px}
 .sup-block label{font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
@@ -325,8 +320,6 @@ tbody td{padding:10px 13px;vertical-align:middle}
     justify-content:flex-start;
     gap:8px;
   }
-  .logo-box{width:36px;height:36px;font-size:13px;border-radius:8px}
-  .logo-hint{display:none}
   .htitles h1{font-size:15px;letter-spacing:0.5px}
   .htitles p{display:none}                  /* esconde subtítulo */
   .hcenter{display:none}                    /* esconde sup do centro */
@@ -529,17 +522,22 @@ tr.inv-hidden{display:none}
 }
 
 /* VISTORIA VEICULAR */
-.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px}
+.vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:14px 16px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;min-width:0}
 .vehicle-card:hover{border-color:rgba(0,194,224,.55);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
-.vehicle-card h3{font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.5px;margin-bottom:6px;color:#fff}
-.vehicle-card p{font-size:12px;color:var(--mid);margin:3px 0}
+.vehicle-card.stack:before,.vehicle-card.stack:after{content:'';position:absolute;inset:7px -5px -5px 7px;border:1px solid rgba(0,194,224,.12);border-radius:8px;background:rgba(255,255,255,.025);z-index:-1}
+.vehicle-card.stack:after{inset:12px -10px -10px 12px;opacity:.7}
+.vehicle-card h3{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.4px;margin-bottom:5px;color:#fff;line-height:1.15;overflow-wrap:anywhere;max-width:100%}
+.vehicle-card p{font-size:11px;color:var(--mid);margin:2px 0}
 .vehicle-card strong{color:#fff;font-weight:700}
-.vehicle-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.vehicle-ico{width:40px;height:40px;border-radius:8px;background:rgba(0,194,224,.12);border:1px solid rgba(0,194,224,.35);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
+.vehicle-top{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:12px;align-items:flex-start}
+.vehicle-ico{width:34px;height:34px;border-radius:8px;background:rgba(0,194,224,.12);border:1px solid rgba(0,194,224,.35);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
 .vehicle-status{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}
 .vehicle-status.ok{color:var(--green);background:rgba(24,201,106,.1);border:1px solid rgba(24,201,106,.32)}
 .vehicle-status.warn{color:#f5c518;background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.32)}
+.vehicle-history-chip{display:inline-flex;align-items:center;margin-top:7px;padding:3px 7px;border-radius:999px;border:1px solid rgba(0,194,224,.28);color:var(--cyan);background:rgba(0,194,224,.08);font-size:10px;font-weight:800;letter-spacing:.5px}
+.vehicle-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;margin-top:12px}
+.vehicle-actions .btn{width:100%;justify-content:center;padding-left:8px;padding-right:8px}
 .vehicle-form-section{border:1px solid var(--border);border-radius:8px;margin-top:12px;overflow:hidden}
 .vehicle-form-title{background:rgba(26,79,214,.18);padding:9px 12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-weight:700}
 .vehicle-check-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -598,19 +596,6 @@ tr.inv-hidden{display:none}
           <button class="btn btn-ghost btn-sm" onclick="openBackupModal()" title="Ver e restaurar backups salvos na nuvem">🕘 Restaurar Nuvem</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importBackupIn').click()" title="Restaurar dados de um arquivo .json">📥 Importar</button>
           <button class="btn btn-ghost btn-sm" onclick="closeAdminModal();openAuditModal()" style="color:#f5c518;border-color:rgba(245,197,24,0.4)" title="Log de auditoria">🔍 Auditoria</button>
-        </div>
-      </div>
-
-      <!-- Logo -->
-      <div>
-        <label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--cyan);text-transform:uppercase;display:block;margin-bottom:8px">🖼️ Logo do Sistema</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div id="adminLogoPreview" style="width:56px;height:56px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:22px">🏢</div>
-          <div>
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('adminLogoIn').click()">📁 Alterar Logo</button>
-            <input type="file" id="adminLogoIn" accept="image/*" style="display:none" onchange="previewAdminLogo(this)">
-            <button class="btn btn-ghost btn-sm" onclick="removeAdminLogo()" style="margin-top:4px;color:var(--red);border-color:var(--red)">🗑 Remover</button>
-          </div>
         </div>
       </div>
 
@@ -714,23 +699,56 @@ function _getCreds() {
 function supervisorValido(nome){
   return !!String(nome||'').trim() && String(nome||'').trim().toLowerCase() !== 'teste';
 }
+function supKey(nome){
+  const n = String(nome || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+  if(n === 'marcelo lima') return 'marcelo';
+  return n;
+}
+function normalizeSupList(list){
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach(nome => {
+    nome = String(nome || '').trim();
+    if(!supervisorValido(nome)) return;
+    const key = supKey(nome);
+    const existingIndex = out.findIndex(x => supKey(x) === key);
+    if(existingIndex < 0) out.push(nome);
+    else if(out[existingIndex].length > nome.length) out[existingIndex] = nome;
+  });
+  return out;
+}
+function normalizeSupervisorCreds(list){
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach(s => {
+    if(!s || !supervisorValido(s.nome)) return;
+    const nome = String(s.nome || '').trim();
+    const key = supKey(nome);
+    const existing = out.find(x => supKey(x.nome) === key);
+    if(existing){
+      if(s.senha) existing.senha = s.senha;
+      if(existing.nome.length > nome.length) existing.nome = nome;
+    } else {
+      out.push({ nome, senha: s.senha || '' });
+    }
+  });
+  return out;
+}
 function limparSupervisorTeste(){
   try {
     const raw = localStorage.getItem('lm_creds');
     if(raw){
       const c = JSON.parse(raw);
       if(Array.isArray(c.supervisores)){
-        c.supervisores = c.supervisores.filter(s => supervisorValido(s.nome));
+        c.supervisores = normalizeSupervisorCreds(c.supervisores);
         localStorage.setItem('lm_creds', JSON.stringify(c));
       }
     }
-    if(Array.isArray(window.sups)){ window.sups = window.sups.filter(supervisorValido); }
+    if(Array.isArray(window.sups)){ window.sups = normalizeSupList(window.sups); sups = window.sups; }
     if(Array.isArray(window.techs)){ window.techs.forEach(t => { if(!supervisorValido(t.sup)) t.sup = ''; }); }
   } catch(e){}
 }
 function _saveCreds(creds) {
   if(creds && Array.isArray(creds.supervisores)){
-    creds.supervisores = creds.supervisores.filter(s => supervisorValido(s.nome));
+    creds.supervisores = normalizeSupervisorCreds(creds.supervisores);
   }
   localStorage.setItem('lm_creds', JSON.stringify(creds));
 }
@@ -742,7 +760,7 @@ function _mergeCreds(base, incoming) {
   };
   const add = s => {
     if(!s || !supervisorValido(s.nome)) return;
-    const found = merged.supervisores.find(x => x.nome === s.nome);
+    const found = merged.supervisores.find(x => supKey(x.nome) === supKey(s.nome));
     if(found){ if(s.senha) found.senha = s.senha; }
     else merged.supervisores.push({ nome: s.nome, senha: s.senha || '' });
   };
@@ -755,12 +773,7 @@ function applyCloudCreds(creds) {
   _saveCreds(_mergeCreds(_getCreds(), creds));
 }
 function mergeSupList(incoming) {
-  const merged = [];
-  [...(Array.isArray(sups) ? sups : []), ...(Array.isArray(incoming) ? incoming : [])].forEach(nome => {
-    nome = String(nome || '').trim();
-    if(supervisorValido(nome) && !merged.includes(nome)) merged.push(nome);
-  });
-  return merged;
+  return normalizeSupList([...(Array.isArray(sups) ? sups : []), ...(Array.isArray(incoming) ? incoming : [])]);
 }
 
 function doLogin() {
@@ -947,12 +960,6 @@ function doLogout() {
 
 // ── PAINEL ADMIN ──────────────────────────────────────────────────────
 function openAdminModal() {
-  // Carrega logo atual
-  const logo = localStorage.getItem('lm_logo');
-  const prev = document.getElementById('adminLogoPreview');
-  if (logo) prev.innerHTML = `<img src="${logo}" style="width:100%;height:100%;object-fit:cover">`;
-  else prev.innerHTML = '🏢';
-
   // Nome atual
   document.getElementById('adminSysName1').value = localStorage.getItem('lm_sysname1') || 'Lumar';
   document.getElementById('adminSysName2').value = localStorage.getItem('lm_sysname2') || 'Telecom';
@@ -1053,12 +1060,13 @@ function addSupAdmin() {
   if (!nome || !senha) { toast('Preencha nome e senha', 'warn'); return; }
   if (!supervisorValido(nome)) { toast('Nome de supervisor reservado/removido. Use outro nome.', 'warn'); return; }
   const creds = _getCreds();
-  if (creds.supervisores.find(s => s.nome === nome)) { toast('Supervisor já existe', 'warn'); return; }
+  if (creds.supervisores.find(s => supKey(s.nome) === supKey(nome))) { toast('Supervisor já existe', 'warn'); return; }
   creds.supervisores.push({ nome, senha });
   _saveCreds(creds);
   // Adiciona também na lista de supervisores do sistema e persiste em todos os armazenamentos.
   if (!Array.isArray(window.sups)) window.sups = [];
-  if (!sups.includes(nome)) sups.push(nome);
+  if (!sups.some(s => supKey(s) === supKey(nome))) sups.push(nome);
+  sups = normalizeSupList(sups);
   save();
   if (typeof idbSave === 'function' && _idb) idbSave(['sups']).catch(()=>{});
   if (typeof cloudSave === 'function') cloudSave(true);
@@ -1080,32 +1088,13 @@ function saveAdminPass() {
 }
 
 function previewAdminLogo(inp) {
-  const file = inp.files[0]; if (!file) return;
-  const applyLogo = dataUrl => {
-    localStorage.setItem('lm_logo', dataUrl);
-    document.getElementById('adminLogoPreview').innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
-    const logoEl = document.getElementById('headerLogo');
-    if (logoEl) { logoEl.src = dataUrl; logoEl.style.display = 'block'; }
-    const logoWrap = document.getElementById('headerLogoWrap');
-    if (logoWrap) logoWrap.style.display = 'flex';
-    cloudSave(true);
-    toast('✅ Logo atualizado!', 'success');
-  };
-  if (typeof compressImage === 'function') compressImage(file, applyLogo);
-  else {
-    const reader = new FileReader();
-    reader.onload = e => applyLogo(e.target.result);
-    reader.readAsDataURL(file);
-  }
+  removeAdminLogo();
 }
 
 function removeAdminLogo() {
   localStorage.removeItem('lm_logo');
-  document.getElementById('adminLogoPreview').innerHTML = '🏢';
-  const logoWrap = document.getElementById('headerLogoWrap');
-  if (logoWrap) logoWrap.style.display = 'none';
   cloudSave(true);
-  toast('Logo removido', 'info');
+  toast('Imagem removida. O cabeçalho usa somente o nome.', 'info');
 }
 
 function saveAdminSysName() {
@@ -1174,15 +1163,8 @@ setInterval(_updateOfflineBanner, 5000);
     </div>
   </div>
 
-  <!-- CENTRO: Logo + Nome -->
+  <!-- CENTRO: Nome -->
   <div class="logo-area">
-    <div class="logo-box" id="headerLogoWrap" onclick="if(sessionStorage.getItem('lm_role')==='admin')document.getElementById('adminLogoIn').click()">
-      <span id="logoText">LT</span>
-      <img id="logoImg" src="" alt="" style="display:none">
-      <img id="headerLogo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
-      <div class="logo-hint">LOGO</div>
-    </div>
-    <input type="file" id="logoInput" accept="image/*">
     <div class="htitles">
       <h1 id="headerSysName">Lumar <span>Telecom</span></h1>
       <p>Gestão de Ferramental</p>
@@ -1357,6 +1339,17 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="modal" style="max-width:980px">
     <button class="modal-close" onclick="closeVehicleModal()">&times;</button>
     <h2 id="vehicleMTitle">Nova Vistoria Veicular</h2>
+    <div class="vehicle-form-section" style="margin-top:0;margin-bottom:12px">
+      <div class="vehicle-form-title">Fotos da Vistoria</div>
+      <div style="padding:10px">
+        <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--light);margin-bottom:8px">
+          <input type="checkbox" id="vNoPhoto" onchange="renderVehiclePP()"> Sem nova foto necessaria nesta vistoria
+        </label>
+        <input type="file" id="vehicleFotoIn" accept="image/*" capture="environment" multiple style="display:none" onchange="prevVehiclePhotos(this)">
+        <div class="pp" id="vehiclePP" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+        <div class="pp-count" id="vehiclePPCount">0 / 5 fotos</div>
+      </div>
+    </div>
     <div class="fg">
       <div><label>Empresa</label><input type="text" id="vEmpresa" value="Lumar Telecom"></div>
       <div><label>Respons&aacute;vel pela vistoria</label><input type="text" id="vResp"></div>
@@ -1378,12 +1371,6 @@ setInterval(_updateOfflineBanner, 5000);
       <div class="full"><label>Observa&ccedil;&otilde;es Gerais</label><textarea id="vObsGerais" rows="4" placeholder="Observa&ccedil;&otilde;es da vistoria"></textarea></div>
       <div><label>Assinatura do respons&aacute;vel</label><input type="text" id="vAssResp"></div>
       <div><label>Assinatura do condutor</label><input type="text" id="vAssCond"></div>
-      <div class="full">
-        <label>Fotos da Vistoria <span style="color:var(--mid);font-size:9px;letter-spacing:1px">MAX. 5</span></label>
-        <input type="file" id="vehicleFotoIn" accept="image/*" capture="environment" multiple style="display:none" onchange="prevVehiclePhotos(this)">
-        <div class="pp" id="vehiclePP" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
-        <div class="pp-count" id="vehiclePPCount">0 / 5 fotos</div>
-      </div>
     </div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
@@ -1788,6 +1775,7 @@ async function idbLoadAll(){
   }
   const _oldSupsLen = sups.length;
   sups = (sups || []).filter(supervisorValido);
+  sups = normalizeSupList(sups);
   if (_oldSupsLen !== sups.length) {
     try { await idbSet('sups', sups); } catch(e) {}
   }
@@ -1919,17 +1907,7 @@ function openPrintWindow(bodyHtml, title){
 
 // ── INIT ─────────────────────────────────────────────────────────────
 document.getElementById('hdate').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-const sl = localStorage.getItem('lm_logo');
-if(sl){document.getElementById('logoImg').src=sl;document.getElementById('logoImg').style.display='block';document.getElementById('logoText').style.display='none';}
-document.getElementById('logoInput').addEventListener('change', function(e){
-  const f = e.target.files[0]; if(!f) return;
-  const r = new FileReader(); r.onload = d => {
-    document.getElementById('logoImg').src = d.target.result;
-    document.getElementById('logoImg').style.display = 'block';
-    document.getElementById('logoText').style.display = 'none';
-    localStorage.setItem('lm_logo', d.target.result);
-  }; r.readAsDataURL(f);
-});
+localStorage.removeItem('lm_logo');
 
 // ── BANCO PADRÃO ──────────────────────────────────────────────────────
 const defaultBanco = [
@@ -3064,7 +3042,12 @@ function renderSupSel(){
   const sel = document.getElementById('supSel');
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Selecione —</option>';
-  sups = (sups || []).filter(supervisorValido);
+  const before = JSON.stringify(sups || []);
+  sups = normalizeSupList(sups || []);
+  if(before !== JSON.stringify(sups)){
+    try { if(_idb && typeof idbSave === 'function') idbSave(['sups']).catch(()=>{}); } catch(e){}
+    try { if(typeof cloudSave === 'function') cloudSave(true); } catch(e){}
+  }
   sups.forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
   if(cur) sel.value = cur;
   // Sincroniza mobile
@@ -3112,6 +3095,7 @@ function updateSupBanner(value){
   const ico = bar ? bar.querySelector('.sb-ico') : null;
   if(!bar || !txt) return;
   if(value){
+    bar.style.display = '';
     bar.classList.remove('inactive');
     bar.classList.add('active');
     if(ico) ico.textContent = '👔';
@@ -3119,6 +3103,7 @@ function updateSupBanner(value){
       supBannerCounts(value) +
       ``;
   } else {
+    bar.style.display = 'none';
     bar.classList.remove('active');
     bar.classList.add('inactive');
     if(ico) ico.textContent = '⚠️';
@@ -3143,7 +3128,8 @@ function saveSup(){
   if(cred && senha) cred.senha = senha;
   if(!cred) creds.supervisores.push({ nome:n, senha });
   _saveCreds(creds);
-  if(!sups.includes(n)) sups.push(n);
+  if(!sups.some(s => supKey(s) === supKey(n))) sups.push(n);
+  sups = normalizeSupList(sups);
   save(); renderSupSel();
   if(typeof cloudSave === 'function') cloudSave(true);
   document.getElementById('supSel').value = n; onSupChange();
@@ -3283,38 +3269,40 @@ function renderVehicles(){
     .filter(v => !tecFilter || v.tec === tecFilter)
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   grid.innerHTML = '';
+  const groups = [];
+  const byTec = {};
   list.forEach(v => {
+    const key = v.tec || 'Condutor sem nome';
+    if(!byTec[key]){ byTec[key] = []; groups.push(byTec[key]); }
+    byTec[key].push(v);
+  });
+  groups.forEach(history => {
+    history.sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const v = history[0];
     const st = vehicleStatus(v);
-    const fotosHtml = v.fotos && v.fotos.length
-      ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' +
-        v.fotos.map((f, i) => f
-          ? `<a href="${escapeHtml(f)}" target="_blank" style="font-size:11px;color:var(--cyan);text-decoration:none;background:rgba(0,194,224,0.1);border:1px solid rgba(0,194,224,0.3);border-radius:4px;padding:3px 8px" onclick="event.stopPropagation()">📷 Foto ${i+1}</a>`
-          : ''
-        ).join('') + '</div>'
-      : '';
+    const canDeleteVehicle = currentRole() === 'admin';
     const d = document.createElement('div');
-    d.className = 'vehicle-card';
-    d.onclick = () => openVehicleModal(v.id);
+    d.className = 'vehicle-card' + (history.length > 1 ? ' stack' : '');
+    d.onclick = () => viewVehicle(v.id);
     d.innerHTML = `<div class="vehicle-top">
       <div>
         <h3>${escapeHtml(v.tec || 'Condutor')}</h3>
         <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
         <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
         ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
-        <span class="vehicle-status ${st.cls}">${st.label}</span>
-        ${fotosHtml}
+        <button class="vehicle-history-chip" onclick="event.stopPropagation();viewVehicleHistory('${escapeHtml(v.tec || '')}')">${history.length} vistoria${history.length!==1?'s':''}</button>
       </div>
       <div class="vehicle-ico">&#128663;</div>
     </div>
-    <div style="display:flex;gap:5px;margin-top:10px" onclick="event.stopPropagation()">
+    <div class="vehicle-actions" onclick="event.stopPropagation()">
+      <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Visualizar</button>
       <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>
-      <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${escapeHtml(v.id)}',event)">Excluir</button>
+      ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicle('${escapeHtml(v.id)}',event)">Excluir</button>` : ''}
     </div>`;
     grid.appendChild(d);
   });
   if(empty) empty.style.display = list.length ? 'none' : 'block';
-  if(count) count.textContent = `${list.length} vistoria${list.length!==1?'s':''}`;
+  if(count) count.textContent = `${groups.length} técnico${groups.length!==1?'s':''} · ${list.length} vistoria${list.length!==1?'s':''}`;
 }
 function renderVehicleChecklist(checks){
   const wrap = document.getElementById('vehicleChecklist');
@@ -3341,6 +3329,76 @@ function getVehicleChecklist(){
   });
   return checks;
 }
+function vehicleViewHtml(v){
+  const st = vehicleStatus(v);
+  const meta = [
+    ['Empresa', v.empresa || 'Lumar Telecom'],
+    ['Responsavel', v.resp || '-'],
+    ['Condutor', v.tec || '-'],
+    ['Supervisor', v.sup || '-'],
+    ['Data/Hora', `${fmtDate(v.data)}${v.hora ? ' - ' + v.hora : ''}`],
+    ['Local', v.local || '-'],
+    ['Marca / Modelo', v.modelo || '-'],
+    ['Placa', v.placa || '-'],
+    ['Ano / Cor', `${v.ano || '-'} / ${v.cor || '-'}`],
+    ['KM Atual', v.km || '-']
+  ];
+  const metaHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px">
+    ${meta.map(([k,val]) => `<div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:9px 10px"><div style="font-size:9px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;font-weight:800">${k}</div><div style="font-size:13px;color:#fff;font-weight:700;margin-top:3px">${escapeHtml(val)}</div></div>`).join('')}
+  </div>`;
+  const checksHtml = VEHICLE_SECTIONS.map(sec => `<div class="vehicle-form-section">
+    <div class="vehicle-form-title">${sec.title}</div>
+    <table class="vehicle-check-table"><thead><tr><th>Item</th><th style="width:140px">Status</th><th>Observacoes</th></tr></thead><tbody>
+      ${sec.items.map(item => {
+        const c = (v.checks || {})[item] || {};
+        return `<tr><td>${escapeHtml(item)}</td><td>${escapeHtml(c.status || '-')}</td><td>${escapeHtml(c.obs || '-')}</td></tr>`;
+      }).join('')}
+    </tbody></table>
+  </div>`).join('');
+  const fotosHtml = v.fotos && v.fotos.length
+    ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=>`<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`).join('')}</div></div>`
+    : '';
+  return `${metaHtml}<div style="margin:6px 0 12px"><span class="vehicle-status ${st.cls}">${st.label}</span></div>${checksHtml}
+    ${v.obsGerais ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes Gerais</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(v.obsGerais)}</div></div>` : ''}
+    ${fotosHtml}`;
+}
+function viewVehicle(id){
+  const v = vehicles.find(x => x.id === id);
+  if(!v) return;
+  document.getElementById('invToolsTitle').textContent = 'Vistoria Veicular - ' + (v.tec || 'Condutor');
+  document.getElementById('invToolsSubtitle').innerHTML = `${fmtDate(v.data)}${v.hora ? ' - ' + escapeHtml(v.hora) : ''}${v.placa ? ' · Placa ' + escapeHtml(v.placa) : ''}`;
+  document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto">${vehicleViewHtml(v)}</div>
+    <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button><button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button></div>`;
+  document.getElementById('invToolsModal').classList.add('open');
+}
+function viewVehicleHistory(tec){
+  const list = (vehicles || []).filter(v => (v.tec || '') === (tec || '')).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  if(!list.length) return;
+  document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + (tec || 'Condutor');
+  document.getElementById('invToolsSubtitle').innerHTML = `${list.length} vistoria${list.length!==1?'s':''} registrada${list.length!==1?'s':''}`;
+  document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+    ${list.map(v => {
+      const st = vehicleStatus(v);
+      return `<div class="vehicle-card" style="cursor:default;padding:10px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div>
+            <h3 style="font-size:16px;margin-bottom:3px">${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}</h3>
+            <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
+            ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
+            <span class="vehicle-status ${st.cls}">${st.label}</span>
+            ${v.semNovaFoto ? '<span class="vehicle-history-chip" style="margin-left:6px">Sem nova foto</span>' : ''}
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Ver</button>
+            <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>
+            <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+  document.getElementById('invToolsModal').classList.add('open');
+}
 const VEHICLE_MAX_FOTOS = 5;
 function prevVehiclePhotos(inp){
   const files = Array.from(inp.files || []);
@@ -3361,6 +3419,7 @@ function prevVehiclePhotos(inp){
 function renderVehiclePP(){
   const el = document.getElementById('vehiclePP');
   const count = document.getElementById('vehiclePPCount');
+  const noPhoto = document.getElementById('vNoPhoto');
   if(!el) return;
   el.innerHTML = '';
   pendingVehiclePh.forEach((src, idx) => {
@@ -3378,14 +3437,16 @@ function renderVehiclePP(){
     wrap.appendChild(del);
     el.appendChild(wrap);
   });
-  if(pendingVehiclePh.length < VEHICLE_MAX_FOTOS){
+  if(pendingVehiclePh.length < VEHICLE_MAX_FOTOS && !(noPhoto && noPhoto.checked && pendingVehiclePh.length === 0)){
     const add = document.createElement('div');
     add.className = 'pp-add';
     add.innerHTML = '<span style="font-size:24px">📷</span><span>Adicionar</span>';
     add.onclick = () => document.getElementById('vehicleFotoIn').click();
     el.appendChild(add);
   }
-  if(count) count.textContent = pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
+  if(count) count.textContent = (noPhoto && noPhoto.checked && pendingVehiclePh.length === 0)
+    ? 'Sem nova foto marcado'
+    : pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
 }
 function openVehicleModal(id=null){
   editingVehicleId = id;
@@ -3401,6 +3462,8 @@ function openVehicleModal(id=null){
   const today = new Date();
   const curSup = localStorage.getItem('lm_cursup') || '';
   ['vResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
+  const noPhotoEl = document.getElementById('vNoPhoto');
+  if(noPhotoEl) noPhotoEl.checked = false;
   document.getElementById('vEmpresa').value = 'Lumar Telecom';
   document.getElementById('vData').value = today.toISOString().slice(0,10);
   document.getElementById('vHora').value = today.toTimeString().slice(0,5);
@@ -3424,6 +3487,7 @@ function openVehicleModal(id=null){
     document.getElementById('vObsGerais').value = v.obsGerais || '';
     document.getElementById('vAssResp').value = v.assResp || '';
     document.getElementById('vAssCond').value = v.assCond || '';
+    if(noPhotoEl) noPhotoEl.checked = !!v.semNovaFoto;
     pendingVehiclePh = Array.isArray(v.fotos) ? [...v.fotos] : [];
     renderVehicleChecklist(v.checks);
     renderVehiclePP();
@@ -3439,6 +3503,11 @@ function closeVehicleModal(){ document.getElementById('vehicleModal').classList.
 async function saveVehicle(){
   const tec = document.getElementById('vTec').value;
   if(!tec){ alert('Selecione o motorista/condutor.'); return; }
+  const semNovaFoto = !!document.getElementById('vNoPhoto')?.checked;
+  if(!pendingVehiclePh.length && !semNovaFoto){
+    alert('Adicione pelo menos uma foto ou marque "Sem nova foto necessaria nesta vistoria".');
+    return;
+  }
   const vehicleId = editingVehicleId || 'veh_' + Date.now();
   let fotosFinais = [...pendingVehiclePh];
   const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
@@ -3478,6 +3547,7 @@ async function saveVehicle(){
     km: document.getElementById('vKm').value.trim(),
     checks: getVehicleChecklist(),
     fotos: fotosFinais,
+    semNovaFoto,
     obsGerais: document.getElementById('vObsGerais').value.trim(),
     assResp: document.getElementById('vAssResp').value.trim(),
     assCond: document.getElementById('vAssCond').value.trim()
@@ -3489,6 +3559,7 @@ async function saveVehicle(){
 }
 function deleteVehicle(id,e){
   if(e) e.stopPropagation();
+  if(currentRole() !== 'admin'){ toast('Somente o admin pode excluir vistorias.', 'warn'); return; }
   if(!confirm('Remover esta vistoria veicular?')) return;
   const v = vehicles.find(x => x.id === id);
   vehicles = vehicles.filter(x => x.id !== id);
@@ -6478,14 +6549,8 @@ async function bootApp(){
   renderVehicles();
   renderBanco();
 
-  // Carrega logo e nome do sistema salvos
-  const _savedLogo = localStorage.getItem('lm_logo');
-  if (_savedLogo) {
-    const hLogo = document.getElementById('headerLogo');
-    const logoText = document.getElementById('logoText');
-    if (hLogo) { hLogo.src = _savedLogo; hLogo.style.display = 'block'; }
-    if (logoText) logoText.style.display = 'none';
-  }
+  // Carrega nome do sistema salvo
+  localStorage.removeItem('lm_logo');
   const _savedName1 = localStorage.getItem('lm_sysname1');
   const _savedName2 = localStorage.getItem('lm_sysname2');
   if (_savedName1) {
