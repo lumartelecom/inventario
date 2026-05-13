@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -528,6 +528,26 @@ tr.inv-hidden{display:none}
   .repor-table{min-width:360px}
 }
 
+/* VISTORIA VEICULAR */
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.vehicle-card:hover{border-color:rgba(0,194,224,.55);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
+.vehicle-card h3{font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.5px;margin-bottom:6px;color:#fff}
+.vehicle-card p{font-size:12px;color:var(--mid);margin:3px 0}
+.vehicle-card strong{color:#fff;font-weight:700}
+.vehicle-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.vehicle-ico{width:40px;height:40px;border-radius:8px;background:rgba(0,194,224,.12);border:1px solid rgba(0,194,224,.35);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
+.vehicle-status{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}
+.vehicle-status.ok{color:var(--green);background:rgba(24,201,106,.1);border:1px solid rgba(24,201,106,.32)}
+.vehicle-status.warn{color:#f5c518;background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.32)}
+.vehicle-form-section{border:1px solid var(--border);border-radius:8px;margin-top:12px;overflow:hidden}
+.vehicle-form-title{background:rgba(26,79,214,.18);padding:9px 12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.vehicle-check-table{width:100%;border-collapse:collapse;font-size:12px}
+.vehicle-check-table th{background:rgba(255,255,255,.04);color:var(--cyan);font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:8px;text-align:left}
+.vehicle-check-table td{padding:7px 8px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle}
+.vehicle-check-table select,.vehicle-check-table input{width:100%;min-width:0;font-size:12px;padding:6px 8px}
+.vehicle-check-table td:first-child{color:#fff;font-weight:600}
+
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -664,6 +684,7 @@ tr.inv-hidden{display:none}
 function _getCreds() {
   const def = {
     adminPass: 'admin@2026',
+    vehiclePass: 'veiculos@2026',
     supervisores: [
       { nome: 'Geovanio Junior', senha: 'geo@2026' },
       { nome: 'Cleiton Azevedo', senha: 'cleiton@2026' }
@@ -674,6 +695,7 @@ function _getCreds() {
     const saved = savedRaw ? JSON.parse(savedRaw) : {};
     const creds = {
       adminPass: saved.adminPass || def.adminPass,
+      vehiclePass: saved.vehiclePass || def.vehiclePass,
       supervisores: Array.isArray(saved.supervisores) ? saved.supervisores : def.supervisores.slice()
     };
     // Mantém compatibilidade: supervisores cadastrados no sistema também entram no painel de senha.
@@ -715,6 +737,7 @@ function _saveCreds(creds) {
 function _mergeCreds(base, incoming) {
   const merged = {
     adminPass: (incoming && incoming.adminPass) || (base && base.adminPass) || 'admin@2026',
+    vehiclePass: (incoming && incoming.vehiclePass) || (base && base.vehiclePass) || 'veiculos@2026',
     supervisores: []
   };
   const add = s => {
@@ -755,6 +778,16 @@ function doLogin() {
     return;
   }
 
+  // Senha exclusiva da aba Veículos
+  if (pass === creds.vehiclePass) {
+    sessionStorage.setItem('lm_auth', 'veiculos');
+    sessionStorage.setItem('lm_role', 'veiculos');
+    sessionStorage.removeItem('lm_sup_logado');
+    document.getElementById('loginScreen').style.display = 'none';
+    _applyRole('veiculos', null);
+    return;
+  }
+
   // Senha de supervisor
   const sup = creds.supervisores.find(s => s.senha === pass);
   if (sup) {
@@ -784,6 +817,7 @@ function _applyRole(role, supNome) {
   const supBlockAdmin = document.getElementById('supBlockAdmin');
   const mobileBar     = document.getElementById('mobileSupBar');
   const isMobile      = window.innerWidth <= 700;
+  applyTabVisibilityForRole(role);
 
   if (role === 'admin') {
     // Admin: seletor visível (desktop no hleft, mobile na barra)
@@ -827,12 +861,49 @@ function _applyRole(role, supNome) {
       btnSupLogado.title = 'Supervisor: ' + supNome;
     }
     if (badge) badge.style.display = 'none';
+  } else if (role === 'veiculos') {
+    // Login dedicado: somente a aba Veículos, mas com supervisores/técnicos liberados nos filtros.
+    if (supBlockAdmin) supBlockAdmin.style.display = 'none';
+    if (mobileBar)     mobileBar.style.display     = 'none';
+    if (btnAdmin)      btnAdmin.style.display       = 'none';
+    if (btnBackupPanel) btnBackupPanel.style.display = 'none';
+    if (btnNovoSup)    btnNovoSup.style.display     = 'none';
+    if (btnNovoSupMob) btnNovoSupMob.style.display  = 'none';
+    if (btnBackupMobile) btnBackupMobile.style.display = 'none';
+    if (btnSupLogado)  btnSupLogado.style.display   = 'none';
+    if (sel) { sel.value = ''; sel.disabled = false; }
+    localStorage.setItem('lm_cursup', '');
+    if (typeof updateSupBanner === 'function') updateSupBanner('');
+    if (badge) {
+      badge.textContent = '🚗 Veículos';
+      badge.style.display = 'inline-flex';
+      badge.style.background = 'rgba(0,194,224,0.12)';
+      badge.style.color = 'var(--cyan)';
+      badge.style.border = '1px solid rgba(0,194,224,0.35)';
+    }
+    if (typeof showTab === 'function') showTab('veiculos', null);
   }
 
   // Botão logout sempre visível após login
   if (btnLogout) {
     btnLogout.style.display = 'inline-flex';
-    btnLogout.title = role === 'admin' ? '⚙️ Admin — Clique para sair' : '👔 ' + supNome + ' — Clique para sair';
+    btnLogout.title = role === 'admin' ? '⚙️ Admin — Clique para sair' : role === 'veiculos' ? '🚗 Veículos — Clique para sair' : '👔 ' + supNome + ' — Clique para sair';
+  }
+}
+
+function applyTabVisibilityForRole(role){
+  const dashboard = document.getElementById('dashboard');
+  const searchRow = document.querySelector('.hsearch-row');
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const tab = btn.getAttribute('data-tab') || (btn.getAttribute('onclick') || '').match(/showTab\('([^']+)'/)?.[1] || '';
+    if(role === 'veiculos') btn.style.display = tab === 'veiculos' ? '' : 'none';
+    else if(role === 'supervisor') btn.style.display = tab === 'veiculos' ? 'none' : '';
+    else btn.style.display = '';
+  });
+  if(dashboard) dashboard.style.display = role === 'veiculos' ? 'none' : '';
+  if(searchRow) searchRow.style.display = role === 'veiculos' ? 'none' : '';
+  if(role === 'supervisor' && document.getElementById('tab-veiculos')?.classList.contains('active')){
+    showTab('tecnicos', null);
   }
 }
 
@@ -859,6 +930,7 @@ function doLogout() {
   if (btnNovoSup)    btnNovoSup.style.display    = 'none';
   if (btnSupLogado)  btnSupLogado.style.display  = 'none';
   if (supBlockAdmin) supBlockAdmin.style.display = 'none';
+  applyTabVisibilityForRole('');
   // Mostra tela de login
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('loginPass').value = '';
@@ -918,6 +990,17 @@ function renderAdminSupList() {
       </div>
       <button class="btn btn-cyan btn-sm" onclick="saveAdminPassDirect()" style="font-size:10px;padding:4px 8px">💾</button>
     </div>
+  </div>
+  <div style="margin-top:6px;padding:10px 12px;background:rgba(0,194,224,0.05);border:1px solid rgba(0,194,224,0.15);border-radius:8px">
+    <div style="font-size:10px;color:var(--mid);margin-bottom:6px;font-weight:600;letter-spacing:1px">🚗 SENHA VEÍCULOS</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="position:relative;flex:1;display:flex;align-items:center">
+        <input type="password" id="vehiclePassShow" value="${creds.vehiclePass || ''}"
+          style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--cyan);font-size:12px;padding:6px 28px 6px 8px;outline:none;box-sizing:border-box">
+        <button onclick="togglePassVis('vehiclePassShow',this)" style="position:absolute;right:6px;background:none;border:none;color:var(--mid);cursor:pointer;font-size:13px;padding:0">👁</button>
+      </div>
+      <button class="btn btn-cyan btn-sm" onclick="saveVehiclePassDirect()" style="font-size:10px;padding:4px 8px">💾</button>
+    </div>
   </div>`;
 }
 
@@ -935,6 +1018,15 @@ function saveAdminPassDirect() {
   creds.adminPass = nova;
   _saveCreds(creds);
   toast('✅ Senha admin atualizada!', 'success');
+}
+
+function saveVehiclePassDirect() {
+  const nova = (document.getElementById('vehiclePassShow').value || '').trim();
+  if (!nova || nova.length < 4) { toast('Senha muito curta', 'warn'); return; }
+  const creds = _getCreds();
+  creds.vehiclePass = nova;
+  _saveCreds(creds);
+  toast('✅ Senha veículos atualizada!', 'success');
 }
 
 function updateSupPass(i) {
@@ -1164,6 +1256,9 @@ setInterval(_updateOfflineBanner, 5000);
   <button class="tab-btn" onclick="showTab('emprestimos',this)" data-tab="emprestimos">
     <span class="tab-ico">🔄</span>Empréstimos<span id="loanOverdueBadge" class="tab-badge" style="display:none">0</span>
   </button>
+  <button class="tab-btn" onclick="showTab('veiculos',this)" data-tab="veiculos">
+    <span class="tab-ico">&#128663;</span>Ve&iacute;culos
+  </button>
   <button class="tab-btn" onclick="showTab('banco',this)">
     <span class="tab-ico">🗄️</span>Ferramentas
   </button>
@@ -1219,6 +1314,22 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="empty" id="histEmpty" style="display:none"><span>📋</span><p>Nenhum inventário registrado.</p></div>
   </div>
 
+  <!-- VEICULOS -->
+  <div class="tab-panel" id="tab-veiculos">
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Nova Vistoria Veicular</button>
+      <select id="vehicleSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
+        <option value="">Todos os supervisores</option>
+      </select>
+      <select id="vehicleTecF" onchange="renderVehicles()" style="min-width:220px">
+        <option value="">Todos os t&eacute;cnicos</option>
+      </select>
+      <span id="vehicleCount" style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap"></span>
+    </div>
+    <div class="vehicle-grid" id="vehicleGrid"></div>
+    <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
+  </div>
+
   <!-- BANCO -->
   <div class="tab-panel" id="tab-banco">
     <div class="toolbar">
@@ -1240,6 +1351,46 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="empty" id="bancoEmpty" style="display:none"><span>🗄️</span><p>Banco vazio.</p></div>
   </div>
 </main>
+
+<!-- MODAL VISTORIA VEICULAR -->
+<div class="modal-ov" id="vehicleModal">
+  <div class="modal" style="max-width:980px">
+    <button class="modal-close" onclick="closeVehicleModal()">&times;</button>
+    <h2 id="vehicleMTitle">Nova Vistoria Veicular</h2>
+    <div class="fg">
+      <div><label>Empresa</label><input type="text" id="vEmpresa" value="Lumar Telecom"></div>
+      <div><label>Respons&aacute;vel pela vistoria</label><input type="text" id="vResp"></div>
+      <div><label>Motorista / Condutor *</label><select id="vTec"></select></div>
+      <div><label>Supervisor</label><select id="vSup"></select></div>
+      <div><label>Data</label><input type="date" id="vData"></div>
+      <div><label>Hora</label><input type="time" id="vHora"></div>
+      <div class="full"><label>Local</label><input type="text" id="vLocal"></div>
+      <div><label>Marca / Modelo</label><input type="text" id="vModelo"></div>
+      <div><label>Placa</label><input type="text" id="vPlaca" style="text-transform:uppercase"></div>
+      <div><label>Ano</label><input type="text" id="vAno"></div>
+      <div><label>Cor</label><input type="text" id="vCor"></div>
+      <div class="full"><label>KM Atual</label><input type="text" id="vKm"></div>
+    </div>
+
+    <div id="vehicleChecklist"></div>
+
+    <div class="fg" style="margin-top:12px">
+      <div class="full"><label>Observa&ccedil;&otilde;es Gerais</label><textarea id="vObsGerais" rows="4" placeholder="Observa&ccedil;&otilde;es da vistoria"></textarea></div>
+      <div><label>Assinatura do respons&aacute;vel</label><input type="text" id="vAssResp"></div>
+      <div><label>Assinatura do condutor</label><input type="text" id="vAssCond"></div>
+      <div class="full">
+        <label>Fotos da Vistoria <span style="color:var(--mid);font-size:9px;letter-spacing:1px">MAX. 5</span></label>
+        <input type="file" id="vehicleFotoIn" accept="image/*" capture="environment" multiple style="display:none" onchange="prevVehiclePhotos(this)">
+        <div class="pp" id="vehiclePP" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+        <div class="pp-count" id="vehiclePPCount">0 / 5 fotos</div>
+      </div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
+      <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Vistoria</button>
+    </div>
+  </div>
+</div>
 
 <div id="printArea"></div>
 
@@ -1562,10 +1713,10 @@ setInterval(_updateOfflineBanner, 5000);
 // Limpa items e hist antigos, mantém techs, sups, loans, banco
 let items = []; // sempre começa vazio — populado via inventário de campo
 // ── INDEXEDDB — armazenamento principal (sem limite de 5MB) ──────────
-let techs = [], loans = [], sups = [], hist = [], banco = [];
+let techs = [], loans = [], sups = [], hist = [], banco = [], vehicles = [];
 let _idb = null;
-const IDB_NAME = 'LumarDB', IDB_VER = 1;
-const IDB_STORES = ['techs','loans','sups','hist','banco','audit'];
+const IDB_NAME = 'LumarDB', IDB_VER = 2;
+const IDB_STORES = ['techs','loans','sups','hist','banco','audit','vehicles'];
 let audit = []; // log de auditoria
 
 function idbOpen(){
@@ -1609,7 +1760,7 @@ function idbSet(store, value){
 }
 
 async function idbLoadAll(){
-  const [t,l,s,h,b,a] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
+  const [t,l,s,h,b,a,v] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
   // Migração automática do localStorage (primeira execução)
   const lsTechs = localStorage.getItem('lm_techs');
   if(!t && lsTechs){
@@ -1619,16 +1770,17 @@ async function idbLoadAll(){
     sups  = JSON.parse(localStorage.getItem('lm_sups')  || '[]');
     hist  = JSON.parse(localStorage.getItem('lm_hist')  || '[]');
     banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
+    vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
     await Promise.all([
       idbSet('techs', techs), idbSet('loans', loans), idbSet('sups', sups),
-      idbSet('hist', hist),   idbSet('banco', banco)
+      idbSet('hist', hist),   idbSet('banco', banco), idbSet('vehicles', vehicles)
     ]);
     audit = a || [];
-    ['lm_techs','lm_loans','lm_sups','lm_hist','lm_banco'].forEach(k => localStorage.removeItem(k));
+    ['lm_techs','lm_loans','lm_sups','lm_hist','lm_banco','lm_vehicles'].forEach(k => localStorage.removeItem(k));
     toast('✅ Dados migrados para armazenamento expandido (IndexedDB)!', 'success', 5000);
   } else {
     techs = t || []; loans = l || []; sups = s || [];
-    hist  = h || []; banco = b || []; audit = a || [];
+    hist  = h || []; banco = b || []; audit = a || []; vehicles = v || [];
   }
   if(!Array.isArray(banco) || banco.length === 0){
     banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
@@ -1645,7 +1797,7 @@ async function idbLoadAll(){
 async function idbSave(stores){
   // stores = array de nomes ou 'all'
   const toSave = stores === 'all' ? IDB_STORES : stores;
-  const map = {techs, loans, sups, hist, banco, audit};
+  const map = {techs, loans, sups, hist, banco, audit, vehicles};
   await Promise.all(toSave.map(s => idbSet(s, map[s])));
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
@@ -1684,6 +1836,7 @@ rebuildItems();
 
 let editTechId = null, editDbId = null;
 let pendingTechPh = null, pendingHistPh = [], currentInvRows = [], editingHistId = null;
+let pendingVehiclePh = [];
 let currentPrintTech = null;
 
 // ── IMPRESSÃO (compatível com Electron e navegador) ──────────────────
@@ -1816,7 +1969,7 @@ if(banco.length === 0){
 function save(){
   // Persiste no IndexedDB (async, não bloqueia UI)
   if(_idb){
-    idbSave(['techs','loans','sups','hist']).catch(e => {
+    idbSave(['techs','loans','sups','hist','vehicles']).catch(e => {
       console.warn('IDB save error (usando fallback localStorage):', e.message||e);
       // Fallback localStorage
       try {
@@ -1824,6 +1977,7 @@ function save(){
         localStorage.setItem('lm_loans', JSON.stringify(loans));
         localStorage.setItem('lm_sups',  JSON.stringify(sups));
         localStorage.setItem('lm_hist',  JSON.stringify(hist));
+        localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
       } catch(le){ console.warn('localStorage fallback falhou:', le); }
     });
   } else {
@@ -1832,6 +1986,7 @@ function save(){
       localStorage.setItem('lm_loans', JSON.stringify(loans));
       localStorage.setItem('lm_sups',  JSON.stringify(sups));
       localStorage.setItem('lm_hist',  JSON.stringify(hist));
+      localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
     } catch(le){ console.warn('localStorage save falhou:', le); }
   }
   if(typeof refreshDashboard === 'function') refreshDashboard();
@@ -1857,7 +2012,7 @@ function activeSupervisorFilter(selectId){
 }
 function setSupervisorFilterVisibility(){
   const locked = lockedSupervisor();
-  ['histSupF','loanSupF'].forEach(id => {
+  ['histSupF','loanSupF','vehicleSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     el.style.display = locked ? 'none' : '';
@@ -1920,6 +2075,9 @@ function tiposFerramentaHtml(tool){
 
 // ── TABS ──────────────────────────────────────────────────────────────
 function showTab(id, btn){
+  const role = currentRole();
+  if(role === 'veiculos' && id !== 'veiculos') id = 'veiculos';
+  if(role === 'supervisor' && id === 'veiculos') id = 'tecnicos';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
@@ -1928,6 +2086,7 @@ function showTab(id, btn){
   if(id==='tecnicos') renderTechs();
   if(id==='emprestimos') renderLoans();
   if(id==='historico') renderHist();
+  if(id==='veiculos') renderVehicles();
   if(id==='banco') renderBanco();
 }
 function showTabByName(id){ showTab(id, null); }
@@ -2097,6 +2256,7 @@ function getBackupPayload(light=true){
     banco: Array.isArray(banco) ? banco : [],
     loans: Array.isArray(loans) ? loans : [],
     hist: Array.isArray(hist) ? hist : [],
+    vehicles: Array.isArray(vehicles) ? vehicles : [],
     audit: Array.isArray(audit) ? audit : [],
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
@@ -2112,6 +2272,7 @@ function getBackupStats(data){
     banco: Array.isArray(data.banco) ? data.banco.length : 0,
     loans: Array.isArray(data.loans) ? data.loans.length : 0,
     hist: Array.isArray(data.hist) ? data.hist.length : 0,
+    vehicles: Array.isArray(data.vehicles) ? data.vehicles.length : 0,
     audit: Array.isArray(data.audit) ? data.audit.length : 0
   };
 }
@@ -2329,6 +2490,7 @@ async function restoreBackupOneClick(idx){
   if(typeof renderBanco === 'function') renderBanco();
   if(typeof renderLoans === 'function') renderLoans();
   if(typeof renderHist === 'function') renderHist();
+  if(typeof renderVehicles === 'function') renderVehicles();
   if(typeof refreshDashboard === 'function') refreshDashboard();
   try{ await createCloudBackup('after-restore'); }catch(e){}
   closeBackupModal();
@@ -2341,6 +2503,7 @@ function applyBackupData(data){
   if(Array.isArray(data.banco)) window.banco = banco = data.banco;
   if(Array.isArray(data.loans)) window.loans = loans = data.loans;
   if(Array.isArray(data.hist))  window.hist  = hist  = data.hist;
+  if(Array.isArray(data.vehicles)) window.vehicles = vehicles = data.vehicles;
   if(Array.isArray(data.audit)) window.audit = audit = data.audit;
   if(data.logo && !String(data.logo).startsWith('data:image/')) localStorage.setItem('lm_logo', data.logo);
   if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
@@ -2386,6 +2549,7 @@ function exportBackup(){
     banco: banco,
     loans: loans,
     hist: hist,
+    vehicles: vehicles,
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
     creds: _getCreds()
@@ -2423,6 +2587,7 @@ function importBackup(input){
       if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
       if(Array.isArray(data.banco)) banco = data.banco;
       if(Array.isArray(data.loans)) loans = data.loans;
+      if(Array.isArray(data.vehicles)) vehicles = data.vehicles;
       if(Array.isArray(data.hist)){
         // Normaliza inventários antigos: garante campos obrigatórios
         hist = data.hist.map(h => ({
@@ -2448,7 +2613,7 @@ function importBackup(input){
       if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
       if(_idb){ idbSave('all').catch(()=>{}); } save(); saveBanco(); rebuildItems();
-      renderSupSel(); renderTechs(); renderBanco(); renderLoans(); renderHist();
+      renderSupSel(); renderTechs(); renderBanco(); renderLoans(); renderHist(); renderVehicles();
       refreshDashboard();
       const cs = localStorage.getItem('lm_cursup') || '';
       const supSel = document.getElementById('supSel'); if(supSel) supSel.value = cs;
@@ -2917,7 +3082,7 @@ function syncSupFilter(value){
   if(locked) value = locked;
   localStorage.setItem('lm_cursup', value || '');
   // Atualiza os 3 selects (sem disparar onchange em loop)
-  ['supSel','histSupF','loanSupF'].forEach(id => {
+  ['supSel','histSupF','loanSupF','vehicleSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     // Garante que o select já tem a opção (renderiza se necessário)
@@ -2937,6 +3102,7 @@ function syncSupFilter(value){
   renderTechs();
   renderHist();
   renderLoans();
+  if(typeof renderVehicles === 'function') renderVehicles();
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
 // Atualiza a barra indicadora de supervisor ativo logo abaixo do header
@@ -3056,6 +3222,297 @@ function delTech(id,e){ e.stopPropagation(); if(!confirm('Remover técnico?'))re
 function prevTechPhoto(inp){
   const f=inp.files[0]; if(!f)return;
   const r=new FileReader(); r.onload=d=>{ pendingTechPh=d.target.result; document.getElementById('techPhPrev').innerHTML=`<img src="${d.target.result}" style="width:64px;height:64px;object-fit:cover;border-radius:50%;margin-top:8px;border:2px solid var(--cyan)">`; }; r.readAsDataURL(f);
+}
+
+// ── VEÍCULOS / VISTORIA VEICULAR ─────────────────────────────────────────────
+let editingVehicleId = null;
+const VEHICLE_SECTIONS = [
+  {id:'doc', title:'1. Documentacao', opts:['OK','Nao OK'], items:['CRLV atualizado']},
+  {id:'lataria', title:'2. Lataria e Pintura', opts:['OK','Avaria'], items:['Capo','Para-choque dianteiro','Portas','Teto','Porta-malas','Retrovisores','Vidros']},
+  {id:'pneus', title:'3. Pneus e Rodas', opts:['Bom','Regular','Ruim'], items:['Pneu dianteiro esquerdo','Pneu dianteiro direito','Pneu traseiro esquerdo','Pneu traseiro direito','Estepe']},
+  {id:'eletrica', title:'4. Parte Eletrica', opts:['OK','Nao OK'], items:['Farois','Lanternas','Setas','Buzina','Limpador de para-brisa']},
+  {id:'motor', title:'5. Motor e Mecanica', opts:['OK','Nao OK'], items:['Nivel do oleo','Agua do radiador','Freios','Suspensao','Bateria']}
+];
+function vehicleDefaultChecks(){
+  const checks = {};
+  VEHICLE_SECTIONS.forEach(sec => sec.items.forEach(item => {
+    checks[item] = {status: sec.opts[0], obs:''};
+  }));
+  return checks;
+}
+function fillVehicleSupOptions(){
+  const supF = document.getElementById('vehicleSupF');
+  const locked = lockedSupervisor();
+  if(supF){
+    const cur = locked || supF.value || localStorage.getItem('lm_cursup') || '';
+    supF.innerHTML = '<option value="">Todos os supervisores</option>';
+    sups.forEach(s => supF.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
+    if(cur && sups.includes(cur)) supF.value = cur;
+    supF.style.display = locked ? 'none' : '';
+    supF.disabled = !!locked;
+  }
+}
+function fillVehicleTechFilter(supFilter){
+  const tecF = document.getElementById('vehicleTecF');
+  if(!tecF) return;
+  const cur = tecF.value;
+  tecF.innerHTML = '<option value="">Todos os t&eacute;cnicos</option>';
+  techs
+    .filter(t => !supFilter || t.sup === supFilter)
+    .sort((a,b)=>a.nome.localeCompare(b.nome))
+    .forEach(t => tecF.innerHTML += `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`);
+  if(cur && Array.from(tecF.options).some(o => o.value === cur)) tecF.value = cur;
+}
+function vehicleStatus(v){
+  const checks = v.checks || {};
+  const bad = Object.values(checks).some(c => ['Nao OK','Não OK','NÃ£o OK','Avaria','Regular','Ruim'].includes(c.status));
+  return bad ? {cls:'warn', label:'Com observacao'} : {cls:'ok', label:'Em ordem'};
+}
+function renderVehicles(){
+  fillVehicleSupOptions();
+  const supFilter = activeSupervisorFilter('vehicleSupF');
+  fillVehicleTechFilter(supFilter);
+  const tecFilter = (document.getElementById('vehicleTecF') || {}).value || '';
+  const grid = document.getElementById('vehicleGrid');
+  const empty = document.getElementById('vehicleEmpty');
+  const count = document.getElementById('vehicleCount');
+  if(!grid) return;
+  const techNames = supFilter ? techs.filter(t => t.sup === supFilter).map(t => t.nome) : techs.map(t => t.nome);
+  const list = (vehicles || [])
+    .filter(v => !supFilter || v.sup === supFilter || techNames.includes(v.tec))
+    .filter(v => !tecFilter || v.tec === tecFilter)
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  grid.innerHTML = '';
+  list.forEach(v => {
+    const st = vehicleStatus(v);
+    const fotosHtml = v.fotos && v.fotos.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' +
+        v.fotos.map((f, i) => f
+          ? `<a href="${escapeHtml(f)}" target="_blank" style="font-size:11px;color:var(--cyan);text-decoration:none;background:rgba(0,194,224,0.1);border:1px solid rgba(0,194,224,0.3);border-radius:4px;padding:3px 8px" onclick="event.stopPropagation()">📷 Foto ${i+1}</a>`
+          : ''
+        ).join('') + '</div>'
+      : '';
+    const d = document.createElement('div');
+    d.className = 'vehicle-card';
+    d.onclick = () => openVehicleModal(v.id);
+    d.innerHTML = `<div class="vehicle-top">
+      <div>
+        <h3>${escapeHtml(v.tec || 'Condutor')}</h3>
+        <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
+        <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
+        ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
+        <span class="vehicle-status ${st.cls}">${st.label}</span>
+        ${fotosHtml}
+      </div>
+      <div class="vehicle-ico">&#128663;</div>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:10px" onclick="event.stopPropagation()">
+      <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>
+      <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${escapeHtml(v.id)}',event)">Excluir</button>
+    </div>`;
+    grid.appendChild(d);
+  });
+  if(empty) empty.style.display = list.length ? 'none' : 'block';
+  if(count) count.textContent = `${list.length} vistoria${list.length!==1?'s':''}`;
+}
+function renderVehicleChecklist(checks){
+  const wrap = document.getElementById('vehicleChecklist');
+  if(!wrap) return;
+  const data = checks || vehicleDefaultChecks();
+  wrap.innerHTML = VEHICLE_SECTIONS.map(sec => `<div class="vehicle-form-section">
+    <div class="vehicle-form-title">${sec.title}</div>
+    <table class="vehicle-check-table"><thead><tr><th>Item</th><th style="width:160px">Status</th><th>Observacoes</th></tr></thead><tbody>
+      ${sec.items.map(item => {
+        const cur = data[item] || {status:sec.opts[0], obs:''};
+        return `<tr data-vitem="${escapeHtml(item)}"><td>${escapeHtml(item)}</td><td><select class="vStatus">${sec.opts.map(o => `<option${cur.status===o?' selected':''}>${o}</option>`).join('')}</select></td><td><input class="vItemObs" value="${escapeHtml(cur.obs||'')}" placeholder="Observacao"></td></tr>`;
+      }).join('')}
+    </tbody></table>
+  </div>`).join('');
+}
+function getVehicleChecklist(){
+  const checks = {};
+  document.querySelectorAll('#vehicleChecklist tr[data-vitem]').forEach(tr => {
+    const item = tr.getAttribute('data-vitem');
+    checks[item] = {
+      status: tr.querySelector('.vStatus').value,
+      obs: tr.querySelector('.vItemObs').value.trim()
+    };
+  });
+  return checks;
+}
+const VEHICLE_MAX_FOTOS = 5;
+function prevVehiclePhotos(inp){
+  const files = Array.from(inp.files || []);
+  const slots = VEHICLE_MAX_FOTOS - pendingVehiclePh.length;
+  if(slots <= 0){ toast('Limite de ' + VEHICLE_MAX_FOTOS + ' fotos atingido.', 'warn'); inp.value=''; return; }
+  const toAdd = files.slice(0, slots);
+  if(files.length > slots) toast('Só foram adicionadas ' + slots + ' foto(s) — limite de ' + VEHICLE_MAX_FOTOS + '.', 'warn');
+  let done = 0;
+  toAdd.forEach(f => {
+    compressImage(f, b64 => {
+      pendingVehiclePh.push(b64);
+      done++;
+      if(done === toAdd.length) renderVehiclePP();
+    });
+  });
+  inp.value = '';
+}
+function renderVehiclePP(){
+  const el = document.getElementById('vehiclePP');
+  const count = document.getElementById('vehiclePPCount');
+  if(!el) return;
+  el.innerHTML = '';
+  pendingVehiclePh.forEach((src, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'pp-wrap';
+    const img = document.createElement('img');
+    img.src = src;
+    img.onclick = () => openLB(src);
+    const del = document.createElement('button');
+    del.className = 'pp-del';
+    del.title = 'Remover foto';
+    del.innerHTML = '✕';
+    del.onclick = (e) => { e.stopPropagation(); pendingVehiclePh.splice(idx, 1); renderVehiclePP(); };
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    el.appendChild(wrap);
+  });
+  if(pendingVehiclePh.length < VEHICLE_MAX_FOTOS){
+    const add = document.createElement('div');
+    add.className = 'pp-add';
+    add.innerHTML = '<span style="font-size:24px">📷</span><span>Adicionar</span>';
+    add.onclick = () => document.getElementById('vehicleFotoIn').click();
+    el.appendChild(add);
+  }
+  if(count) count.textContent = pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
+}
+function openVehicleModal(id=null){
+  editingVehicleId = id;
+  pendingVehiclePh = [];
+  const modal = document.getElementById('vehicleModal');
+  document.getElementById('vehicleMTitle').textContent = id ? 'Editar Vistoria Veicular' : 'Nova Vistoria Veicular';
+  const supSel = document.getElementById('vSup');
+  supSel.innerHTML = '<option value="">Selecione</option>';
+  sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
+  const tecSel = document.getElementById('vTec');
+  tecSel.innerHTML = '<option value="">Selecione</option>';
+  techs.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(t => tecSel.innerHTML += `<option value="${escapeHtml(t.nome)}" data-sup="${escapeHtml(t.sup||'')}">${escapeHtml(t.nome)}</option>`);
+  const today = new Date();
+  const curSup = localStorage.getItem('lm_cursup') || '';
+  ['vResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
+  document.getElementById('vEmpresa').value = 'Lumar Telecom';
+  document.getElementById('vData').value = today.toISOString().slice(0,10);
+  document.getElementById('vHora').value = today.toTimeString().slice(0,5);
+  if(curSup) supSel.value = curSup;
+  renderVehicleChecklist();
+  renderVehiclePP();
+  if(id){
+    const v = vehicles.find(x => x.id === id); if(!v) return;
+    document.getElementById('vEmpresa').value = v.empresa || 'Lumar Telecom';
+    document.getElementById('vResp').value = v.resp || '';
+    document.getElementById('vTec').value = v.tec || '';
+    document.getElementById('vSup').value = v.sup || '';
+    document.getElementById('vData').value = v.data || '';
+    document.getElementById('vHora').value = v.hora || '';
+    document.getElementById('vLocal').value = v.local || '';
+    document.getElementById('vModelo').value = v.modelo || '';
+    document.getElementById('vPlaca').value = v.placa || '';
+    document.getElementById('vAno').value = v.ano || '';
+    document.getElementById('vCor').value = v.cor || '';
+    document.getElementById('vKm').value = v.km || '';
+    document.getElementById('vObsGerais').value = v.obsGerais || '';
+    document.getElementById('vAssResp').value = v.assResp || '';
+    document.getElementById('vAssCond').value = v.assCond || '';
+    pendingVehiclePh = Array.isArray(v.fotos) ? [...v.fotos] : [];
+    renderVehicleChecklist(v.checks);
+    renderVehiclePP();
+  }
+  tecSel.onchange = () => {
+    const opt = tecSel.options[tecSel.selectedIndex];
+    if(opt && opt.dataset.sup) supSel.value = opt.dataset.sup;
+    if(!document.getElementById('vAssCond').value) document.getElementById('vAssCond').value = tecSel.value;
+  };
+  modal.classList.add('open');
+}
+function closeVehicleModal(){ document.getElementById('vehicleModal').classList.remove('open'); }
+async function saveVehicle(){
+  const tec = document.getElementById('vTec').value;
+  if(!tec){ alert('Selecione o motorista/condutor.'); return; }
+  const vehicleId = editingVehicleId || 'veh_' + Date.now();
+  let fotosFinais = [...pendingVehiclePh];
+  const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
+  if(temBase64){
+    showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
+    toast('📷 Enviando fotos da vistoria para a nuvem...', 'info', 3000);
+    fotosFinais = [];
+    for(let i = 0; i < pendingVehiclePh.length; i++){
+      const f = pendingVehiclePh[i];
+      if(f && f.startsWith('data:')){
+        const url = await uploadVehicleFotoStorage(vehicleId, f, i);
+        if(!url){
+          alert('Erro ao enviar foto da vistoria para o Firebase. Verifique a conexão e tente novamente.');
+          return;
+        }
+        fotosFinais.push(url);
+      } else {
+        fotosFinais.push(f);
+      }
+    }
+    pendingVehiclePh = [...fotosFinais];
+  }
+  const obj = {
+    id: vehicleId,
+    ts: Date.now(),
+    empresa: document.getElementById('vEmpresa').value.trim(),
+    resp: document.getElementById('vResp').value.trim(),
+    tec,
+    sup: document.getElementById('vSup').value,
+    data: document.getElementById('vData').value,
+    hora: document.getElementById('vHora').value,
+    local: document.getElementById('vLocal').value.trim(),
+    modelo: document.getElementById('vModelo').value.trim(),
+    placa: document.getElementById('vPlaca').value.trim().toUpperCase(),
+    ano: document.getElementById('vAno').value.trim(),
+    cor: document.getElementById('vCor').value.trim(),
+    km: document.getElementById('vKm').value.trim(),
+    checks: getVehicleChecklist(),
+    fotos: fotosFinais,
+    obsGerais: document.getElementById('vObsGerais').value.trim(),
+    assResp: document.getElementById('vAssResp').value.trim(),
+    assCond: document.getElementById('vAssCond').value.trim()
+  };
+  const i = vehicles.findIndex(v => v.id === obj.id);
+  if(i >= 0) vehicles[i] = obj; else vehicles.push(obj);
+  auditLog(editingVehicleId ? 'Vistoria Veicular Editada' : 'Vistoria Veicular Cadastrada', `Condutor: ${obj.tec}`, `Placa: ${obj.placa || '-'}`);
+  save(); closeVehicleModal(); renderVehicles();
+}
+function deleteVehicle(id,e){
+  if(e) e.stopPropagation();
+  if(!confirm('Remover esta vistoria veicular?')) return;
+  const v = vehicles.find(x => x.id === id);
+  vehicles = vehicles.filter(x => x.id !== id);
+  auditLog('Vistoria Veicular Excluida', `Condutor: ${v ? v.tec : id}`);
+  save(); renderVehicles();
+}
+function printVehicle(id){
+  const v = vehicles.find(x => x.id === id); if(!v) return;
+  const rows = VEHICLE_SECTIONS.map(sec => `<h3>${sec.title}</h3><table class="pp-tbl"><thead><tr><th>Item</th><th>Status</th><th>Observacoes</th></tr></thead><tbody>${sec.items.map(item => {
+    const c = (v.checks || {})[item] || {};
+    return `<tr><td>${escapeHtml(item)}</td><td>${escapeHtml(c.status || '')}</td><td>${escapeHtml(c.obs || '')}</td></tr>`;
+  }).join('')}</tbody></table>`).join('');
+  const html = `<div class="pp-page">
+    <div class="pp-hdr"><h2>FORMULARIO DE VISTORIA VEICULAR</h2><p>${escapeHtml(v.empresa || 'Lumar Telecom')}</p></div>
+    <table class="pp-tbl"><tbody>
+      <tr><td><b>Responsavel</b><br>${escapeHtml(v.resp||'')}</td><td><b>Condutor</b><br>${escapeHtml(v.tec||'')}</td><td><b>Data/Hora</b><br>${fmtDate(v.data)} ${escapeHtml(v.hora||'')}</td></tr>
+      <tr><td><b>Local</b><br>${escapeHtml(v.local||'')}</td><td><b>Supervisor</b><br>${escapeHtml(v.sup||'')}</td><td><b>KM Atual</b><br>${escapeHtml(v.km||'')}</td></tr>
+      <tr><td><b>Marca/Modelo</b><br>${escapeHtml(v.modelo||'')}</td><td><b>Placa</b><br>${escapeHtml(v.placa||'')}</td><td><b>Ano/Cor</b><br>${escapeHtml((v.ano||'')+' '+(v.cor||''))}</td></tr>
+    </tbody></table>
+    ${rows}
+    <h3>Observa&ccedil;&otilde;es Gerais</h3><p style="min-height:70px;border:1px solid #ddd;padding:8px;font-size:11px">${escapeHtml(v.obsGerais||'')}</p>
+    <div class="sign-blk"><div class="sign-row"><div class="sign-box"><p>Respons&aacute;vel pela vistoria</p><b>${escapeHtml(v.assResp||v.resp||'')}</b></div><div class="sign-box"><p>Condutor/Motorista</p><b>${escapeHtml(v.assCond||v.tec||'')}</b></div></div></div>
+  </div>`;
+  openPrintWindow(html, 'Vistoria Veicular - ' + (v.tec || 'Condutor'));
 }
 
 // ── TECH INVENTORY VIEW ───────────────────────────────────────────────
@@ -5423,6 +5880,7 @@ function _buildPayload() {
     sups:  (sups || []).filter(supervisorValido),
     hist:  hist  || [],
     banco: banco || [],
+    vehicles: vehicles || [],
     audit: (audit || []).slice(0, 100),
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
@@ -5471,8 +5929,10 @@ function _backupSignature(){
       hist: Array.isArray(hist) ? hist.length : 0,
       banco: Array.isArray(banco) ? banco.length : 0,
       loans: Array.isArray(loans) ? loans.length : 0,
+      vehicles: Array.isArray(vehicles) ? vehicles.length : 0,
       audit: Array.isArray(audit) ? audit.length : 0,
       lastHist: Array.isArray(hist) && hist.length ? (hist[hist.length-1].id || hist[hist.length-1].ts || '') : '',
+      lastVehicle: Array.isArray(vehicles) && vehicles.length ? (vehicles[vehicles.length-1].id || vehicles[vehicles.length-1].ts || '') : '',
       lastTech: Array.isArray(techs) && techs.length ? (techs[techs.length-1].id || techs[techs.length-1].nome || '') : ''
     });
   } catch(e) { return String(Date.now()); }
@@ -5539,12 +5999,13 @@ async function restoreLocalBackup(key){
     if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if(Array.isArray(data.hist))  hist  = data.hist;
     if(Array.isArray(data.banco)) banco = data.banco;
+    if(Array.isArray(data.vehicles)) vehicles = data.vehicles;
     if(Array.isArray(data.audit)) audit = data.audit;
     if(data.logo) localStorage.setItem('lm_logo', data.logo);
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
-    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderBanco(); refreshDashboard();
     await cloudSave(true);
     auditLog('Backup Local Restaurado', key);
     toast('✅ Backup local restaurado!', 'success', 3500);
@@ -5658,7 +6119,7 @@ async function restoreCloudBackup(id){
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
-    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderBanco(); refreshDashboard();
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderBanco(); refreshDashboard();
     await cloudSave(true);
     auditLog('Backup Nuvem Restaurado', id);
     toast('✅ Backup restaurado!', 'success', 3500);
@@ -5711,9 +6172,23 @@ async function cloudSave(force = false) {
       }
     }
 
+    const vehiclesComUrls = [];
+    for (const v of (vehicles || [])) {
+      const hasBase64 = (v.fotos || []).some(f => f && f.startsWith('data:'));
+      if (hasBase64) {
+        const migrado = await migrateVehiclePhotosToStorage(v);
+        vehiclesComUrls.push(migrado);
+        const idx = vehicles.findIndex(x => x.id === v.id);
+        if (idx >= 0) vehicles[idx] = migrado;
+      } else {
+        vehiclesComUrls.push(v);
+      }
+    }
+
     const payload = _buildPayload();
     payload.ts = Date.now();
     payload.hist = histComUrls;
+    payload.vehicles = vehiclesComUrls;
 
     // Antes de sobrescrever a nuvem, salva cópia quando houver risco de perda ou por intervalo.
     let oldData = null;
@@ -5786,6 +6261,7 @@ async function startRealtimeSync() {
     if (Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if (Array.isArray(data.hist))  hist  = data.hist;
     if (Array.isArray(data.banco)) banco = data.banco;
+    if (Array.isArray(data.vehicles)) vehicles = data.vehicles;
     if (Array.isArray(data.audit)) audit = data.audit;
     if (data.logo) localStorage.setItem('lm_logo', data.logo);
     if (data.creds) applyCloudCreds(data.creds);
@@ -5795,6 +6271,7 @@ async function startRealtimeSync() {
     renderTechs();
     renderHist();
     renderLoans();
+    renderVehicles();
     renderBanco();
     refreshDashboard();
     localStorage.setItem('lm_last_sync_ok', String(Date.now()));
@@ -5850,6 +6327,21 @@ async function uploadFotoStorage(histId, base64, index) {
   }
 }
 
+async function uploadVehicleFotoStorage(vehicleId, base64, index) {
+  try {
+    const db = await _initFirebase();
+    if (!db) return null;
+    const storage = firebase.storage();
+    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
+    const ref = storage.ref(`fotos_veiculos/${vehicleId}/foto_${index + 1}.${ext}`);
+    await ref.putString(base64, 'data_url');
+    return await ref.getDownloadURL();
+  } catch(e) {
+    console.warn('Upload foto veicular falhou:', e);
+    return null;
+  }
+}
+
 async function deleteFotoStorage(histId, index) {
   try {
     const storage = firebase.storage();
@@ -5878,6 +6370,22 @@ async function migratePhotosToStorage(h) {
   }
   return { ...h, fotos: newFotos };
 }
+
+async function migrateVehiclePhotosToStorage(v) {
+  if (!v.fotos || !v.fotos.length) return v;
+  const newFotos = [];
+  for (let i = 0; i < v.fotos.length; i++) {
+    const f = v.fotos[i];
+    if (f && f.startsWith('https')) {
+      newFotos.push(f);
+    } else if (f && f.startsWith('data:')) {
+      showCloudStatus('📷 Enviando fotos veiculares...', 'var(--cyan)');
+      const url = await uploadVehicleFotoStorage(v.id, f, i);
+      if(url) newFotos.push(url);
+    }
+  }
+  return { ...v, fotos: newFotos };
+}
 async function bootApp(){
   // Mostra tela de loading enquanto IDB carrega
   const loadEl = document.getElementById('appLoading');
@@ -5905,6 +6413,7 @@ async function bootApp(){
       sups  = JSON.parse(localStorage.getItem('lm_sups')  || '[]');
       hist  = JSON.parse(localStorage.getItem('lm_hist')  || '[]');
       banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
+      vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
     } catch(le) {
       console.error('Falha total no carregamento:', le);
     }
@@ -5921,6 +6430,7 @@ async function bootApp(){
       if (Array.isArray(cloudData.sups))  sups  = mergeSupList(cloudData.sups);
       if (Array.isArray(cloudData.hist))  hist  = cloudData.hist;
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
+      if (Array.isArray(cloudData.vehicles)) vehicles = cloudData.vehicles;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
       if (cloudData.cursup) localStorage.setItem('lm_cursup', cloudData.cursup);
@@ -5942,6 +6452,7 @@ async function bootApp(){
   if(!Array.isArray(sups))  sups  = [];
   if(!Array.isArray(hist))  hist  = [];
   if(!Array.isArray(banco)) banco = [];
+  if(!Array.isArray(vehicles)) vehicles = [];
   if(!Array.isArray(audit)) audit = [];
 
   rebuildItems();
@@ -5964,6 +6475,7 @@ async function bootApp(){
   renderTechs();
   renderHist();
   renderLoans();
+  renderVehicles();
   renderBanco();
 
   // Carrega logo e nome do sistema salvos
@@ -6016,10 +6528,12 @@ async function bootApp(){
       await idbLoadAll();
       if(!Array.isArray(techs)) techs = [];
       if(!Array.isArray(hist))  hist  = [];
+      if(!Array.isArray(vehicles)) vehicles = [];
       rebuildItems();
       renderTechs();
       renderHist();
       renderLoans();
+      renderVehicles();
       renderBanco();
       refreshDashboard();
     } catch(e) {}
@@ -6030,3 +6544,7 @@ bootApp();
 <script>setTimeout(function(){ try{ autoLocalJsonBackup('auto_abertura', true); }catch(e){} }, 2500);</script>
 </body>
 </html>
+
+
+
+
