@@ -3293,7 +3293,6 @@ function renderVehicles(){
     history.sort((a,b)=>(b.ts||0)-(a.ts||0));
     const v = history[0];
     const st = vehicleStatus(v);
-    const canDeleteVehicle = currentRole() === 'admin';
     const d = document.createElement('div');
     d.className = 'vehicle-card' + (history.length > 1 ? ' stack' : '');
     d.onclick = () => viewVehicle(v.id);
@@ -3310,7 +3309,6 @@ function renderVehicles(){
     <div class="vehicle-actions" onclick="event.stopPropagation()">
       <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Visualizar</button>
       <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>
-      ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicle('${escapeHtml(v.id)}',event)">Excluir</button>` : ''}
     </div>`;
     grid.appendChild(d);
   });
@@ -3387,6 +3385,7 @@ function viewVehicle(id){
 function viewVehicleHistory(tec){
   const list = (vehicles || []).filter(v => (v.tec || '') === (tec || '')).sort((a,b)=>(b.ts||0)-(a.ts||0));
   if(!list.length) return;
+  const canDeleteVehicle = currentRole() === 'admin';
   document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + (tec || 'Condutor');
   document.getElementById('invToolsSubtitle').innerHTML = `${list.length} vistoria${list.length!==1?'s':''} registrada${list.length!==1?'s':''}`;
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
@@ -3405,6 +3404,7 @@ function viewVehicleHistory(tec){
             <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Ver</button>
             <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>
             <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
+            ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicleFromHistory('${escapeHtml(v.id)}','${escapeHtml(tec || '')}',event)">Excluir</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -3572,12 +3572,19 @@ async function saveVehicle(){
 }
 function deleteVehicle(id,e){
   if(e) e.stopPropagation();
-  if(currentRole() !== 'admin'){ toast('Somente o admin pode excluir vistorias.', 'warn'); return; }
-  if(!confirm('Remover esta vistoria veicular?')) return;
+  if(currentRole() !== 'admin'){ toast('Somente o admin pode excluir vistorias.', 'warn'); return false; }
+  if(!confirm('Remover esta vistoria veicular?')) return false;
   const v = vehicles.find(x => x.id === id);
   vehicles = vehicles.filter(x => x.id !== id);
   auditLog('Vistoria Veicular Excluida', `Condutor: ${v ? v.tec : id}`);
   save(); renderVehicles();
+  return true;
+}
+function deleteVehicleFromHistory(id,tec,e){
+  if(!deleteVehicle(id,e)) return;
+  const rest = (vehicles || []).filter(v => (v.tec || '') === (tec || ''));
+  if(rest.length) viewVehicleHistory(tec);
+  else closeInvTools();
 }
 function printVehicle(id){
   const v = vehicles.find(x => x.id === id); if(!v) return;
