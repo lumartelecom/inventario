@@ -682,7 +682,8 @@ function _getCreds() {
     const creds = {
       adminPass: saved.adminPass || def.adminPass,
       vehiclePass: saved.vehiclePass || def.vehiclePass,
-      supervisores: Array.isArray(saved.supervisores) ? saved.supervisores : def.supervisores.slice()
+      supervisores: Array.isArray(saved.supervisores) ? saved.supervisores : def.supervisores.slice(),
+      credsUpdatedAt: savedRaw ? Number(saved.credsUpdatedAt || 0) : -1
     };
     // Mantém compatibilidade: supervisores cadastrados no sistema também entram no painel de senha.
     // Assim, um supervisor novo criado no Admin consegue logar após recarregar/sair.
@@ -747,17 +748,24 @@ function limparSupervisorTeste(){
     if(Array.isArray(window.techs)){ window.techs.forEach(t => { if(!supervisorValido(t.sup)) t.sup = ''; }); }
   } catch(e){}
 }
-function _saveCreds(creds) {
+function _saveCreds(creds, touch = true) {
   if(creds && Array.isArray(creds.supervisores)){
     creds.supervisores = normalizeSupervisorCreds(creds.supervisores);
   }
+  if(creds) creds.credsUpdatedAt = touch ? Date.now() : Number(creds.credsUpdatedAt || 0);
   localStorage.setItem('lm_creds', JSON.stringify(creds));
 }
 function _mergeCreds(base, incoming) {
+  const baseTs = Number(base && base.credsUpdatedAt || 0);
+  const incomingTs = Number(incoming && incoming.credsUpdatedAt || 0);
+  const incomingIsNewer = incomingTs > baseTs;
+  const preferred = incomingIsNewer ? incoming : base;
+  const fallback = incomingIsNewer ? base : incoming;
   const merged = {
-    adminPass: (incoming && incoming.adminPass) || (base && base.adminPass) || 'admin@2026',
-    vehiclePass: (incoming && incoming.vehiclePass) || (base && base.vehiclePass) || 'veiculos@2026',
-    supervisores: []
+    adminPass: (preferred && preferred.adminPass) || (fallback && fallback.adminPass) || 'admin@2026',
+    vehiclePass: (preferred && preferred.vehiclePass) || (fallback && fallback.vehiclePass) || 'veiculos@2026',
+    supervisores: [],
+    credsUpdatedAt: Math.max(baseTs, incomingTs)
   };
   const add = s => {
     if(!s || !supervisorValido(s.nome)) return;
@@ -765,13 +773,17 @@ function _mergeCreds(base, incoming) {
     if(found){ if(s.senha) found.senha = s.senha; }
     else merged.supervisores.push({ nome: s.nome, senha: s.senha || '' });
   };
-  ((base && base.supervisores) || []).forEach(add);
-  ((incoming && incoming.supervisores) || []).forEach(add);
+  ((fallback && fallback.supervisores) || []).forEach(add);
+  ((preferred && preferred.supervisores) || []).forEach(add);
   return merged;
 }
 function applyCloudCreds(creds) {
   if(!creds || typeof creds !== 'object') return;
-  _saveCreds(_mergeCreds(_getCreds(), creds));
+  _saveCreds(_mergeCreds(_getCreds(), creds), false);
+}
+function _saveCredsAndSync(creds) {
+  _saveCreds(creds, true);
+  if (typeof cloudSave === 'function') cloudSave(true);
 }
 function mergeSupList(incoming) {
   return normalizeSupList([...(Array.isArray(sups) ? sups : []), ...(Array.isArray(incoming) ? incoming : [])]);
@@ -1024,7 +1036,7 @@ function saveAdminPassDirect() {
   if (!nova || nova.length < 4) { toast('Senha muito curta', 'warn'); return; }
   const creds = _getCreds();
   creds.adminPass = nova;
-  _saveCreds(creds);
+  _saveCredsAndSync(creds);
   toast('✅ Senha admin atualizada!', 'success');
 }
 
@@ -1033,7 +1045,7 @@ function saveVehiclePassDirect() {
   if (!nova || nova.length < 4) { toast('Senha muito curta', 'warn'); return; }
   const creds = _getCreds();
   creds.vehiclePass = nova;
-  _saveCreds(creds);
+  _saveCredsAndSync(creds);
   toast('✅ Senha veículos atualizada!', 'success');
 }
 
@@ -1042,7 +1054,7 @@ function updateSupPass(i) {
   const nova = (document.getElementById('supPass_' + i).value || '').trim();
   if (!nova) { toast('Digite uma senha válida', 'warn'); return; }
   creds.supervisores[i].senha = nova;
-  _saveCreds(creds);
+  _saveCredsAndSync(creds);
   toast('✅ Senha atualizada!', 'success');
 }
 
@@ -1050,7 +1062,7 @@ function delSupAdmin(i) {
   if (!confirm('Remover supervisor?')) return;
   const creds = _getCreds();
   creds.supervisores.splice(i, 1);
-  _saveCreds(creds);
+  _saveCredsAndSync(creds);
   renderAdminSupList();
   toast('Supervisor removido', 'info');
 }
@@ -1063,7 +1075,7 @@ function addSupAdmin() {
   const creds = _getCreds();
   if (creds.supervisores.find(s => supKey(s.nome) === supKey(nome))) { toast('Supervisor já existe', 'warn'); return; }
   creds.supervisores.push({ nome, senha });
-  _saveCreds(creds);
+  _saveCreds(creds, true);
   // Adiciona também na lista de supervisores do sistema e persiste em todos os armazenamentos.
   if (!Array.isArray(window.sups)) window.sups = [];
   if (!sups.some(s => supKey(s) === supKey(nome))) sups.push(nome);
@@ -1083,7 +1095,7 @@ function saveAdminPass() {
   if (!nova || nova.length < 4) { toast('Senha muito curta (mínimo 4 caracteres)', 'warn'); return; }
   const creds = _getCreds();
   creds.adminPass = nova;
-  _saveCreds(creds);
+  _saveCredsAndSync(creds);
   document.getElementById('adminNewPass').value = '';
   toast('✅ Senha admin atualizada!', 'success');
 }
