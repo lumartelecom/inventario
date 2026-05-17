@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -546,6 +546,21 @@ tr.inv-hidden{display:none}
 .vehicle-check-table td{padding:7px 8px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle}
 .vehicle-check-table select,.vehicle-check-table input{width:100%;min-width:0;font-size:12px;padding:6px 8px}
 .vehicle-check-table td:first-child{color:#fff;font-weight:600}
+
+.vehicle-status.bad{color:var(--red);background:rgba(224,48,48,.12);border:1px solid rgba(224,48,48,.36)}
+.vehicle-oil-alerts{margin:0 0 14px;background:linear-gradient(180deg,rgba(245,197,24,.10),rgba(224,48,48,.06));border:1px solid rgba(245,197,24,.34);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm)}
+.vehicle-oil-alert-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#f5c518;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.vehicle-oil-alert-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.vehicle-oil-alert-card{border:1px solid rgba(245,197,24,.38);background:rgba(245,197,24,.08);border-radius:8px;padding:9px 10px;font-size:12px;color:#fff}
+.vehicle-oil-alert-card.bad{border-color:rgba(224,48,48,.48);background:rgba(224,48,48,.10)}
+.vehicle-oil-alert-card strong{color:#fff}.vehicle-oil-alert-card small{display:block;color:var(--mid);margin-top:3px;line-height:1.35}
+.vehicle-oil-chip{display:inline-flex;align-items:center;gap:4px;margin:7px 5px 0 0;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.65px;border:1px solid rgba(24,201,106,.32);color:var(--green);background:rgba(24,201,106,.10)}
+.vehicle-oil-chip.warn{color:#f5c518;background:rgba(245,197,24,.12);border-color:rgba(245,197,24,.38)}
+.vehicle-oil-chip.bad{color:var(--red);background:rgba(224,48,48,.12);border-color:rgba(224,48,48,.40)}
+.vehicle-oil-preview{grid-column:1/-1;border:1px solid rgba(24,201,106,.28);background:rgba(24,201,106,.08);border-radius:8px;padding:10px 12px;color:#fff;font-size:12px;line-height:1.4}
+.vehicle-oil-preview.warn{border-color:rgba(245,197,24,.38);background:rgba(245,197,24,.10);color:#f5c518}
+.vehicle-oil-preview.bad{border-color:rgba(224,48,48,.45);background:rgba(224,48,48,.12);color:#ff9b9b}
+.vehicle-oil-preview.muted{border-color:var(--border);background:rgba(255,255,255,.035);color:var(--mid)}
 
 
 /* === CORPORATE VISUAL REFRESH - Codex 2026-05-16 === */
@@ -1385,6 +1400,7 @@ setInterval(_updateOfflineBanner, 5000);
       </select>
       <span id="vehicleCount" style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap"></span>
     </div>
+    <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
     <div class="vehicle-grid" id="vehicleGrid"></div>
     <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
   </div>
@@ -1439,7 +1455,10 @@ setInterval(_updateOfflineBanner, 5000);
       <div><label>Placa</label><input type="text" id="vPlaca" style="text-transform:uppercase"></div>
       <div><label>Ano</label><input type="text" id="vAno"></div>
       <div><label>Cor</label><input type="text" id="vCor"></div>
-      <div class="full"><label>KM Atual</label><input type="text" id="vKm"></div>
+      <div><label>KM Atual</label><input type="text" id="vKm" oninput="updateVehicleOilPreview()" placeholder="Ex.: 120000"></div>
+      <div><label>KM &Oacute;leo</label><input type="text" id="vKmOleo" oninput="updateVehicleOilPreview()" placeholder="KM da &uacute;ltima troca"></div>
+      <div class="full"><label>KM Pr&oacute;xima Troca</label><input type="text" id="vKmProxOleo" readonly placeholder="Calculado automaticamente"></div>
+      <div class="full"><div id="vehicleOilPreview" class="vehicle-oil-preview muted">Informe o KM atual e o KM da troca de &oacute;leo para calcular a pr&oacute;xima troca.</div></div>
     </div>
 
     <div id="vehicleChecklist"></div>
@@ -3296,6 +3315,112 @@ const VEHICLE_SECTIONS = [
   {id:'eletrica', title:'4. Parte Eletrica', opts:['OK','Nao OK'], items:['Farois','Lanternas','Setas','Buzina','Limpador de para-brisa']},
   {id:'motor', title:'5. Motor e Mecanica', opts:['OK','Nao OK'], items:['Nivel do oleo','Agua do radiador','Freios','Suspensao','Bateria']}
 ];
+const VEHICLE_OIL_INTERVAL_KM = 10000;
+let vehicleOilOpenAlertShown = false;
+function vehicleKmNumber(value){
+  const raw = String(value || '').trim();
+  if(!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if(!digits) return null;
+  const n = parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+function vehicleFormatKm(value){
+  const n = Number(value);
+  if(!Number.isFinite(n)) return '';
+  return Math.max(0, Math.round(n)).toLocaleString('pt-BR');
+}
+function vehicleOilNextKm(kmOleo){
+  const base = vehicleKmNumber(kmOleo);
+  return base === null ? null : base + VEHICLE_OIL_INTERVAL_KM;
+}
+function vehicleOilInfo(v){
+  if(!v) return null;
+  const current = vehicleKmNumber(v.km);
+  const oilKm = vehicleKmNumber(v.kmOleo);
+  const nextSaved = vehicleKmNumber(v.kmProxOleo);
+  const next = nextSaved !== null ? nextSaved : vehicleOilNextKm(oilKm);
+  if(current === null || oilKm === null || next === null) return null;
+  const remaining = next - current;
+  let level = 'ok';
+  if(remaining <= 200) level = 'bad';
+  else if(remaining <= 500) level = 'warn';
+  let label = 'Próxima troca em ' + vehicleFormatKm(remaining) + ' km';
+  if(remaining < 0) label = 'Troca vencida há ' + vehicleFormatKm(Math.abs(remaining)) + ' km';
+  else if(remaining === 0) label = 'Troca vencendo agora';
+  else if(level === 'bad') label = 'Faltam ' + vehicleFormatKm(remaining) + ' km';
+  else if(level === 'warn') label = 'Faltam ' + vehicleFormatKm(remaining) + ' km';
+  return {current, oilKm, next, remaining, level, label};
+}
+function vehicleOilChipHtml(v, showOk=false){
+  const info = vehicleOilInfo(v);
+  if(!info) return '';
+  if(info.level === 'ok' && !showOk) return `<span class="vehicle-oil-chip">🛢️ Próx. ${vehicleFormatKm(info.next)} km</span>`;
+  return `<span class="vehicle-oil-chip ${info.level}">🛢️ ${escapeHtml(info.label)}</span>`;
+}
+function vehicleOilWarnings(list){
+  const latest = {};
+  (list || []).forEach(v => {
+    const key = (v.placa || v.tec || v.id || '').toString().toUpperCase();
+    if(!key) return;
+    if(!latest[key] || (v.ts || 0) > (latest[key].ts || 0)) latest[key] = v;
+  });
+  return Object.values(latest)
+    .map(v => ({v, info: vehicleOilInfo(v)}))
+    .filter(x => x.info && x.info.level !== 'ok')
+    .sort((a,b) => {
+      const sa = a.info.level === 'bad' ? 0 : 1;
+      const sb = b.info.level === 'bad' ? 0 : 1;
+      return sa - sb || a.info.remaining - b.info.remaining;
+    });
+}
+function renderVehicleOilAlerts(list){
+  const box = document.getElementById('vehicleOilAlerts');
+  if(!box) return;
+  const warnings = vehicleOilWarnings(list);
+  if(!warnings.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  box.innerHTML = `<div class="vehicle-oil-alert-title">🛢️ Alertas de troca de óleo</div>
+    <div class="vehicle-oil-alert-list">
+      ${warnings.map(({v,info}) => `<div class="vehicle-oil-alert-card ${info.level}">
+        <div><strong>${escapeHtml(v.modelo || 'Veículo não informado')}</strong>${v.placa ? ' · Placa ' + escapeHtml(v.placa) : ''}</div>
+        <small>Condutor: <strong>${escapeHtml(v.tec || '-')}</strong> · KM atual: ${vehicleFormatKm(info.current)} · Próxima troca: ${vehicleFormatKm(info.next)} km</small>
+        <small>${escapeHtml(info.label)}</small>
+      </div>`).join('')}
+    </div>`;
+  const tabActive = document.getElementById('tab-veiculos')?.classList.contains('active');
+  if(tabActive && !vehicleOilOpenAlertShown){
+    const first = warnings[0];
+    toast(`🛢️ Troca de óleo: ${first.v.modelo || 'Veículo'}${first.v.placa ? ' · Placa ' + first.v.placa : ''} · Condutor: ${first.v.tec || '-'} · ${first.info.label}`, first.info.level === 'bad' ? 'error' : 'warn', 7000);
+    vehicleOilOpenAlertShown = true;
+  }
+}
+function updateVehicleOilPreview(){
+  const kmEl = document.getElementById('vKm');
+  const oilEl = document.getElementById('vKmOleo');
+  const nextEl = document.getElementById('vKmProxOleo');
+  const prev = document.getElementById('vehicleOilPreview');
+  if(!kmEl || !oilEl || !nextEl || !prev) return;
+  const oilKm = vehicleKmNumber(oilEl.value);
+  const next = vehicleOilNextKm(oilEl.value);
+  nextEl.value = next === null ? '' : vehicleFormatKm(next);
+  if(oilKm === null){
+    prev.className = 'vehicle-oil-preview muted';
+    prev.textContent = 'Informe o KM da última troca de óleo para calcular a próxima troca.';
+    return;
+  }
+  const current = vehicleKmNumber(kmEl.value);
+  if(current === null){
+    prev.className = 'vehicle-oil-preview muted';
+    prev.textContent = 'Próxima troca calculada para ' + vehicleFormatKm(next) + ' km. Informe o KM atual para ativar o alerta.';
+    return;
+  }
+  const info = vehicleOilInfo({km: kmEl.value, kmOleo: oilEl.value, kmProxOleo: nextEl.value});
+  prev.className = 'vehicle-oil-preview ' + (info ? info.level : 'muted');
+  prev.textContent = info
+    ? `Última troca: ${vehicleFormatKm(info.oilKm)} km · Próxima troca: ${vehicleFormatKm(info.next)} km · ${info.label}.`
+    : 'Informe o KM atual e o KM da troca de óleo para calcular a próxima troca.';
+}
 function vehicleDefaultChecks(){
   const checks = {};
   VEHICLE_SECTIONS.forEach(sec => sec.items.forEach(item => {
@@ -3327,9 +3452,12 @@ function fillVehicleTechFilter(supFilter){
   if(cur && Array.from(tecF.options).some(o => o.value === cur)) tecF.value = cur;
 }
 function vehicleStatus(v){
+  const oil = vehicleOilInfo(v);
+  if(oil && oil.level === 'bad') return {cls:'bad', label:'Troca de óleo urgente'};
+  if(oil && oil.level === 'warn') return {cls:'warn', label:'Troca de óleo próxima'};
   const checks = v.checks || {};
   const bad = Object.values(checks).some(c => ['Nao OK','Não OK','NÃ£o OK','Avaria','Regular','Ruim'].includes(c.status));
-  return bad ? {cls:'warn', label:'Com observacao'} : {cls:'ok', label:'Em ordem'};
+  return bad ? {cls:'warn', label:'Com observação'} : {cls:'ok', label:'Em ordem'};
 }
 function renderVehicles(){
   fillVehicleSupOptions();
@@ -3345,6 +3473,7 @@ function renderVehicles(){
     .filter(v => !supFilter || v.sup === supFilter || techNames.includes(v.tec))
     .filter(v => !tecFilter || v.tec === tecFilter)
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  renderVehicleOilAlerts(list);
   grid.innerHTML = '';
   const groups = [];
   const byTec = {};
@@ -3366,6 +3495,7 @@ function renderVehicles(){
         <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
         <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
         ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v)}</div>
         <button class="vehicle-history-chip vehicle-history-button" onclick="event.stopPropagation();viewVehicleHistory('${escapeHtml(v.tec || '')}')">${history.length} vistoria${history.length!==1?'s':''}</button>
       </div>
       <div class="vehicle-ico">&#128663;</div>
@@ -3416,7 +3546,9 @@ function vehicleViewHtml(v){
     ['Marca / Modelo', v.modelo || '-'],
     ['Placa', v.placa || '-'],
     ['Ano / Cor', `${v.ano || '-'} / ${v.cor || '-'}`],
-    ['KM Atual', v.km || '-']
+    ['KM Atual', v.km || '-'],
+    ['KM Óleo', v.kmOleo || '-'],
+    ['Próx. Troca Óleo', v.kmProxOleo || (vehicleOilNextKm(v.kmOleo) !== null ? vehicleFormatKm(vehicleOilNextKm(v.kmOleo)) : '-')]
   ];
   const metaHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px">
     ${meta.map(([k,val]) => `<div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:9px 10px"><div style="font-size:9px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;font-weight:800">${k}</div><div style="font-size:13px;color:#fff;font-weight:700;margin-top:3px">${escapeHtml(val)}</div></div>`).join('')}
@@ -3433,7 +3565,7 @@ function vehicleViewHtml(v){
   const fotosHtml = v.fotos && v.fotos.length
     ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=>`<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`).join('')}</div></div>`
     : '';
-  return `${metaHtml}<div style="margin:6px 0 12px"><span class="vehicle-status ${st.cls}">${st.label}</span></div>${checksHtml}
+  return `${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}</div>${checksHtml}
     ${v.obsGerais ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes Gerais</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(v.obsGerais)}</div></div>` : ''}
     ${fotosHtml}`;
 }
@@ -3462,6 +3594,7 @@ function viewVehicleHistory(tec){
             <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
             ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
             <span class="vehicle-status ${st.cls}">${st.label}</span>
+            ${vehicleOilChipHtml(v)}
             ${v.semNovaFoto ? '<span class="vehicle-history-chip" style="margin-left:6px">Sem nova foto</span>' : ''}
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
@@ -3538,7 +3671,7 @@ function openVehicleModal(id=null){
   techs.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(t => tecSel.innerHTML += `<option value="${escapeHtml(t.nome)}" data-sup="${escapeHtml(t.sup||'')}">${escapeHtml(t.nome)}</option>`);
   const today = new Date();
   const curSup = localStorage.getItem('lm_cursup') || '';
-  ['vResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
+  ['vResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vKmOleo','vKmProxOleo','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
   const noPhotoEl = document.getElementById('vNoPhoto');
   if(noPhotoEl) noPhotoEl.checked = false;
   document.getElementById('vEmpresa').value = 'Lumar Telecom';
@@ -3547,6 +3680,7 @@ function openVehicleModal(id=null){
   if(curSup) supSel.value = curSup;
   renderVehicleChecklist();
   renderVehiclePP();
+  updateVehicleOilPreview();
   if(id){
     const v = vehicles.find(x => x.id === id); if(!v) return;
     document.getElementById('vEmpresa').value = v.empresa || 'Lumar Telecom';
@@ -3561,6 +3695,9 @@ function openVehicleModal(id=null){
     document.getElementById('vAno').value = v.ano || '';
     document.getElementById('vCor').value = v.cor || '';
     document.getElementById('vKm').value = v.km || '';
+    document.getElementById('vKmOleo').value = v.kmOleo || '';
+    document.getElementById('vKmProxOleo').value = v.kmProxOleo || (vehicleOilNextKm(v.kmOleo) !== null ? vehicleFormatKm(vehicleOilNextKm(v.kmOleo)) : '');
+    updateVehicleOilPreview();
     document.getElementById('vObsGerais').value = v.obsGerais || '';
     document.getElementById('vAssResp').value = v.assResp || '';
     document.getElementById('vAssCond').value = v.assCond || '';
@@ -3622,6 +3759,8 @@ async function saveVehicle(){
     ano: document.getElementById('vAno').value.trim(),
     cor: document.getElementById('vCor').value.trim(),
     km: document.getElementById('vKm').value.trim(),
+    kmOleo: document.getElementById('vKmOleo').value.trim(),
+    kmProxOleo: document.getElementById('vKmProxOleo').value.trim(),
     checks: getVehicleChecklist(),
     fotos: fotosFinais,
     semNovaFoto,
@@ -3652,6 +3791,8 @@ function deleteVehicleFromHistory(id,tec,e){
 }
 function printVehicle(id){
   const v = vehicles.find(x => x.id === id); if(!v) return;
+  const oil = vehicleOilInfo(v);
+  const oilNext = v.kmProxOleo || (vehicleOilNextKm(v.kmOleo) !== null ? vehicleFormatKm(vehicleOilNextKm(v.kmOleo)) : '');
   const rows = VEHICLE_SECTIONS.map(sec => `<h3>${sec.title}</h3><table class="pp-tbl"><thead><tr><th>Item</th><th>Status</th><th>Observacoes</th></tr></thead><tbody>${sec.items.map(item => {
     const c = (v.checks || {})[item] || {};
     return `<tr><td>${escapeHtml(item)}</td><td>${escapeHtml(c.status || '')}</td><td>${escapeHtml(c.obs || '')}</td></tr>`;
@@ -3661,6 +3802,7 @@ function printVehicle(id){
     <table class="pp-tbl"><tbody>
       <tr><td><b>Responsavel</b><br>${escapeHtml(v.resp||'')}</td><td><b>Condutor</b><br>${escapeHtml(v.tec||'')}</td><td><b>Data/Hora</b><br>${fmtDate(v.data)} ${escapeHtml(v.hora||'')}</td></tr>
       <tr><td><b>Local</b><br>${escapeHtml(v.local||'')}</td><td><b>Supervisor</b><br>${escapeHtml(v.sup||'')}</td><td><b>KM Atual</b><br>${escapeHtml(v.km||'')}</td></tr>
+      <tr><td><b>KM Óleo</b><br>${escapeHtml(v.kmOleo||'')}</td><td><b>Próxima Troca Óleo</b><br>${escapeHtml(oilNext||'')}</td><td><b>Status Óleo</b><br>${escapeHtml(oil ? oil.label : '')}</td></tr>
       <tr><td><b>Marca/Modelo</b><br>${escapeHtml(v.modelo||'')}</td><td><b>Placa</b><br>${escapeHtml(v.placa||'')}</td><td><b>Ano/Cor</b><br>${escapeHtml((v.ano||'')+' '+(v.cor||''))}</td></tr>
     </tbody></table>
     ${rows}
