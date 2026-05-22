@@ -84,8 +84,8 @@ header::before{content:'';position:absolute;top:-40px;right:-60px;width:240px;he
 .dash-card.green .dash-num{color:var(--green)}
 .dash-card.orange .dash-num{color:var(--orange)}
 /* BUSCA GLOBAL + AÇÕES NO HEADER */
-.hsearch-row{display:flex;align-items:center;gap:10px;padding:6px 28px;background:#0e1d38;border-bottom:1px solid var(--border)}
-.hsearch{flex:1;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:18px;padding:5px 14px}
+.hsearch-row{display:flex;align-items:center;gap:10px;padding:6px 28px;background:#0e1d38;border-bottom:1px solid var(--border);position:relative;z-index:120}
+.hsearch{flex:1;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:18px;padding:5px 14px;position:relative;z-index:130}
 .hsearch input{flex:1;background:transparent;border:none;outline:none;color:#fff;font-size:13px;font-family:'Barlow',sans-serif}
 .hsearch input::placeholder{color:var(--mid)}
 .hsearch .sicon{color:var(--cyan);font-size:14px}
@@ -96,7 +96,7 @@ header::before{content:'';position:absolute;top:-40px;right:-60px;width:240px;he
 .tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;background:var(--red);color:#fff;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px;padding:0 6px;font-family:'Barlow',sans-serif;letter-spacing:0;animation:pulseBadge 1.6s infinite}
 @keyframes pulseBadge{0%,100%{box-shadow:0 0 0 0 rgba(224,48,48,0.55)}50%{box-shadow:0 0 0 6px rgba(224,48,48,0)}}
 /* RESULTADOS DA BUSCA GLOBAL */
-.search-results{position:absolute;top:100%;left:14px;right:14px;background:#0e1d38;border:1px solid var(--cyan);border-radius:0 0 10px 10px;max-height:60vh;overflow-y:auto;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-top:-1px;display:none}
+.search-results{position:absolute;top:100%;left:14px;right:14px;background:#0e1d38;border:1px solid var(--cyan);border-radius:0 0 10px 10px;max-height:60vh;overflow-y:auto;z-index:99990;box-shadow:0 18px 38px rgba(0,0,0,0.55);margin-top:-1px;display:none}
 .search-results.open{display:block}
 .sr-section{padding:8px 14px;border-bottom:1px solid var(--border)}
 .sr-section h6{font-family:'Barlow Condensed',sans-serif;font-size:10px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px dashed rgba(0,194,224,0.2)}
@@ -561,6 +561,17 @@ tr.inv-hidden{display:none}
 .vehicle-oil-preview.warn{border-color:rgba(245,197,24,.38);background:rgba(245,197,24,.10);color:#f5c518}
 .vehicle-oil-preview.bad{border-color:rgba(224,48,48,.45);background:rgba(224,48,48,.12);color:#ff9b9b}
 .vehicle-oil-preview.muted{border-color:var(--border);background:rgba(255,255,255,.035);color:var(--mid)}
+.ticket-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px}
+.ticket-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid rgba(127,154,190,.24);border-radius:8px;padding:14px;cursor:pointer;transition:.18s}
+.ticket-card:hover{border-color:rgba(245,197,24,.55);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.25)}
+.ticket-card h3{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.4px;margin-bottom:4px;color:#fff}
+.ticket-card p{font-size:11px;color:var(--mid);margin:2px 0}
+.ticket-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.ticket-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;border:1px solid rgba(127,154,190,.25);background:rgba(255,255,255,.04);font-size:10px;font-weight:800;color:#d7e6ff;text-transform:uppercase;letter-spacing:.5px}
+.ticket-pill.open{color:#f5c518;border-color:rgba(245,197,24,.36);background:rgba(245,197,24,.10)}
+.ticket-pill.progress{color:var(--cyan);border-color:rgba(0,194,224,.38);background:rgba(0,194,224,.10)}
+.ticket-pill.done{color:var(--green);border-color:rgba(24,201,106,.36);background:rgba(24,201,106,.10)}
+.ticket-pill.crit{color:#ff9b9b;border-color:rgba(224,48,48,.42);background:rgba(224,48,48,.12)}
 
 
 /* === CORPORATE VISUAL REFRESH - Codex 2026-05-16 === */
@@ -1001,13 +1012,13 @@ function applyTabVisibilityForRole(role){
   const searchRow = document.querySelector('.hsearch-row');
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.getAttribute('data-tab') || (btn.getAttribute('onclick') || '').match(/showTab\('([^']+)'/)?.[1] || '';
-    if(role === 'veiculos') btn.style.display = tab === 'veiculos' ? '' : 'none';
-    else if(role === 'supervisor') btn.style.display = tab === 'veiculos' ? 'none' : '';
+    if(role === 'veiculos') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? '' : 'none';
+    else if(role === 'supervisor') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? 'none' : '';
     else btn.style.display = '';
   });
   if(dashboard) dashboard.style.display = role === 'veiculos' ? 'none' : '';
   if(searchRow) searchRow.style.display = role === 'veiculos' ? 'none' : '';
-  if(role === 'supervisor' && document.getElementById('tab-veiculos')?.classList.contains('active')){
+  if(role === 'supervisor' && (document.getElementById('tab-veiculos')?.classList.contains('active') || document.getElementById('tab-ticketVeicular')?.classList.contains('active'))){
     showTab('tecnicos', null);
   }
 }
@@ -1333,6 +1344,9 @@ setInterval(_updateOfflineBanner, 5000);
   <button class="tab-btn" onclick="showTab('veiculos',this)" data-tab="veiculos">
     <span class="tab-ico">&#128663;</span>Ve&iacute;culos
   </button>
+  <button class="tab-btn" onclick="showTab('ticketVeicular',this)" data-tab="ticketVeicular">
+    <span class="tab-ico">&#127915;</span>Criar Ticket
+  </button>
   <button class="tab-btn" onclick="showTab('banco',this)">
     <span class="tab-ico">🗄️</span>Ferramentas
   </button>
@@ -1405,6 +1419,23 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
   </div>
 
+  <!-- TICKETS VEICULARES -->
+  <div class="tab-panel" id="tab-ticketVeicular">
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-orange" onclick="openVehicleTicketModal()">+ Novo Ticket</button>
+      <select id="ticketSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
+        <option value="">Todos os supervisores</option>
+      </select>
+      <select id="ticketStatusF" onchange="renderVehicleTickets()" style="min-width:170px">
+        <option value="">Todos os status</option>
+        <option>Aberto</option><option>Em andamento</option><option>Aguardando pe&ccedil;a</option><option>Conclu&iacute;do</option><option>Cancelado</option>
+      </select>
+      <span id="ticketCount" style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap"></span>
+    </div>
+    <div class="ticket-grid" id="ticketGrid"></div>
+    <div class="empty" id="ticketEmpty" style="display:none"><span>&#127915;</span><p>Nenhum ticket de manuten&ccedil;&atilde;o registrado.</p></div>
+  </div>
+
   <!-- BANCO -->
   <div class="tab-panel" id="tab-banco">
     <div class="toolbar">
@@ -1471,6 +1502,35 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
       <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Vistoria</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TICKET MANUTENCAO VEICULAR -->
+<div class="modal-ov" id="vehicleTicketModal">
+  <div class="modal" style="max-width:860px">
+    <button class="modal-close" onclick="closeVehicleTicketModal()">&times;</button>
+    <h2 id="ticketMTitle">Novo Ticket de Manuten&ccedil;&atilde;o</h2>
+    <div class="fg">
+      <div class="full"><label>Ve&iacute;culo cadastrado *</label><select id="mtVehicle" onchange="fillTicketVehicleData()"></select></div>
+      <div><label>Condutor</label><input type="text" id="mtTec" readonly></div>
+      <div><label>Supervisor</label><select id="mtSup"></select></div>
+      <div><label>Placa</label><input type="text" id="mtPlaca" style="text-transform:uppercase"></div>
+      <div><label>KM atual</label><input type="text" id="mtKm" placeholder="Ex.: 120000"></div>
+      <div><label>Tipo de manuten&ccedil;&atilde;o *</label><select id="mtTipo"><option>Corretiva</option><option>Preventiva</option><option>Sinistro</option><option>Revis&atilde;o</option><option>Troca de &oacute;leo</option><option>Pneus</option><option>El&eacute;trica</option><option>Freios</option><option>Suspens&atilde;o</option></select></div>
+      <div><label>Prioridade</label><select id="mtPrioridade"><option>Normal</option><option>Alta</option><option>Cr&iacute;tica - ve&iacute;culo parado</option></select></div>
+      <div><label>Status</label><select id="mtStatus"><option>Aberto</option><option>Em andamento</option><option>Aguardando pe&ccedil;a</option><option>Conclu&iacute;do</option><option>Cancelado</option></select></div>
+      <div><label>Data da solicita&ccedil;&atilde;o</label><input type="date" id="mtData"></div>
+      <div><label>Prazo desejado</label><input type="date" id="mtPrazo"></div>
+      <div><label>Oficina / fornecedor</label><input type="text" id="mtOficina" placeholder="Opcional"></div>
+      <div><label>Valor estimado</label><input type="number" id="mtValor" step="0.01" min="0" placeholder="0,00"></div>
+      <div class="full"><label>Itens afetados</label><input type="text" id="mtItens" placeholder="Ex.: freios, pneus, bateria, correias"></div>
+      <div class="full"><label>Descri&ccedil;&atilde;o da solicita&ccedil;&atilde;o *</label><textarea id="mtDesc" rows="4" placeholder="Descreva o problema, sintomas, barulhos, alertas no painel ou servi&ccedil;o preventivo solicitado"></textarea></div>
+      <div class="full"><label>Observa&ccedil;&otilde;es / retorno da manuten&ccedil;&atilde;o</label><textarea id="mtObs" rows="3" placeholder="Diagn&oacute;stico, pe&ccedil;as trocadas, OS, nota fiscal ou observa&ccedil;&otilde;es"></textarea></div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeVehicleTicketModal()">Cancelar</button>
+      <button class="btn btn-orange" onclick="saveVehicleTicket()">Salvar Ticket</button>
     </div>
   </div>
 </div>
@@ -1796,10 +1856,10 @@ setInterval(_updateOfflineBanner, 5000);
 // Limpa items e hist antigos, mantém techs, sups, loans, banco
 let items = []; // sempre começa vazio — populado via inventário de campo
 // ── INDEXEDDB — armazenamento principal (sem limite de 5MB) ──────────
-let techs = [], loans = [], sups = [], hist = [], banco = [], vehicles = [];
+let techs = [], loans = [], sups = [], hist = [], banco = [], vehicles = [], vehicleTickets = [];
 let _idb = null;
-const IDB_NAME = 'LumarDB', IDB_VER = 2;
-const IDB_STORES = ['techs','loans','sups','hist','banco','audit','vehicles'];
+const IDB_NAME = 'LumarDB', IDB_VER = 3;
+const IDB_STORES = ['techs','loans','sups','hist','banco','audit','vehicles','vehicleTickets'];
 let audit = []; // log de auditoria
 
 function idbOpen(){
@@ -1843,7 +1903,7 @@ function idbSet(store, value){
 }
 
 async function idbLoadAll(){
-  const [t,l,s,h,b,a,v] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
+  const [t,l,s,h,b,a,v,vt] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
   // Migração automática do localStorage (primeira execução)
   const lsTechs = localStorage.getItem('lm_techs');
   if(!t && lsTechs){
@@ -1854,16 +1914,17 @@ async function idbLoadAll(){
     hist  = JSON.parse(localStorage.getItem('lm_hist')  || '[]');
     banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
     vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
+    vehicleTickets = JSON.parse(localStorage.getItem('lm_vehicleTickets') || '[]');
     await Promise.all([
       idbSet('techs', techs), idbSet('loans', loans), idbSet('sups', sups),
-      idbSet('hist', hist),   idbSet('banco', banco), idbSet('vehicles', vehicles)
+      idbSet('hist', hist),   idbSet('banco', banco), idbSet('vehicles', vehicles), idbSet('vehicleTickets', vehicleTickets)
     ]);
     audit = a || [];
-    ['lm_techs','lm_loans','lm_sups','lm_hist','lm_banco','lm_vehicles'].forEach(k => localStorage.removeItem(k));
+    ['lm_techs','lm_loans','lm_sups','lm_hist','lm_banco','lm_vehicles','lm_vehicleTickets'].forEach(k => localStorage.removeItem(k));
     toast('✅ Dados migrados para armazenamento expandido (IndexedDB)!', 'success', 5000);
   } else {
     techs = t || []; loans = l || []; sups = s || [];
-    hist  = h || []; banco = b || []; audit = a || []; vehicles = v || [];
+    hist  = h || []; banco = b || []; audit = a || []; vehicles = v || []; vehicleTickets = vt || [];
   }
   if(!Array.isArray(banco) || banco.length === 0){
     banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
@@ -1881,7 +1942,7 @@ async function idbLoadAll(){
 async function idbSave(stores){
   // stores = array de nomes ou 'all'
   const toSave = stores === 'all' ? IDB_STORES : stores;
-  const map = {techs, loans, sups, hist, banco, audit, vehicles};
+  const map = {techs, loans, sups, hist, banco, audit, vehicles, vehicleTickets};
   await Promise.all(toSave.map(s => idbSet(s, map[s])));
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
@@ -2043,7 +2104,7 @@ if(banco.length === 0){
 function save(){
   // Persiste no IndexedDB (async, não bloqueia UI)
   if(_idb){
-    idbSave(['techs','loans','sups','hist','vehicles']).catch(e => {
+    idbSave(['techs','loans','sups','hist','vehicles','vehicleTickets']).catch(e => {
       console.warn('IDB save error (usando fallback localStorage):', e.message||e);
       // Fallback localStorage
       try {
@@ -2052,6 +2113,7 @@ function save(){
         localStorage.setItem('lm_sups',  JSON.stringify(sups));
         localStorage.setItem('lm_hist',  JSON.stringify(hist));
         localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
+        localStorage.setItem('lm_vehicleTickets', JSON.stringify(vehicleTickets));
       } catch(le){ console.warn('localStorage fallback falhou:', le); }
     });
   } else {
@@ -2061,6 +2123,7 @@ function save(){
       localStorage.setItem('lm_sups',  JSON.stringify(sups));
       localStorage.setItem('lm_hist',  JSON.stringify(hist));
       localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
+      localStorage.setItem('lm_vehicleTickets', JSON.stringify(vehicleTickets));
     } catch(le){ console.warn('localStorage save falhou:', le); }
   }
   if(typeof refreshDashboard === 'function') refreshDashboard();
@@ -2086,7 +2149,7 @@ function activeSupervisorFilter(selectId){
 }
 function setSupervisorFilterVisibility(){
   const locked = lockedSupervisor();
-  ['histSupF','loanSupF','vehicleSupF'].forEach(id => {
+  ['histSupF','loanSupF','vehicleSupF','ticketSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     el.style.display = locked ? 'none' : '';
@@ -2150,8 +2213,8 @@ function tiposFerramentaHtml(tool){
 // ── TABS ──────────────────────────────────────────────────────────────
 function showTab(id, btn){
   const role = currentRole();
-  if(role === 'veiculos' && id !== 'veiculos') id = 'veiculos';
-  if(role === 'supervisor' && id === 'veiculos') id = 'tecnicos';
+  if(role === 'veiculos' && id !== 'veiculos' && id !== 'ticketVeicular') id = 'veiculos';
+  if(role === 'supervisor' && (id === 'veiculos' || id === 'ticketVeicular')) id = 'tecnicos';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
@@ -2161,6 +2224,7 @@ function showTab(id, btn){
   if(id==='emprestimos') renderLoans();
   if(id==='historico') renderHist();
   if(id==='veiculos') renderVehicles();
+  if(id==='ticketVeicular') renderVehicleTickets();
   if(id==='banco') renderBanco();
 }
 function showTabByName(id){ showTab(id, null); }
@@ -2331,6 +2395,7 @@ function getBackupPayload(light=true){
     loans: Array.isArray(loans) ? loans : [],
     hist: Array.isArray(hist) ? hist : [],
     vehicles: Array.isArray(vehicles) ? vehicles : [],
+    vehicleTickets: Array.isArray(vehicleTickets) ? vehicleTickets : [],
     audit: Array.isArray(audit) ? audit : [],
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
@@ -2347,6 +2412,7 @@ function getBackupStats(data){
     loans: Array.isArray(data.loans) ? data.loans.length : 0,
     hist: Array.isArray(data.hist) ? data.hist.length : 0,
     vehicles: Array.isArray(data.vehicles) ? data.vehicles.length : 0,
+    vehicleTickets: Array.isArray(data.vehicleTickets) ? data.vehicleTickets.length : 0,
     audit: Array.isArray(data.audit) ? data.audit.length : 0
   };
 }
@@ -2565,6 +2631,7 @@ async function restoreBackupOneClick(idx){
   if(typeof renderLoans === 'function') renderLoans();
   if(typeof renderHist === 'function') renderHist();
   if(typeof renderVehicles === 'function') renderVehicles();
+  if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
   if(typeof refreshDashboard === 'function') refreshDashboard();
   try{ await createCloudBackup('after-restore'); }catch(e){}
   closeBackupModal();
@@ -2578,6 +2645,7 @@ function applyBackupData(data){
   if(Array.isArray(data.loans)) window.loans = loans = data.loans;
   if(Array.isArray(data.hist))  window.hist  = hist  = data.hist;
   if(Array.isArray(data.vehicles)) window.vehicles = vehicles = data.vehicles;
+  if(Array.isArray(data.vehicleTickets)) window.vehicleTickets = vehicleTickets = data.vehicleTickets;
   if(Array.isArray(data.audit)) window.audit = audit = data.audit;
   if(data.logo && !String(data.logo).startsWith('data:image/')) localStorage.setItem('lm_logo', data.logo);
   if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
@@ -2624,6 +2692,7 @@ function exportBackup(){
     loans: loans,
     hist: hist,
     vehicles: vehicles,
+    vehicleTickets: vehicleTickets,
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
     creds: _getCreds()
@@ -2662,6 +2731,7 @@ function importBackup(input){
       if(Array.isArray(data.banco)) banco = data.banco;
       if(Array.isArray(data.loans)) loans = data.loans;
       if(Array.isArray(data.vehicles)) vehicles = data.vehicles;
+      if(Array.isArray(data.vehicleTickets)) vehicleTickets = data.vehicleTickets;
       if(Array.isArray(data.hist)){
         // Normaliza inventários antigos: garante campos obrigatórios
         hist = data.hist.map(h => ({
@@ -2687,7 +2757,7 @@ function importBackup(input){
       if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
       if(_idb){ idbSave('all').catch(()=>{}); } save(); saveBanco(); rebuildItems();
-      renderSupSel(); renderTechs(); renderBanco(); renderLoans(); renderHist(); renderVehicles();
+      renderSupSel(); renderTechs(); renderBanco(); renderLoans(); renderHist(); renderVehicles(); if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
       refreshDashboard();
       const cs = localStorage.getItem('lm_cursup') || '';
       const supSel = document.getElementById('supSel'); if(supSel) supSel.value = cs;
@@ -3161,7 +3231,7 @@ function syncSupFilter(value){
   if(locked) value = locked;
   localStorage.setItem('lm_cursup', value || '');
   // Atualiza os 3 selects (sem disparar onchange em loop)
-  ['supSel','histSupF','loanSupF','vehicleSupF'].forEach(id => {
+  ['supSel','histSupF','loanSupF','vehicleSupF','ticketSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     // Garante que o select já tem a opção (renderiza se necessário)
@@ -3182,6 +3252,7 @@ function syncSupFilter(value){
   renderHist();
   renderLoans();
   if(typeof renderVehicles === 'function') renderVehicles();
+  if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
 // Atualiza a barra indicadora de supervisor ativo logo abaixo do header
@@ -3308,6 +3379,7 @@ function prevTechPhoto(inp){
 
 // ── VEÍCULOS / VISTORIA VEICULAR ─────────────────────────────────────────────
 let editingVehicleId = null;
+let editingVehicleTicketId = null;
 const VEHICLE_SECTIONS = [
   {id:'doc', title:'1. Documentacao', opts:['OK','Nao OK'], items:['CRLV atualizado']},
   {id:'lataria', title:'2. Lataria e Pintura', opts:['OK','Avaria'], items:['Capo','Para-choque dianteiro','Portas','Teto','Porta-malas','Retrovisores','Vidros']},
@@ -3503,6 +3575,7 @@ function renderVehicles(){
     <div class="vehicle-actions" onclick="event.stopPropagation()">
       <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Visualizar</button>
       <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>
+      <button class="btn btn-orange btn-sm" onclick="openVehicleTicketModal(null,'${escapeHtml(v.id)}')">Ticket</button>
     </div>`;
     grid.appendChild(d);
   });
@@ -3810,6 +3883,209 @@ function printVehicle(id){
     <div class="sign-blk"><div class="sign-row"><div class="sign-box"><p>Respons&aacute;vel pela vistoria</p><b>${escapeHtml(v.assResp||v.resp||'')}</b></div><div class="sign-box"><p>Condutor/Motorista</p><b>${escapeHtml(v.assCond||v.tec||'')}</b></div></div></div>
   </div>`;
   openPrintWindow(html, 'Vistoria Veicular - ' + (v.tec || 'Condutor'));
+}
+
+function latestVehicleList(){
+  const latest = {};
+  (vehicles || []).forEach(v => {
+    const key = (v.placa || v.tec || v.id || '').toString().toUpperCase();
+    if(!key) return;
+    if(!latest[key] || (v.ts || 0) > (latest[key].ts || 0)) latest[key] = v;
+  });
+  return Object.values(latest).sort((a,b)=>(a.tec || '').localeCompare(b.tec || '') || (a.placa || '').localeCompare(b.placa || ''));
+}
+function fillTicketSupOptions(){
+  const supF = document.getElementById('ticketSupF');
+  const locked = lockedSupervisor();
+  if(supF){
+    const cur = locked || supF.value || localStorage.getItem('lm_cursup') || '';
+    supF.innerHTML = '<option value="">Todos os supervisores</option>';
+    sups.forEach(s => supF.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
+    if(cur && Array.from(supF.options).some(o => o.value === cur)) supF.value = cur;
+    supF.style.display = locked ? 'none' : '';
+    supF.disabled = !!locked;
+  }
+}
+function ticketStatusClass(status, prioridade){
+  if(String(prioridade || '').toLowerCase().includes('crit')) return 'crit';
+  if(status === 'ConcluÃ­do' || status === 'Concluído') return 'done';
+  if(status === 'Em andamento' || status === 'Aguardando peÃ§a' || status === 'Aguardando peça') return 'progress';
+  return 'open';
+}
+function renderVehicleTickets(){
+  fillTicketSupOptions();
+  const supFilter = activeSupervisorFilter('ticketSupF');
+  const statusFilter = (document.getElementById('ticketStatusF') || {}).value || '';
+  const grid = document.getElementById('ticketGrid');
+  const empty = document.getElementById('ticketEmpty');
+  const count = document.getElementById('ticketCount');
+  if(!grid) return;
+  const techNames = supFilter ? techs.filter(t => t.sup === supFilter).map(t => t.nome) : techs.map(t => t.nome);
+  const list = (vehicleTickets || [])
+    .filter(t => !supFilter || t.sup === supFilter || techNames.includes(t.tec))
+    .filter(t => !statusFilter || t.status === statusFilter)
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  grid.innerHTML = '';
+  list.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'ticket-card';
+    d.onclick = () => viewVehicleTicket(t.id);
+    const cls = ticketStatusClass(t.status, t.prioridade);
+    d.innerHTML = `<h3>${escapeHtml(t.tipo || 'Manutencao veicular')}</h3>
+      <p><strong>${escapeHtml(t.modelo || 'Veiculo nao informado')}</strong>${t.placa ? ' - Placa '+escapeHtml(t.placa) : ''}</p>
+      <p>Condutor: <strong>${escapeHtml(t.tec || '-')}</strong>${t.sup ? ' - Sup: '+escapeHtml(t.sup) : ''}</p>
+      <p>${fmtDate(t.data)}${t.prazo ? ' - Prazo '+fmtDate(t.prazo) : ''}${t.km ? ' - KM '+escapeHtml(t.km) : ''}</p>
+      <div class="ticket-meta">
+        <span class="ticket-pill ${cls}">${escapeHtml(t.status || 'Aberto')}</span>
+        <span class="ticket-pill">${escapeHtml(t.prioridade || 'Normal')}</span>
+        ${t.valor ? `<span class="ticket-pill">${fmtMoney(t.valor)}</span>` : ''}
+      </div>
+      <p style="margin-top:8px;color:#fff;line-height:1.35">${escapeHtml((t.desc || '').slice(0,120))}${(t.desc || '').length > 120 ? '...' : ''}</p>
+      <div class="vehicle-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-cyan btn-sm" onclick="viewVehicleTicket('${escapeHtml(t.id)}')">Ver</button>
+        <button class="btn btn-ghost btn-sm" onclick="openVehicleTicketModal('${escapeHtml(t.id)}')">Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="printVehicleTicket('${escapeHtml(t.id)}')">Imprimir</button>
+      </div>`;
+    grid.appendChild(d);
+  });
+  if(empty) empty.style.display = list.length ? 'none' : 'block';
+  if(count) count.textContent = `${list.length} ticket${list.length!==1?'s':''}`;
+}
+function openVehicleTicketModal(id=null, vehicleId=null){
+  editingVehicleTicketId = id;
+  const modal = document.getElementById('vehicleTicketModal');
+  const title = document.getElementById('ticketMTitle');
+  if(title) title.textContent = id ? 'Editar Ticket de Manutencao' : 'Novo Ticket de Manutencao';
+  const vehicleSel = document.getElementById('mtVehicle');
+  const latest = latestVehicleList();
+  vehicleSel.innerHTML = '<option value="">Selecione um veiculo cadastrado</option>';
+  latest.forEach(v => {
+    const label = `${v.tec || 'Condutor'} - ${v.modelo || 'Veiculo'}${v.placa ? ' - Placa '+v.placa : ''}`;
+    vehicleSel.innerHTML += `<option value="${escapeHtml(v.id)}">${escapeHtml(label)}</option>`;
+  });
+  const supSel = document.getElementById('mtSup');
+  supSel.innerHTML = '<option value="">Selecione</option>';
+  sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
+  ['mtTec','mtPlaca','mtKm','mtOficina','mtValor','mtItens','mtDesc','mtObs'].forEach(k => document.getElementById(k).value = '');
+  document.getElementById('mtTipo').value = 'Corretiva';
+  document.getElementById('mtPrioridade').value = 'Normal';
+  document.getElementById('mtStatus').value = 'Aberto';
+  document.getElementById('mtData').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mtPrazo').value = '';
+  const curSup = localStorage.getItem('lm_cursup') || '';
+  if(curSup) supSel.value = curSup;
+  if(vehicleId && Array.from(vehicleSel.options).some(o => o.value === vehicleId)){
+    vehicleSel.value = vehicleId;
+    fillTicketVehicleData();
+  }
+  if(id){
+    const t = vehicleTickets.find(x => x.id === id); if(!t) return;
+    if(t.vehicleId && Array.from(vehicleSel.options).some(o => o.value === t.vehicleId)) vehicleSel.value = t.vehicleId;
+    document.getElementById('mtTec').value = t.tec || '';
+    document.getElementById('mtSup').value = t.sup || '';
+    document.getElementById('mtPlaca').value = t.placa || '';
+    document.getElementById('mtKm').value = t.km || '';
+    document.getElementById('mtTipo').value = t.tipo || 'Corretiva';
+    document.getElementById('mtPrioridade').value = t.prioridade || 'Normal';
+    document.getElementById('mtStatus').value = t.status || 'Aberto';
+    document.getElementById('mtData').value = t.data || '';
+    document.getElementById('mtPrazo').value = t.prazo || '';
+    document.getElementById('mtOficina').value = t.oficina || '';
+    document.getElementById('mtValor').value = t.valor || '';
+    document.getElementById('mtItens').value = t.itens || '';
+    document.getElementById('mtDesc').value = t.desc || '';
+    document.getElementById('mtObs').value = t.obs || '';
+  }
+  modal.classList.add('open');
+}
+function closeVehicleTicketModal(){ document.getElementById('vehicleTicketModal').classList.remove('open'); }
+function fillTicketVehicleData(){
+  const id = document.getElementById('mtVehicle').value;
+  const v = latestVehicleList().find(x => x.id === id);
+  if(!v) return;
+  document.getElementById('mtTec').value = v.tec || '';
+  document.getElementById('mtSup').value = v.sup || '';
+  document.getElementById('mtPlaca').value = v.placa || '';
+  document.getElementById('mtKm').value = v.km || '';
+}
+function saveVehicleTicket(){
+  const vehicleId = document.getElementById('mtVehicle').value;
+  const v = latestVehicleList().find(x => x.id === vehicleId);
+  const tipo = document.getElementById('mtTipo').value;
+  const desc = document.getElementById('mtDesc').value.trim();
+  if(!vehicleId){ alert('Selecione um veiculo cadastrado.'); return; }
+  if(!tipo){ alert('Informe o tipo de manutencao.'); return; }
+  if(!desc){ alert('Descreva a solicitacao de manutencao.'); return; }
+  const obj = {
+    id: editingVehicleTicketId || 'vt_' + Date.now(),
+    ts: Date.now(),
+    vehicleId,
+    tec: document.getElementById('mtTec').value.trim(),
+    sup: document.getElementById('mtSup').value,
+    modelo: v ? (v.modelo || '') : '',
+    placa: document.getElementById('mtPlaca').value.trim().toUpperCase(),
+    km: document.getElementById('mtKm').value.trim(),
+    tipo,
+    prioridade: document.getElementById('mtPrioridade').value,
+    status: document.getElementById('mtStatus').value,
+    data: document.getElementById('mtData').value,
+    prazo: document.getElementById('mtPrazo').value,
+    oficina: document.getElementById('mtOficina').value.trim(),
+    valor: document.getElementById('mtValor').value,
+    itens: document.getElementById('mtItens').value.trim(),
+    desc,
+    obs: document.getElementById('mtObs').value.trim()
+  };
+  const i = vehicleTickets.findIndex(x => x.id === obj.id);
+  if(i >= 0) vehicleTickets[i] = obj; else vehicleTickets.push(obj);
+  auditLog(editingVehicleTicketId ? 'Ticket Veicular Editado' : 'Ticket Veicular Criado', `Veiculo: ${obj.modelo || '-'} Placa: ${obj.placa || '-'}`, `Status: ${obj.status}`);
+  save(); closeVehicleTicketModal(); renderVehicleTickets();
+}
+function vehicleTicketViewHtml(t){
+  const meta = [
+    ['Veiculo', `${t.modelo || '-'}${t.placa ? ' - Placa '+t.placa : ''}`],
+    ['Condutor', t.tec || '-'],
+    ['Supervisor', t.sup || '-'],
+    ['KM', t.km || '-'],
+    ['Tipo', t.tipo || '-'],
+    ['Prioridade', t.prioridade || '-'],
+    ['Status', t.status || '-'],
+    ['Solicitado em', fmtDate(t.data)],
+    ['Prazo', fmtDate(t.prazo)],
+    ['Oficina', t.oficina || '-'],
+    ['Valor estimado', t.valor ? fmtMoney(t.valor) : '-'],
+    ['Itens afetados', t.itens || '-']
+  ];
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px">
+    ${meta.map(([k,val]) => `<div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:9px 10px"><div style="font-size:9px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;font-weight:800">${k}</div><div style="font-size:13px;color:#fff;font-weight:700;margin-top:3px">${escapeHtml(val)}</div></div>`).join('')}
+  </div>
+  <div class="vehicle-form-section"><div class="vehicle-form-title">Descricao da solicitacao</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(t.desc || '-')}</div></div>
+  <div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes / retorno</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(t.obs || '-')}</div></div>`;
+}
+function viewVehicleTicket(id){
+  const t = vehicleTickets.find(x => x.id === id);
+  if(!t) return;
+  document.getElementById('invToolsTitle').textContent = 'Ticket de Manutencao - ' + (t.placa || t.tec || 'Veiculo');
+  document.getElementById('invToolsSubtitle').innerHTML = `${escapeHtml(t.tipo || '')} - ${escapeHtml(t.status || '')}`;
+  document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto">${vehicleTicketViewHtml(t)}</div>
+    <div class="ma"><button class="btn btn-ghost" onclick="printVehicleTicket('${escapeHtml(t.id)}')">Imprimir</button><button class="btn btn-cyan" onclick="openVehicleTicketModal('${escapeHtml(t.id)}');closeInvTools()">Editar</button></div>`;
+  document.getElementById('invToolsModal').classList.add('open');
+}
+function printVehicleTicket(id){
+  const t = vehicleTickets.find(x => x.id === id); if(!t) return;
+  const html = `<div class="pp-page">
+    <div class="pp-hdr"><h2>TICKET DE MANUTENCAO VEICULAR</h2><p>${escapeHtml(t.status || 'Aberto')}</p></div>
+    <table class="pp-tbl"><tbody>
+      <tr><td><b>Veiculo</b><br>${escapeHtml(t.modelo||'')}</td><td><b>Placa</b><br>${escapeHtml(t.placa||'')}</td><td><b>Condutor</b><br>${escapeHtml(t.tec||'')}</td></tr>
+      <tr><td><b>Supervisor</b><br>${escapeHtml(t.sup||'')}</td><td><b>KM</b><br>${escapeHtml(t.km||'')}</td><td><b>Tipo</b><br>${escapeHtml(t.tipo||'')}</td></tr>
+      <tr><td><b>Prioridade</b><br>${escapeHtml(t.prioridade||'')}</td><td><b>Solicitado em</b><br>${fmtDate(t.data)}</td><td><b>Prazo</b><br>${fmtDate(t.prazo)}</td></tr>
+      <tr><td><b>Oficina</b><br>${escapeHtml(t.oficina||'')}</td><td><b>Valor estimado</b><br>${t.valor ? fmtMoney(t.valor) : ''}</td><td><b>Itens afetados</b><br>${escapeHtml(t.itens||'')}</td></tr>
+    </tbody></table>
+    <h3>Descricao da solicitacao</h3><p style="min-height:90px;border:1px solid #ddd;padding:8px;font-size:11px">${escapeHtml(t.desc||'')}</p>
+    <h3>Observacoes / retorno</h3><p style="min-height:70px;border:1px solid #ddd;padding:8px;font-size:11px">${escapeHtml(t.obs||'')}</p>
+    <div class="sign-blk"><div class="sign-row"><div class="sign-box"><p>Solicitante</p><b>${escapeHtml(t.tec||'')}</b></div><div class="sign-box"><p>Responsavel pela manutencao</p><b></b></div></div></div>
+  </div>`;
+  openPrintWindow(html, 'Ticket Manutencao - ' + (t.placa || t.tec || 'Veiculo'));
 }
 
 // ── TECH INVENTORY VIEW ───────────────────────────────────────────────
@@ -6835,9 +7111,3 @@ bootApp();
 <script>setTimeout(function(){ try{ autoLocalJsonBackup('auto_abertura', true); }catch(e){} }, 2500);</script>
 </body>
 </html>
-
-
-
-
-
-
