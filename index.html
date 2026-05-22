@@ -3925,6 +3925,7 @@ function renderVehicleTickets(){
     .filter(t => !supFilter || t.sup === supFilter || techNames.includes(t.tec))
     .filter(t => !statusFilter || t.status === statusFilter)
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const canDeleteTicket = currentRole() === 'admin';
   grid.innerHTML = '';
   list.forEach(t => {
     const d = document.createElement('div');
@@ -3945,6 +3946,7 @@ function renderVehicleTickets(){
         <button class="btn btn-cyan btn-sm" onclick="viewVehicleTicket('${escapeHtml(t.id)}')">Ver</button>
         <button class="btn btn-ghost btn-sm" onclick="openVehicleTicketModal('${escapeHtml(t.id)}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="printVehicleTicket('${escapeHtml(t.id)}')">Imprimir</button>
+        ${canDeleteTicket ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicleTicket('${escapeHtml(t.id)}',event)">Excluir</button>` : ''}
       </div>`;
     grid.appendChild(d);
   });
@@ -4041,6 +4043,16 @@ function saveVehicleTicket(){
   auditLog(editingVehicleTicketId ? 'Ticket Veicular Editado' : 'Ticket Veicular Criado', `Veiculo: ${obj.modelo || '-'} Placa: ${obj.placa || '-'}`, `Status: ${obj.status}`);
   save(); closeVehicleTicketModal(); renderVehicleTickets();
 }
+function deleteVehicleTicket(id,e){
+  if(e) e.stopPropagation();
+  if(currentRole() !== 'admin'){ toast('Somente o admin pode excluir tickets.', 'warn'); return false; }
+  if(!confirm('Remover este ticket de manutencao veicular?')) return false;
+  const t = vehicleTickets.find(x => x.id === id);
+  vehicleTickets = vehicleTickets.filter(x => x.id !== id);
+  auditLog('Ticket Veicular Excluido', `Veiculo: ${t ? (t.modelo || '-') : id}`, `Placa: ${t ? (t.placa || '-') : '-'}`);
+  save(); renderVehicleTickets();
+  return true;
+}
 function vehicleTicketViewHtml(t){
   const meta = [
     ['Veiculo', `${t.modelo || '-'}${t.placa ? ' - Placa '+t.placa : ''}`],
@@ -4067,8 +4079,9 @@ function viewVehicleTicket(id){
   if(!t) return;
   document.getElementById('invToolsTitle').textContent = 'Ticket de Manutencao - ' + (t.placa || t.tec || 'Veiculo');
   document.getElementById('invToolsSubtitle').innerHTML = `${escapeHtml(t.tipo || '')} - ${escapeHtml(t.status || '')}`;
+  const deleteBtn = currentRole() === 'admin' ? `<button class="btn btn-danger" onclick="if(deleteVehicleTicket('${escapeHtml(t.id)}',event)) closeInvTools()">Excluir</button>` : '';
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto">${vehicleTicketViewHtml(t)}</div>
-    <div class="ma"><button class="btn btn-ghost" onclick="printVehicleTicket('${escapeHtml(t.id)}')">Imprimir</button><button class="btn btn-cyan" onclick="openVehicleTicketModal('${escapeHtml(t.id)}');closeInvTools()">Editar</button></div>`;
+    <div class="ma"><button class="btn btn-ghost" onclick="printVehicleTicket('${escapeHtml(t.id)}')">Imprimir</button><button class="btn btn-cyan" onclick="openVehicleTicketModal('${escapeHtml(t.id)}');closeInvTools()">Editar</button>${deleteBtn}</div>`;
   document.getElementById('invToolsModal').classList.add('open');
 }
 function printVehicleTicket(id){
