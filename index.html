@@ -163,6 +163,10 @@ tbody td{padding:10px 13px;vertical-align:middle}
 .tech-card p{font-size:11px;color:var(--mid)}
 .trole{font-family:'Barlow Condensed',sans-serif;font-size:10px;border-radius:5px;padding:2px 8px;letter-spacing:.5px}
 .tcount{font-family:'Barlow Condensed',sans-serif;font-size:12px;background:rgba(0,194,224,0.1);color:var(--cyan);border-radius:5px;padding:2px 9px}
+.tim-status-filter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;align-items:center}
+.tim-status-btn{min-height:26px;padding:4px 9px;border-radius:999px;border:1px solid rgba(127,154,190,.28);background:rgba(255,255,255,.045);color:var(--mid);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;cursor:pointer}
+.tim-status-btn:hover,.tim-status-btn.active{border-color:var(--cyan);background:rgba(0,194,224,.14);color:#fff}
+.tim-status-count{font-size:11px;color:var(--mid);margin-left:auto}
 .add-card{background:transparent;border:2px dashed rgba(255,255,255,0.1);border-radius:11px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;color:var(--mid);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:all .2s;min-height:150px}
 .add-card:hover{border-color:var(--cyan);color:var(--cyan)}
 /* HIST CARDS */
@@ -1012,13 +1016,13 @@ function applyTabVisibilityForRole(role){
   const searchRow = document.querySelector('.hsearch-row');
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.getAttribute('data-tab') || (btn.getAttribute('onclick') || '').match(/showTab\('([^']+)'/)?.[1] || '';
-    if(role === 'veiculos') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? '' : 'none';
-    else if(role === 'supervisor') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? 'none' : '';
+    if(role === 'veiculos') btn.style.display = (tab === 'veiculos' || tab === 'cadastrarVeiculo' || tab === 'ticketVeicular') ? '' : 'none';
+    else if(role === 'supervisor') btn.style.display = (tab === 'veiculos' || tab === 'cadastrarVeiculo' || tab === 'ticketVeicular') ? 'none' : '';
     else btn.style.display = '';
   });
   if(dashboard) dashboard.style.display = role === 'veiculos' ? 'none' : '';
   if(searchRow) searchRow.style.display = role === 'veiculos' ? 'none' : '';
-  if(role === 'supervisor' && (document.getElementById('tab-veiculos')?.classList.contains('active') || document.getElementById('tab-ticketVeicular')?.classList.contains('active'))){
+  if(role === 'supervisor' && (document.getElementById('tab-veiculos')?.classList.contains('active') || document.getElementById('tab-cadastrarVeiculo')?.classList.contains('active') || document.getElementById('tab-ticketVeicular')?.classList.contains('active'))){
     showTab('tecnicos', null);
   }
 }
@@ -1344,6 +1348,9 @@ setInterval(_updateOfflineBanner, 5000);
   <button class="tab-btn" onclick="showTab('veiculos',this)" data-tab="veiculos">
     <span class="tab-ico">&#128663;</span>Ve&iacute;culos
   </button>
+  <button class="tab-btn" onclick="openVehicleRegisterTab(this)" data-tab="cadastrarVeiculo">
+    <span class="tab-ico">&#128664;</span>Cadastrar Ve&iacute;culo
+  </button>
   <button class="tab-btn" onclick="showTab('ticketVeicular',this)" data-tab="ticketVeicular">
     <span class="tab-ico">&#127915;</span>Criar Ticket
   </button>
@@ -1417,6 +1424,18 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
     <div class="vehicle-grid" id="vehicleGrid"></div>
     <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
+  </div>
+
+  <div class="tab-panel" id="tab-cadastrarVeiculo">
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Cadastrar Ve&iacute;culo</button>
+      <button class="btn btn-ghost" onclick="showTab('veiculos',null)">Ver Vistorias</button>
+      <span style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap">Use esta aba para abrir um novo cadastro veicular.</span>
+    </div>
+    <div class="empty" style="display:block">
+      <span>&#128664;</span>
+      <p>Clique em Cadastrar Ve&iacute;culo para preencher os dados, fotos e checklist da vistoria.</p>
+    </div>
   </div>
 
   <!-- TICKETS VEICULARES -->
@@ -2213,8 +2232,8 @@ function tiposFerramentaHtml(tool){
 // ── TABS ──────────────────────────────────────────────────────────────
 function showTab(id, btn){
   const role = currentRole();
-  if(role === 'veiculos' && id !== 'veiculos' && id !== 'ticketVeicular') id = 'veiculos';
-  if(role === 'supervisor' && (id === 'veiculos' || id === 'ticketVeicular')) id = 'tecnicos';
+  if(role === 'veiculos' && id !== 'veiculos' && id !== 'cadastrarVeiculo' && id !== 'ticketVeicular') id = 'veiculos';
+  if(role === 'supervisor' && (id === 'veiculos' || id === 'cadastrarVeiculo' || id === 'ticketVeicular')) id = 'tecnicos';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
@@ -2228,6 +2247,10 @@ function showTab(id, btn){
   if(id==='banco') renderBanco();
 }
 function showTabByName(id){ showTab(id, null); }
+function openVehicleRegisterTab(btn){
+  showTab('cadastrarVeiculo', btn);
+  setTimeout(() => openVehicleModal(), 0);
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // FEATURES v1.4.0 — Dashboard, Busca Global, Backup, Inventário Equipe
@@ -3845,6 +3868,9 @@ async function saveVehicle(){
   if(i >= 0) vehicles[i] = obj; else vehicles.push(obj);
   auditLog(editingVehicleId ? 'Vistoria Veicular Editada' : 'Vistoria Veicular Cadastrada', `Condutor: ${obj.tec}`, `Placa: ${obj.placa || '-'}`);
   save(); closeVehicleModal(); renderVehicles();
+  if(document.getElementById('tab-cadastrarVeiculo')?.classList.contains('active')){
+    showTab('veiculos', null);
+  }
 }
 function deleteVehicle(id,e){
   if(e) e.stopPropagation();
@@ -4120,7 +4146,14 @@ function openTechInv(t){
     html += '<div class="empty"><span>🔧</span><p>Nenhum inventário registrado para este técnico.</p></div>';
   } else {
     const total = techItems.reduce((s,i)=>{ const v=parseFloat(i.valor)||0; return s+v*i.qtd; },0);
-    html += `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    html += `<div class="tim-status-filter" id="timStatusFilter">
+        <button type="button" class="tim-status-btn active" data-filter="" onclick="filterTechInvStatus('')">Todos</button>
+        <button type="button" class="tim-status-btn" data-filter="Em Uso" onclick="filterTechInvStatus('Em Uso')">Em uso</button>
+        <button type="button" class="tim-status-btn" data-filter="N/A" onclick="filterTechInvStatus('N/A')">N/A</button>
+        <button type="button" class="tim-status-btn" data-filter="Perdido|Não Recebeu" onclick="filterTechInvStatus('Perdido|Não Recebeu')">Perdido / Não recebeu</button>
+        <span class="tim-status-count" id="timStatusCount"></span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:rgba(26,79,214,0.3)">
         <th style="padding:9px 12px;text-align:left;color:var(--cyan);font-size:10px;text-transform:uppercase">Ferramenta</th>
         <th style="padding:9px 12px;text-align:left;color:var(--cyan);font-size:10px;text-transform:uppercase">Cat.</th>
@@ -4130,12 +4163,13 @@ function openTechInv(t){
         <th style="padding:9px 12px;text-align:left;color:var(--cyan);font-size:10px;text-transform:uppercase">Obs.</th>
       </tr></thead><tbody>`;
     techItems.forEach(item => {
-      html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+      const itemStatus = item.status === 'NÃO RECEBEU' ? 'Não Recebeu' : (item.status || '');
+      html += `<tr data-tim-status="${escapeHtml(itemStatus)}" style="border-bottom:1px solid rgba(255,255,255,0.04)">
         <td style="padding:9px 12px;font-weight:600">${item.nome}</td>
         <td style="padding:9px 12px;font-size:11px;color:var(--mid)">${item.categoria||'—'}</td>
         <td style="padding:9px 12px;text-align:center">${item.qtd}</td>
         <td style="padding:9px 12px;color:var(--green)">${fmtMoney(item.valor)}</td>
-        <td style="padding:9px 12px">${statusBadge(item.status)}</td>
+        <td style="padding:9px 12px">${statusBadge(itemStatus)}</td>
         <td style="padding:9px 12px;font-size:11px;color:var(--mid)">${item.obs||'—'}</td>
       </tr>`;
     });
@@ -4168,9 +4202,29 @@ function openTechInv(t){
     });
   }
   document.getElementById('timBody').innerHTML = html;
+  filterTechInvStatus('');
   document.getElementById('techInvModal').classList.add('open');
 }
 function closeTIM(){ document.getElementById('techInvModal').classList.remove('open'); }
+
+function filterTechInvStatus(filter){
+  const rows = document.querySelectorAll('#timBody tr[data-tim-status]');
+  const allowed = filter ? filter.split('|') : [];
+  let visible = 0;
+  rows.forEach(row => {
+    const status = row.getAttribute('data-tim-status') || '';
+    const show = !allowed.length || allowed.includes(status);
+    row.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+  document.querySelectorAll('#timStatusFilter .tim-status-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn.getAttribute('data-filter') || '') === (filter || ''));
+  });
+  const count = document.getElementById('timStatusCount');
+  if(count && rows.length){
+    count.textContent = visible + ' de ' + rows.length + ' item' + (rows.length !== 1 ? 's' : '');
+  }
+}
 
 function printTechInv(){
   if(!currentPrintTech) return;
@@ -5459,6 +5513,41 @@ document.addEventListener('DOMContentLoaded', () => {
       markHistDirty();
     }
   });
+});
+
+function closeFadeLayer(layer){
+  if(!layer) return;
+  switch(layer.id){
+    case 'histModal': if(typeof closeHM === 'function') closeHM(); else layer.classList.remove('open'); break;
+    case 'techInvModal': if(typeof closeTIM === 'function') closeTIM(); else layer.classList.remove('open'); break;
+    case 'techModal': if(typeof closeTM === 'function') closeTM(); else layer.classList.remove('open'); break;
+    case 'teamInvModal': if(typeof closeTeamInv === 'function') closeTeamInv(); else layer.classList.remove('open'); break;
+    case 'faltasModal': if(typeof closeFaltasModal === 'function') closeFaltasModal(); else layer.classList.remove('open'); break;
+    case 'auditModal': if(typeof closeAuditModal === 'function') closeAuditModal(); else layer.classList.remove('open'); break;
+    case 'backupModal': if(typeof closeBackupModal === 'function') closeBackupModal(); else layer.classList.remove('open'); break;
+    case 'fotoMgrModal': if(typeof closeFotoMgr === 'function') closeFotoMgr(); else layer.classList.remove('open'); break;
+    case 'adminModal': if(typeof closeAdminModal === 'function') closeAdminModal(); else layer.classList.remove('open'); break;
+    case 'vehicleModal': if(typeof closeVehicleModal === 'function') closeVehicleModal(); else layer.classList.remove('open'); break;
+    case 'vehicleTicketModal': if(typeof closeVehicleTicketModal === 'function') closeVehicleTicketModal(); else layer.classList.remove('open'); break;
+    case 'loanModal': if(typeof closeLM === 'function') closeLM(); else layer.classList.remove('open'); break;
+    case 'invToolsModal': if(typeof closeInvTools === 'function') closeInvTools(); else layer.classList.remove('open'); break;
+    case 'dbModal': if(typeof closeDB === 'function') closeDB(); else layer.classList.remove('open'); break;
+    case 'reporModal': if(typeof closeReporModal === 'function') closeReporModal(); else layer.classList.remove('open'); break;
+    case 'lb': if(typeof closeLB === 'function') closeLB(); else layer.classList.remove('open'); break;
+    default: layer.classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape' && e.key !== 'Esc') return;
+  const openLayers = Array.from(document.querySelectorAll('.modal-ov.open, .lightbox.open'));
+  if(!openLayers.length) return;
+  const topLayer = openLayers
+    .map((el, idx) => ({el, idx, z: parseInt(getComputedStyle(el).zIndex, 10) || 0}))
+    .sort((a,b) => (a.z - b.z) || (a.idx - b.idx))
+    .pop().el;
+  e.preventDefault();
+  closeFadeLayer(topLayer);
 });
 
 // Limpa dirty ao salvar com sucesso
