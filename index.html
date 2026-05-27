@@ -127,6 +127,8 @@ header::before{content:'';position:absolute;top:-40px;right:-60px;width:240px;he
 .tab-btn:hover{color:var(--cyan)}
 .tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);background:rgba(0,194,224,0.05)}
 main{padding:24px 28px}
+.developer-credit{max-width:1680px;margin:0 auto 22px;padding:0 30px;text-align:right;font-size:11px;color:rgba(200,213,240,.55);letter-spacing:.4px}
+.developer-credit strong{color:var(--cyan);font-weight:800}
 .tab-panel{display:none}.tab-panel.active{display:block}
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
 .toolbar input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--light);font-family:'Barlow',sans-serif;font-size:13px;padding:8px 12px;outline:none;flex:1;min-width:160px;transition:border-color .2s}
@@ -269,7 +271,7 @@ tbody td{padding:10px 13px;vertical-align:middle}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body,html{background:#fff!important;color:#000!important}
-  header,.tabs,main{display:none!important}
+  header,.tabs,main,.developer-credit{display:none!important}
   #printArea{display:block!important;padding:0}
   .pp-page{page-break-after:always;padding:18px;font-family:Arial,sans-serif}
   .pp-page:last-child{page-break-after:avoid}
@@ -370,6 +372,7 @@ tbody td{padding:10px 13px;vertical-align:middle}
 
   /* ── CONTEÚDO ── */
   main{padding:10px}
+  .developer-credit{padding:0 12px 14px;text-align:center;font-size:10px}
   .toolbar{gap:6px;flex-wrap:wrap}
   .btn{padding:9px 12px;font-size:12px;min-height:40px}
   .btn-sm{font-size:11px;padding:6px 10px;min-height:34px}
@@ -1428,6 +1431,7 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="tab-panel" id="tab-ticketVeicular">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-orange" onclick="openVehicleTicketModal()">+ Novo Ticket</button>
+      <button class="btn btn-cyan" onclick="forceVehicleTicketsCloudSync()">Reenviar tickets para a nuvem</button>
       <select id="ticketSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
@@ -1462,6 +1466,8 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="empty" id="bancoEmpty" style="display:none"><span>🗄️</span><p>Banco vazio.</p></div>
   </div>
 </main>
+
+<div class="developer-credit">Criado e desenvolvido por <strong>Geovanio Junior</strong></div>
 
 <!-- MODAL VISTORIA VEICULAR -->
 <div class="modal-ov" id="vehicleModal">
@@ -1521,7 +1527,7 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="fg">
       <div class="full"><label>Ve&iacute;culo cadastrado *</label><select id="mtVehicle" onchange="fillTicketVehicleData()"></select></div>
       <div><label>Condutor</label><input type="text" id="mtTec" readonly></div>
-      <div><label>Supervisor</label><select id="mtSup"></select></div>
+      <div id="mtSupWrap"><label>Supervisor</label><select id="mtSup"></select></div>
       <div><label>Placa</label><input type="text" id="mtPlaca" style="text-transform:uppercase"></div>
       <div><label>KM atual</label><input type="text" id="mtKm" placeholder="Ex.: 120000"></div>
       <div><label>Tipo de manuten&ccedil;&atilde;o *</label><select id="mtTipo"><option>Corretiva</option><option>Preventiva</option><option>Sinistro</option><option>Revis&atilde;o</option><option>Troca de &oacute;leo</option><option>Pneus</option><option>El&eacute;trica</option><option>Freios</option><option>Suspens&atilde;o</option></select></div>
@@ -4031,6 +4037,7 @@ function openVehicleTicketModal(id=null, vehicleId=null){
   document.getElementById('mtPrazo').value = '';
   const curSup = localStorage.getItem('lm_cursup') || '';
   if(curSup) supSel.value = curSup;
+  updateTicketSupervisorMode(null);
   if(vehicleId && Array.from(vehicleSel.options).some(o => o.value === vehicleId)){
     vehicleSel.value = vehicleId;
     fillTicketVehicleData();
@@ -4038,8 +4045,9 @@ function openVehicleTicketModal(id=null, vehicleId=null){
   if(id){
     const t = vehicleTickets.find(x => x.id === id); if(!t) return;
     if(t.vehicleId && Array.from(vehicleSel.options).some(o => o.value === t.vehicleId)) vehicleSel.value = t.vehicleId;
+    const linkedVehicle = latestVehicleList().find(x => x.id === t.vehicleId);
     document.getElementById('mtTec').value = t.tec || '';
-    document.getElementById('mtSup').value = t.sup || '';
+    document.getElementById('mtSup').value = linkedVehicle && inferVehicleOwnerType(linkedVehicle) !== 'tecnico' ? '' : (t.sup || '');
     document.getElementById('mtPlaca').value = t.placa || '';
     document.getElementById('mtKm').value = t.km || '';
     document.getElementById('mtTipo').value = t.tipo || 'Corretiva';
@@ -4052,18 +4060,32 @@ function openVehicleTicketModal(id=null, vehicleId=null){
     document.getElementById('mtItens').value = t.itens || '';
     document.getElementById('mtDesc').value = t.desc || '';
     document.getElementById('mtObs').value = t.obs || '';
+    updateTicketSupervisorMode(linkedVehicle);
   }
   modal.classList.add('open');
 }
 function closeVehicleTicketModal(){ document.getElementById('vehicleTicketModal').classList.remove('open'); }
+function updateTicketSupervisorMode(vehicle){
+  const v = vehicle || latestVehicleList().find(x => x.id === (document.getElementById('mtVehicle')?.value || ''));
+  const tipo = inferVehicleOwnerType(v || {});
+  const supSel = document.getElementById('mtSup');
+  const supWrap = document.getElementById('mtSupWrap');
+  const isTecnico = tipo === 'tecnico';
+  if(supWrap) supWrap.style.display = isTecnico ? '' : 'none';
+  if(supSel){
+    supSel.disabled = !isTecnico;
+    if(!isTecnico) supSel.value = '';
+  }
+}
 function fillTicketVehicleData(){
   const id = document.getElementById('mtVehicle').value;
   const v = latestVehicleList().find(x => x.id === id);
   if(!v) return;
   document.getElementById('mtTec').value = v.tec || '';
-  document.getElementById('mtSup').value = v.sup || '';
+  document.getElementById('mtSup').value = inferVehicleOwnerType(v) === 'tecnico' ? (v.sup || '') : '';
   document.getElementById('mtPlaca').value = v.placa || '';
   document.getElementById('mtKm').value = v.km || '';
+  updateTicketSupervisorMode(v);
 }
 function saveVehicleTicket(){
   const vehicleId = document.getElementById('mtVehicle').value;
@@ -4073,12 +4095,14 @@ function saveVehicleTicket(){
   if(!vehicleId){ alert('Selecione um veiculo cadastrado.'); return; }
   if(!tipo){ alert('Informe o tipo de manutencao.'); return; }
   if(!desc){ alert('Descreva a solicitacao de manutencao.'); return; }
+  const vinculoVeiculo = inferVehicleOwnerType(v || {});
   const obj = {
     id: editingVehicleTicketId || 'vt_' + Date.now(),
     ts: Date.now(),
     vehicleId,
     tec: document.getElementById('mtTec').value.trim(),
-    sup: document.getElementById('mtSup').value,
+    vinculo: vinculoVeiculo,
+    sup: vinculoVeiculo === 'tecnico' ? document.getElementById('mtSup').value : '',
     modelo: v ? (v.modelo || '') : '',
     placa: document.getElementById('mtPlaca').value.trim().toUpperCase(),
     km: document.getElementById('mtKm').value.trim(),
@@ -4107,6 +4131,7 @@ function deleteVehicleTicket(id,e){
   vehicleTickets = vehicleTickets.filter(x => x.id !== id);
   auditLog('Ticket Veicular Excluido', `Veiculo: ${t ? (t.modelo || '-') : id}`, `Placa: ${t ? (t.placa || '-') : '-'}`);
   save(); renderVehicleTickets();
+  window._allowVehicleTicketReductionUntil = Date.now() + 5000;
   if(typeof cloudSave === 'function') cloudSave(true);
   return true;
 }
@@ -6907,6 +6932,12 @@ async function cloudSave(force = false) {
       if (oldSnap.exists) oldData = oldSnap.data();
     } catch(e) { console.warn('Não foi possível conferir dados antigos:', e); }
 
+    const allowTicketReduction = Number(window._allowVehicleTicketReductionUntil || 0) > Date.now();
+    if(oldData && Array.isArray(oldData.vehicleTickets) && Array.isArray(payload.vehicleTickets) && oldData.vehicleTickets.length > payload.vehicleTickets.length && !allowTicketReduction){
+      payload.vehicleTickets = mergeVehicleTicketLists(payload.vehicleTickets, oldData.vehicleTickets);
+      vehicleTickets = payload.vehicleTickets;
+    }
+
     const oldHist = Array.isArray(oldData?.hist) ? oldData.hist.length : 0;
     const newHist = Array.isArray(payload.hist) ? payload.hist.length : 0;
     const oldTechs = Array.isArray(oldData?.techs) ? oldData.techs.length : 0;
@@ -7110,6 +7141,25 @@ function mergeVehicleTicketLists(localList, cloudList){
     if(!current || Number(t.ts || 0) >= Number(current.ts || 0)) merged.set(key, t);
   });
   return Array.from(merged.values()).sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+async function forceVehicleTicketsCloudSync(){
+  try {
+    const localTickets = Array.isArray(vehicleTickets) ? vehicleTickets : [];
+    if(!localTickets.length){ toast('Nenhum ticket local para reenviar.', 'info'); return; }
+    showCloudStatus('Reenviando tickets...', 'var(--cyan)');
+    const db = await _initFirebase();
+    if(!db){ toast('Sem conexao com Firebase. Tente novamente com internet.', 'warn'); return; }
+    const snap = await db.collection('lumar').doc('dados').get();
+    const cloudData = snap.exists ? (snap.data() || {}) : {};
+    vehicleTickets = mergeVehicleTicketLists(localTickets, cloudData.vehicleTickets || []);
+    if(_idb) await idbSave(['vehicleTickets']);
+    await cloudSave(true);
+    renderVehicleTickets();
+    toast('Tickets reenviados para a nuvem. Abra/atualize os outros dispositivos.', 'success', 4500);
+  } catch(e) {
+    console.warn('Falha ao reenviar tickets:', e);
+    toast('Falha ao reenviar tickets para a nuvem.', 'error', 4500);
+  }
 }
 async function bootApp(){
   // Mostra tela de loading enquanto IDB carrega
