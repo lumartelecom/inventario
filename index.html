@@ -1485,7 +1485,7 @@ setInterval(_updateOfflineBanner, 5000);
       <div><label>V&iacute;nculo do ve&iacute;culo</label><select id="vTipoVinculo" onchange="updateVehicleOwnerMode()"><option value="tecnico">T&eacute;cnico</option><option value="gestao">Gest&atilde;o</option><option value="reserva">Reserva</option></select></div>
       <div><label id="vTecLabel">Motorista / Condutor *</label><select id="vTec"></select></div>
       <div id="vGestaoWrap" style="display:none"><label>Respons&aacute;vel da gest&atilde;o *</label><input type="text" id="vGestaoResp" placeholder="Supervisor, coordenador, gestor..."></div>
-      <div><label>Supervisor</label><select id="vSup"></select></div>
+      <div id="vSupWrap"><label>Supervisor</label><select id="vSup"></select></div>
       <div><label>Data</label><input type="date" id="vData"></div>
       <div><label>Hora</label><input type="time" id="vHora"></div>
       <div class="full"><label>Local</label><input type="text" id="vLocal"></div>
@@ -3711,9 +3711,16 @@ function updateVehicleOwnerMode(){
   const tecSel = document.getElementById('vTec');
   const tecLabel = document.getElementById('vTecLabel');
   const gestaoWrap = document.getElementById('vGestaoWrap');
+  const supSel = document.getElementById('vSup');
+  const supWrap = document.getElementById('vSupWrap');
   if(tecSel) tecSel.disabled = tipo !== 'tecnico';
   if(tecLabel) tecLabel.textContent = tipo === 'tecnico' ? 'Motorista / Condutor *' : 'Motorista / Condutor';
   if(gestaoWrap) gestaoWrap.style.display = tipo === 'gestao' ? '' : 'none';
+  if(supWrap) supWrap.style.display = tipo === 'tecnico' ? '' : 'none';
+  if(supSel){
+    supSel.disabled = tipo !== 'tecnico';
+    if(tipo !== 'tecnico') supSel.value = '';
+  }
   if(tipo !== 'tecnico' && tecSel) tecSel.value = '';
   if(tipo === 'reserva'){
     const assCond = document.getElementById('vAssCond');
@@ -3800,7 +3807,7 @@ function openVehicleModal(id=null, modo='vistoria'){
     document.getElementById('vResp').value = v.resp || '';
     document.getElementById('vTec').value = tipoVinculo === 'tecnico' ? (v.tec || '') : '';
     document.getElementById('vGestaoResp').value = v.gestaoResp || (tipoVinculo === 'gestao' ? (v.tec || '') : '');
-    document.getElementById('vSup').value = v.sup || '';
+    document.getElementById('vSup').value = tipoVinculo === 'tecnico' ? (v.sup || '') : '';
     document.getElementById('vData').value = v.data || '';
     document.getElementById('vHora').value = v.hora || '';
     document.getElementById('vLocal').value = v.local || '';
@@ -3871,7 +3878,7 @@ async function saveVehicle(){
     vinculo,
     gestaoResp: vinculo === 'gestao' ? gestaoResp : '',
     tec,
-    sup: document.getElementById('vSup').value,
+    sup: vinculo === 'tecnico' ? document.getElementById('vSup').value : '',
     data: document.getElementById('vData').value,
     hora: document.getElementById('vHora').value,
     local: document.getElementById('vLocal').value.trim(),
@@ -7093,6 +7100,17 @@ async function migrateVehiclePhotosToStorage(v) {
   }
   return { ...v, fotos: newFotos };
 }
+function mergeVehicleTicketLists(localList, cloudList){
+  const merged = new Map();
+  [...(Array.isArray(cloudList) ? cloudList : []), ...(Array.isArray(localList) ? localList : [])].forEach(t => {
+    if(!t || typeof t !== 'object') return;
+    const key = t.id || [t.vehicleId, t.tipo, t.data, t.desc].filter(Boolean).join('|');
+    if(!key) return;
+    const current = merged.get(key);
+    if(!current || Number(t.ts || 0) >= Number(current.ts || 0)) merged.set(key, t);
+  });
+  return Array.from(merged.values()).sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
 async function bootApp(){
   // Mostra tela de loading enquanto IDB carrega
   const loadEl = document.getElementById('appLoading');
@@ -7101,6 +7119,9 @@ async function bootApp(){
   // Tenta carregar da nuvem E do IDB em paralelo, usa o mais recente
   let cloudData = null;
   let idbTs = 0;
+  let localVehicleTicketsBeforeCloud = [];
+  let mergedVehicleTickets = [];
+  let needsVehicleTicketResync = false;
 
   const [cloudResult] = await Promise.allSettled([
     cloudLoad()
@@ -7110,6 +7131,7 @@ async function bootApp(){
   try {
     await idbOpen();
     await idbLoadAll();
+    localVehicleTicketsBeforeCloud = Array.isArray(vehicleTickets) ? [...vehicleTickets] : [];
     // Guarda timestamp do IDB considerando tambem dados veiculares.
     idbTs = Math.max(
       ...(hist || []).map(h => h.ts || 0),
@@ -7127,9 +7149,17 @@ async function bootApp(){
       banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
       vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
       vehicleTickets = JSON.parse(localStorage.getItem('lm_vehicleTickets') || '[]');
+      localVehicleTicketsBeforeCloud = Array.isArray(vehicleTickets) ? [...vehicleTickets] : [];
     } catch(le) {
       console.error('Falha total no carregamento:', le);
     }
+  }
+
+  if (cloudData) {
+    const cloudVehicleTickets = Array.isArray(cloudData.vehicleTickets) ? cloudData.vehicleTickets : [];
+    mergedVehicleTickets = mergeVehicleTicketLists(localVehicleTicketsBeforeCloud, cloudVehicleTickets);
+    const cloudTicketIds = new Set(cloudVehicleTickets.map(t => t && t.id).filter(Boolean));
+    needsVehicleTicketResync = mergedVehicleTickets.some(t => t && t.id && !cloudTicketIds.has(t.id));
   }
 
   // Se a nuvem tiver dados mais recentes, usa eles
@@ -7144,7 +7174,7 @@ async function bootApp(){
       if (Array.isArray(cloudData.hist))  hist  = cloudData.hist;
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
       if (Array.isArray(cloudData.vehicles)) vehicles = cloudData.vehicles;
-      if (Array.isArray(cloudData.vehicleTickets)) vehicleTickets = cloudData.vehicleTickets;
+      if (Array.isArray(cloudData.vehicleTickets)) vehicleTickets = mergedVehicleTickets;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
       if (cloudData.cursup) localStorage.setItem('lm_cursup', cloudData.cursup);
@@ -7169,6 +7199,10 @@ async function bootApp(){
   if(!Array.isArray(vehicles)) vehicles = [];
   if(!Array.isArray(vehicleTickets)) vehicleTickets = [];
   if(!Array.isArray(audit)) audit = [];
+  if(needsVehicleTicketResync && mergedVehicleTickets.length){
+    vehicleTickets = mergedVehicleTickets;
+    try { if(_idb) idbSave(['vehicleTickets']).catch(()=>{}); } catch(e){}
+  }
 
   rebuildItems();
   renderSupSel();
@@ -7210,6 +7244,14 @@ async function bootApp(){
 
   // Aplica patch nas funções de save para sincronizar com a nuvem
   _patchSaveWithCloud();
+  if(needsVehicleTicketResync){
+    setTimeout(() => {
+      try {
+        cloudSave(true);
+        if(typeof toast === 'function') toast('Tickets antigos reenviados para a nuvem.', 'success', 3500);
+      } catch(e) {}
+    }, 800);
+  }
 
   // Inicia sincronização em tempo real
   startRealtimeSync();
