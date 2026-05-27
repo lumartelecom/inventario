@@ -1016,13 +1016,13 @@ function applyTabVisibilityForRole(role){
   const searchRow = document.querySelector('.hsearch-row');
   document.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.getAttribute('data-tab') || (btn.getAttribute('onclick') || '').match(/showTab\('([^']+)'/)?.[1] || '';
-    if(role === 'veiculos') btn.style.display = (tab === 'veiculos' || tab === 'cadastrarVeiculo' || tab === 'ticketVeicular') ? '' : 'none';
-    else if(role === 'supervisor') btn.style.display = (tab === 'veiculos' || tab === 'cadastrarVeiculo' || tab === 'ticketVeicular') ? 'none' : '';
+    if(role === 'veiculos') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? '' : 'none';
+    else if(role === 'supervisor') btn.style.display = (tab === 'veiculos' || tab === 'ticketVeicular') ? 'none' : '';
     else btn.style.display = '';
   });
   if(dashboard) dashboard.style.display = role === 'veiculos' ? 'none' : '';
   if(searchRow) searchRow.style.display = role === 'veiculos' ? 'none' : '';
-  if(role === 'supervisor' && (document.getElementById('tab-veiculos')?.classList.contains('active') || document.getElementById('tab-cadastrarVeiculo')?.classList.contains('active') || document.getElementById('tab-ticketVeicular')?.classList.contains('active'))){
+  if(role === 'supervisor' && (document.getElementById('tab-veiculos')?.classList.contains('active') || document.getElementById('tab-ticketVeicular')?.classList.contains('active'))){
     showTab('tecnicos', null);
   }
 }
@@ -1348,9 +1348,6 @@ setInterval(_updateOfflineBanner, 5000);
   <button class="tab-btn" onclick="showTab('veiculos',this)" data-tab="veiculos">
     <span class="tab-ico">&#128663;</span>Ve&iacute;culos
   </button>
-  <button class="tab-btn" onclick="openVehicleRegisterTab(this)" data-tab="cadastrarVeiculo">
-    <span class="tab-ico">&#128664;</span>Cadastrar Ve&iacute;culo
-  </button>
   <button class="tab-btn" onclick="showTab('ticketVeicular',this)" data-tab="ticketVeicular">
     <span class="tab-ico">&#127915;</span>Criar Ticket
   </button>
@@ -1412,30 +1409,18 @@ setInterval(_updateOfflineBanner, 5000);
   <!-- VEICULOS -->
   <div class="tab-panel" id="tab-veiculos">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Nova Vistoria Veicular</button>
+      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Cadastrar Ve&iacute;culo</button>
       <select id="vehicleSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
       <select id="vehicleTecF" onchange="renderVehicles()" style="min-width:220px">
-        <option value="">Todos os t&eacute;cnicos</option>
+        <option value="">Todos os v&iacute;nculos</option>
       </select>
       <span id="vehicleCount" style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap"></span>
     </div>
     <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
     <div class="vehicle-grid" id="vehicleGrid"></div>
     <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
-  </div>
-
-  <div class="tab-panel" id="tab-cadastrarVeiculo">
-    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Cadastrar Ve&iacute;culo</button>
-      <button class="btn btn-ghost" onclick="showTab('veiculos',null)">Ver Vistorias</button>
-      <span style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap">Use esta aba para abrir um novo cadastro veicular.</span>
-    </div>
-    <div class="empty" style="display:block">
-      <span>&#128664;</span>
-      <p>Clique em Cadastrar Ve&iacute;culo para preencher os dados, fotos e checklist da vistoria.</p>
-    </div>
   </div>
 
   <!-- TICKETS VEICULARES -->
@@ -1481,7 +1466,7 @@ setInterval(_updateOfflineBanner, 5000);
 <div class="modal-ov" id="vehicleModal">
   <div class="modal" style="max-width:980px">
     <button class="modal-close" onclick="closeVehicleModal()">&times;</button>
-    <h2 id="vehicleMTitle">Nova Vistoria Veicular</h2>
+    <h2 id="vehicleMTitle">Cadastrar Ve&iacute;culo</h2>
     <div class="vehicle-form-section" style="margin-top:0;margin-bottom:12px">
       <div class="vehicle-form-title">Fotos da Vistoria</div>
       <div style="padding:10px">
@@ -1496,7 +1481,9 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="fg">
       <div><label>Empresa</label><input type="text" id="vEmpresa" value="Lumar Telecom"></div>
       <div><label>Respons&aacute;vel pela vistoria</label><input type="text" id="vResp"></div>
-      <div><label>Motorista / Condutor *</label><select id="vTec"></select></div>
+      <div><label>V&iacute;nculo do ve&iacute;culo</label><select id="vTipoVinculo" onchange="updateVehicleOwnerMode()"><option value="tecnico">T&eacute;cnico</option><option value="gestao">Gest&atilde;o</option><option value="reserva">Reserva</option></select></div>
+      <div><label id="vTecLabel">Motorista / Condutor *</label><select id="vTec"></select></div>
+      <div id="vGestaoWrap" style="display:none"><label>Respons&aacute;vel da gest&atilde;o *</label><input type="text" id="vGestaoResp" placeholder="Supervisor, coordenador, gestor..."></div>
       <div><label>Supervisor</label><select id="vSup"></select></div>
       <div><label>Data</label><input type="date" id="vData"></div>
       <div><label>Hora</label><input type="time" id="vHora"></div>
@@ -1520,7 +1507,7 @@ setInterval(_updateOfflineBanner, 5000);
     </div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
-      <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Vistoria</button>
+      <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Ve&iacute;culo</button>
     </div>
   </div>
 </div>
@@ -2232,8 +2219,9 @@ function tiposFerramentaHtml(tool){
 // ── TABS ──────────────────────────────────────────────────────────────
 function showTab(id, btn){
   const role = currentRole();
-  if(role === 'veiculos' && id !== 'veiculos' && id !== 'cadastrarVeiculo' && id !== 'ticketVeicular') id = 'veiculos';
-  if(role === 'supervisor' && (id === 'veiculos' || id === 'cadastrarVeiculo' || id === 'ticketVeicular')) id = 'tecnicos';
+  if(id === 'cadastrarVeiculo') id = 'veiculos';
+  if(role === 'veiculos' && id !== 'veiculos' && id !== 'ticketVeicular') id = 'veiculos';
+  if(role === 'supervisor' && (id === 'veiculos' || id === 'ticketVeicular')) id = 'tecnicos';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
@@ -2248,7 +2236,7 @@ function showTab(id, btn){
 }
 function showTabByName(id){ showTab(id, null); }
 function openVehicleRegisterTab(btn){
-  showTab('cadastrarVeiculo', btn);
+  showTab('veiculos', btn);
   setTimeout(() => openVehicleModal(), 0);
 }
 
@@ -3539,7 +3527,7 @@ function fillVehicleTechFilter(supFilter){
   const tecF = document.getElementById('vehicleTecF');
   if(!tecF) return;
   const cur = tecF.value;
-  tecF.innerHTML = '<option value="">Todos os t&eacute;cnicos</option>';
+  tecF.innerHTML = '<option value="">Todos os v&iacute;nculos</option><option value="__gestao">Gest&atilde;o</option><option value="__reserva">Reserva</option>';
   techs
     .filter(t => !supFilter || t.sup === supFilter)
     .sort((a,b)=>a.nome.localeCompare(b.nome))
@@ -3566,7 +3554,7 @@ function renderVehicles(){
   const techNames = supFilter ? techs.filter(t => t.sup === supFilter).map(t => t.nome) : techs.map(t => t.nome);
   const list = (vehicles || [])
     .filter(v => !supFilter || v.sup === supFilter || techNames.includes(v.tec))
-    .filter(v => !tecFilter || v.tec === tecFilter)
+    .filter(v => !tecFilter || (tecFilter === '__gestao' ? inferVehicleOwnerType(v) === 'gestao' : tecFilter === '__reserva' ? inferVehicleOwnerType(v) === 'reserva' : v.tec === tecFilter))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   renderVehicleOilAlerts(list);
   grid.innerHTML = '';
@@ -3587,6 +3575,7 @@ function renderVehicles(){
     d.innerHTML = `<div class="vehicle-top">
       <div>
         <h3>${escapeHtml(v.tec || 'Condutor')}</h3>
+        <p>${escapeHtml(vehicleOwnerTypeLabel(inferVehicleOwnerType(v)))}</p>
         <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
         <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
         ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
@@ -3603,7 +3592,7 @@ function renderVehicles(){
     grid.appendChild(d);
   });
   if(empty) empty.style.display = list.length ? 'none' : 'block';
-  if(count) count.textContent = `${groups.length} técnico${groups.length!==1?'s':''} · ${list.length} vistoria${list.length!==1?'s':''}`;
+  if(count) count.textContent = `${groups.length} vínculo${groups.length!==1?'s':''} · ${list.length} vistoria${list.length!==1?'s':''}`;
 }
 function renderVehicleChecklist(checks){
   const wrap = document.getElementById('vehicleChecklist');
@@ -3635,6 +3624,7 @@ function vehicleViewHtml(v){
   const meta = [
     ['Empresa', v.empresa || 'Lumar Telecom'],
     ['Responsavel', v.resp || '-'],
+    ['Vinculo', vehicleOwnerTypeLabel(inferVehicleOwnerType(v))],
     ['Condutor', v.tec || '-'],
     ['Supervisor', v.sup || '-'],
     ['Data/Hora', `${fmtDate(v.data)}${v.hora ? ' - ' + v.hora : ''}`],
@@ -3706,6 +3696,29 @@ function viewVehicleHistory(tec){
   document.getElementById('invToolsModal').classList.add('open');
 }
 const VEHICLE_MAX_FOTOS = 5;
+function vehicleOwnerTypeLabel(tipo){
+  return tipo === 'gestao' ? 'Gestao' : tipo === 'reserva' ? 'Reserva' : 'Tecnico';
+}
+function inferVehicleOwnerType(v){
+  if(v && v.vinculo) return v.vinculo;
+  const tec = (v && v.tec ? v.tec : '').toString().trim();
+  if(tec.toLowerCase() === 'reserva') return 'reserva';
+  return techs.some(t => t.nome === tec) ? 'tecnico' : (tec ? 'gestao' : 'tecnico');
+}
+function updateVehicleOwnerMode(){
+  const tipo = document.getElementById('vTipoVinculo')?.value || 'tecnico';
+  const tecSel = document.getElementById('vTec');
+  const tecLabel = document.getElementById('vTecLabel');
+  const gestaoWrap = document.getElementById('vGestaoWrap');
+  if(tecSel) tecSel.disabled = tipo !== 'tecnico';
+  if(tecLabel) tecLabel.textContent = tipo === 'tecnico' ? 'Motorista / Condutor *' : 'Motorista / Condutor';
+  if(gestaoWrap) gestaoWrap.style.display = tipo === 'gestao' ? '' : 'none';
+  if(tipo !== 'tecnico' && tecSel) tecSel.value = '';
+  if(tipo === 'reserva'){
+    const assCond = document.getElementById('vAssCond');
+    if(assCond && !assCond.value) assCond.value = 'Reserva';
+  }
+}
 function prevVehiclePhotos(inp){
   const files = Array.from(inp.files || []);
   const slots = VEHICLE_MAX_FOTOS - pendingVehiclePh.length;
@@ -3758,7 +3771,7 @@ function openVehicleModal(id=null){
   editingVehicleId = id;
   pendingVehiclePh = [];
   const modal = document.getElementById('vehicleModal');
-  document.getElementById('vehicleMTitle').textContent = id ? 'Editar Vistoria Veicular' : 'Nova Vistoria Veicular';
+  document.getElementById('vehicleMTitle').textContent = id ? 'Editar Vistoria Veicular' : 'Cadastrar Veiculo';
   const supSel = document.getElementById('vSup');
   supSel.innerHTML = '<option value="">Selecione</option>';
   sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
@@ -3767,7 +3780,8 @@ function openVehicleModal(id=null){
   techs.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(t => tecSel.innerHTML += `<option value="${escapeHtml(t.nome)}" data-sup="${escapeHtml(t.sup||'')}">${escapeHtml(t.nome)}</option>`);
   const today = new Date();
   const curSup = localStorage.getItem('lm_cursup') || '';
-  ['vResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vKmOleo','vKmProxOleo','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
+  ['vResp','vGestaoResp','vLocal','vModelo','vPlaca','vAno','vCor','vKm','vKmOleo','vKmProxOleo','vObsGerais','vAssResp','vAssCond'].forEach(k => document.getElementById(k).value = '');
+  document.getElementById('vTipoVinculo').value = 'tecnico';
   const noPhotoEl = document.getElementById('vNoPhoto');
   if(noPhotoEl) noPhotoEl.checked = false;
   document.getElementById('vEmpresa').value = 'Lumar Telecom';
@@ -3779,9 +3793,12 @@ function openVehicleModal(id=null){
   updateVehicleOilPreview();
   if(id){
     const v = vehicles.find(x => x.id === id); if(!v) return;
+    const tipoVinculo = inferVehicleOwnerType(v);
+    document.getElementById('vTipoVinculo').value = tipoVinculo;
     document.getElementById('vEmpresa').value = v.empresa || 'Lumar Telecom';
     document.getElementById('vResp').value = v.resp || '';
-    document.getElementById('vTec').value = v.tec || '';
+    document.getElementById('vTec').value = tipoVinculo === 'tecnico' ? (v.tec || '') : '';
+    document.getElementById('vGestaoResp').value = v.gestaoResp || (tipoVinculo === 'gestao' ? (v.tec || '') : '');
     document.getElementById('vSup').value = v.sup || '';
     document.getElementById('vData').value = v.data || '';
     document.getElementById('vHora').value = v.hora || '';
@@ -3807,12 +3824,17 @@ function openVehicleModal(id=null){
     if(opt && opt.dataset.sup) supSel.value = opt.dataset.sup;
     if(!document.getElementById('vAssCond').value) document.getElementById('vAssCond').value = tecSel.value;
   };
+  updateVehicleOwnerMode();
   modal.classList.add('open');
 }
 function closeVehicleModal(){ document.getElementById('vehicleModal').classList.remove('open'); }
 async function saveVehicle(){
-  const tec = document.getElementById('vTec').value;
-  if(!tec){ alert('Selecione o motorista/condutor.'); return; }
+  const vinculo = document.getElementById('vTipoVinculo').value || 'tecnico';
+  const tecSelecionado = document.getElementById('vTec').value;
+  const gestaoResp = document.getElementById('vGestaoResp').value.trim();
+  if(vinculo === 'tecnico' && !tecSelecionado){ alert('Selecione o motorista/condutor.'); return; }
+  if(vinculo === 'gestao' && !gestaoResp){ alert('Informe o responsavel da gestao.'); return; }
+  const tec = vinculo === 'tecnico' ? tecSelecionado : (vinculo === 'gestao' ? gestaoResp : 'Reserva');
   const semNovaFoto = !!document.getElementById('vNoPhoto')?.checked;
   if(!pendingVehiclePh.length && !semNovaFoto){
     alert('Adicione pelo menos uma foto ou marque "Sem nova foto necessaria nesta vistoria".');
@@ -3845,6 +3867,8 @@ async function saveVehicle(){
     ts: Date.now(),
     empresa: document.getElementById('vEmpresa').value.trim(),
     resp: document.getElementById('vResp').value.trim(),
+    vinculo,
+    gestaoResp: vinculo === 'gestao' ? gestaoResp : '',
     tec,
     sup: document.getElementById('vSup').value,
     data: document.getElementById('vData').value,
@@ -3868,9 +3892,6 @@ async function saveVehicle(){
   if(i >= 0) vehicles[i] = obj; else vehicles.push(obj);
   auditLog(editingVehicleId ? 'Vistoria Veicular Editada' : 'Vistoria Veicular Cadastrada', `Condutor: ${obj.tec}`, `Placa: ${obj.placa || '-'}`);
   save(); closeVehicleModal(); renderVehicles();
-  if(document.getElementById('tab-cadastrarVeiculo')?.classList.contains('active')){
-    showTab('veiculos', null);
-  }
 }
 function deleteVehicle(id,e){
   if(e) e.stopPropagation();
@@ -4068,6 +4089,7 @@ function saveVehicleTicket(){
   if(i >= 0) vehicleTickets[i] = obj; else vehicleTickets.push(obj);
   auditLog(editingVehicleTicketId ? 'Ticket Veicular Editado' : 'Ticket Veicular Criado', `Veiculo: ${obj.modelo || '-'} Placa: ${obj.placa || '-'}`, `Status: ${obj.status}`);
   save(); closeVehicleTicketModal(); renderVehicleTickets();
+  if(typeof cloudSave === 'function') cloudSave(true);
 }
 function deleteVehicleTicket(id,e){
   if(e) e.stopPropagation();
@@ -4077,6 +4099,7 @@ function deleteVehicleTicket(id,e){
   vehicleTickets = vehicleTickets.filter(x => x.id !== id);
   auditLog('Ticket Veicular Excluido', `Veiculo: ${t ? (t.modelo || '-') : id}`, `Placa: ${t ? (t.placa || '-') : '-'}`);
   save(); renderVehicleTickets();
+  if(typeof cloudSave === 'function') cloudSave(true);
   return true;
 }
 function vehicleTicketViewHtml(t){
@@ -6556,6 +6579,7 @@ function _buildPayload() {
     hist:  hist  || [],
     banco: banco || [],
     vehicles: vehicles || [],
+    vehicleTickets: vehicleTickets || [],
     audit: (audit || []).slice(0, 100),
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
@@ -6605,9 +6629,11 @@ function _backupSignature(){
       banco: Array.isArray(banco) ? banco.length : 0,
       loans: Array.isArray(loans) ? loans.length : 0,
       vehicles: Array.isArray(vehicles) ? vehicles.length : 0,
+      vehicleTickets: Array.isArray(vehicleTickets) ? vehicleTickets.length : 0,
       audit: Array.isArray(audit) ? audit.length : 0,
       lastHist: Array.isArray(hist) && hist.length ? (hist[hist.length-1].id || hist[hist.length-1].ts || '') : '',
       lastVehicle: Array.isArray(vehicles) && vehicles.length ? (vehicles[vehicles.length-1].id || vehicles[vehicles.length-1].ts || '') : '',
+      lastVehicleTicket: Array.isArray(vehicleTickets) && vehicleTickets.length ? (vehicleTickets[vehicleTickets.length-1].id || vehicleTickets[vehicleTickets.length-1].ts || '') : '',
       lastTech: Array.isArray(techs) && techs.length ? (techs[techs.length-1].id || techs[techs.length-1].nome || '') : ''
     });
   } catch(e) { return String(Date.now()); }
@@ -6680,7 +6706,7 @@ async function restoreLocalBackup(key){
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
-    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderBanco(); refreshDashboard();
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderVehicleTickets(); renderBanco(); refreshDashboard();
     await cloudSave(true);
     auditLog('Backup Local Restaurado', key);
     toast('✅ Backup local restaurado!', 'success', 3500);
@@ -6719,7 +6745,8 @@ async function cloudBackupCurrent(reason, sourcePayload){
       techs: Array.isArray(payload.techs) ? payload.techs.length : 0,
       hist: Array.isArray(payload.hist) ? payload.hist.length : 0,
       banco: Array.isArray(payload.banco) ? payload.banco.length : 0,
-      loans: Array.isArray(payload.loans) ? payload.loans.length : 0
+      loans: Array.isArray(payload.loans) ? payload.loans.length : 0,
+      vehicleTickets: Array.isArray(payload.vehicleTickets) ? payload.vehicleTickets.length : 0
     };
     await db.collection('lumar_backups').doc(_backupDocId()).set(payload);
     localStorage.setItem('lm_last_cloud_backup_ts', String(Date.now()));
@@ -6794,7 +6821,7 @@ async function restoreCloudBackup(id){
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
     if(data.creds) applyCloudCreds(data.creds);
     if(_idb) await idbSave('all');
-    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderBanco(); refreshDashboard();
+    rebuildItems(); renderSupSel(); renderTechs(); renderHist(); renderLoans(); renderVehicles(); renderVehicleTickets(); renderBanco(); refreshDashboard();
     await cloudSave(true);
     auditLog('Backup Nuvem Restaurado', id);
     toast('✅ Backup restaurado!', 'success', 3500);
@@ -6876,10 +6903,12 @@ async function cloudSave(force = false) {
     const newHist = Array.isArray(payload.hist) ? payload.hist.length : 0;
     const oldTechs = Array.isArray(oldData?.techs) ? oldData.techs.length : 0;
     const newTechs = Array.isArray(payload.techs) ? payload.techs.length : 0;
+    const oldVehicleTickets = Array.isArray(oldData?.vehicleTickets) ? oldData.vehicleTickets.length : 0;
+    const newVehicleTickets = Array.isArray(payload.vehicleTickets) ? payload.vehicleTickets.length : 0;
     const lastBackupTs = Number(localStorage.getItem('lm_last_cloud_backup_ts') || '0');
-    const needsSafetyBackup = oldData && (oldHist > newHist || oldTechs > newTechs || Date.now() - lastBackupTs > 30*60*1000);
+    const needsSafetyBackup = oldData && (oldHist > newHist || oldTechs > newTechs || oldVehicleTickets > newVehicleTickets || Date.now() - lastBackupTs > 30*60*1000);
     if (needsSafetyBackup) {
-      await cloudBackupCurrent(oldHist > newHist || oldTechs > newTechs ? 'auto_antes_sobrescrever_menos_dados' : 'auto_intervalo_30min', oldData);
+      await cloudBackupCurrent(oldHist > newHist || oldTechs > newTechs || oldVehicleTickets > newVehicleTickets ? 'auto_antes_sobrescrever_menos_dados' : 'auto_intervalo_30min', oldData);
     }
     autoLocalJsonBackup('auto_ultimo_estado_local');
 
@@ -6937,6 +6966,7 @@ async function startRealtimeSync() {
     if (Array.isArray(data.hist))  hist  = data.hist;
     if (Array.isArray(data.banco)) banco = data.banco;
     if (Array.isArray(data.vehicles)) vehicles = data.vehicles;
+    if (Array.isArray(data.vehicleTickets)) vehicleTickets = data.vehicleTickets;
     if (Array.isArray(data.audit)) audit = data.audit;
     if (data.logo) localStorage.setItem('lm_logo', data.logo);
     if (data.creds) applyCloudCreds(data.creds);
@@ -6947,6 +6977,7 @@ async function startRealtimeSync() {
     renderHist();
     renderLoans();
     renderVehicles();
+    renderVehicleTickets();
     renderBanco();
     refreshDashboard();
     localStorage.setItem('lm_last_sync_ok', String(Date.now()));
@@ -7078,8 +7109,13 @@ async function bootApp(){
   try {
     await idbOpen();
     await idbLoadAll();
-    // Guarda timestamp do IDB (usa ts do primeiro hist ou 0)
-    idbTs = (hist && hist.length > 0) ? Math.max(...hist.map(h => h.ts || 0)) : 0;
+    // Guarda timestamp do IDB considerando tambem dados veiculares.
+    idbTs = Math.max(
+      ...(hist || []).map(h => h.ts || 0),
+      ...(vehicles || []).map(v => v.ts || 0),
+      ...(vehicleTickets || []).map(t => t.ts || 0),
+      0
+    );
   } catch(e) {
     console.warn('IDB não disponível, usando localStorage:', e);
     try {
@@ -7089,6 +7125,7 @@ async function bootApp(){
       hist  = JSON.parse(localStorage.getItem('lm_hist')  || '[]');
       banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
       vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
+      vehicleTickets = JSON.parse(localStorage.getItem('lm_vehicleTickets') || '[]');
     } catch(le) {
       console.error('Falha total no carregamento:', le);
     }
@@ -7106,6 +7143,7 @@ async function bootApp(){
       if (Array.isArray(cloudData.hist))  hist  = cloudData.hist;
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
       if (Array.isArray(cloudData.vehicles)) vehicles = cloudData.vehicles;
+      if (Array.isArray(cloudData.vehicleTickets)) vehicleTickets = cloudData.vehicleTickets;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
       if (cloudData.cursup) localStorage.setItem('lm_cursup', cloudData.cursup);
@@ -7128,6 +7166,7 @@ async function bootApp(){
   if(!Array.isArray(hist))  hist  = [];
   if(!Array.isArray(banco)) banco = [];
   if(!Array.isArray(vehicles)) vehicles = [];
+  if(!Array.isArray(vehicleTickets)) vehicleTickets = [];
   if(!Array.isArray(audit)) audit = [];
 
   rebuildItems();
@@ -7198,11 +7237,13 @@ async function bootApp(){
       if(!Array.isArray(techs)) techs = [];
       if(!Array.isArray(hist))  hist  = [];
       if(!Array.isArray(vehicles)) vehicles = [];
+      if(!Array.isArray(vehicleTickets)) vehicleTickets = [];
       rebuildItems();
       renderTechs();
       renderHist();
       renderLoans();
       renderVehicles();
+      renderVehicleTickets();
       renderBanco();
       refreshDashboard();
     } catch(e) {}
