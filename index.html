@@ -1409,7 +1409,8 @@ setInterval(_updateOfflineBanner, 5000);
   <!-- VEICULOS -->
   <div class="tab-panel" id="tab-veiculos">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-      <button class="btn btn-cyan" onclick="openVehicleModal()">+ Cadastrar Ve&iacute;culo</button>
+      <button class="btn btn-cyan" onclick="openVehicleModal(null,'vistoria')">+ Realizar Vistoria</button>
+      <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
       <select id="vehicleSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
@@ -3767,11 +3768,11 @@ function renderVehiclePP(){
     ? 'Sem nova foto marcado'
     : pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
 }
-function openVehicleModal(id=null){
+function openVehicleModal(id=null, modo='vistoria'){
   editingVehicleId = id;
   pendingVehiclePh = [];
   const modal = document.getElementById('vehicleModal');
-  document.getElementById('vehicleMTitle').textContent = id ? 'Editar Vistoria Veicular' : 'Cadastrar Veiculo';
+  document.getElementById('vehicleMTitle').textContent = id ? 'Editar Vistoria Veicular' : (modo === 'cadastro' ? 'Cadastrar Veiculo' : 'Realizar Vistoria Veicular');
   const supSel = document.getElementById('vSup');
   supSel.innerHTML = '<option value="">Selecione</option>';
   sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
