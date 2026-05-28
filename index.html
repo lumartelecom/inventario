@@ -566,6 +566,10 @@ tr.inv-hidden{display:none}
 }
 .vehicle-maint-select:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .vehicle-maint-select option{background:#111c2e!important;color:#f8fbff!important;text-transform:none}
+.vehicle-quick-status{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,260px);gap:10px;align-items:center;margin:0 0 12px;padding:11px 12px;border:1px solid rgba(245,197,24,.34);border-radius:8px;background:linear-gradient(180deg,rgba(245,197,24,.10),rgba(255,107,0,.05))}
+.vehicle-quick-status .vqs-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#f5c518}
+.vehicle-quick-status .vqs-sub{font-size:11px;color:var(--mid);margin-top:2px}
+@media(max-width:700px){.vehicle-quick-status{grid-template-columns:1fr}.vehicle-quick-status .vehicle-maint-select{min-height:42px}}
 .vehicle-form-section{border:1px solid var(--border);border-radius:8px;margin-top:12px;overflow:hidden}
 .vehicle-form-title{background:rgba(26,79,214,.18);padding:9px 12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-weight:700}
 .vehicle-check-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -3577,6 +3581,25 @@ function vehicleStatus(v){
 function vehicleMaintenanceStatusOptions(){
   return ['Em uso','Em manutenção','Parado','Baixado','Reserva'];
 }
+function vehicleHideCondutorForStatus(status){
+  const s = (status || 'Em uso').toString().trim();
+  return ['Em manutenção','Parado','Baixado','Reserva'].includes(s);
+}
+function vehicleShowCondutor(v){
+  return !vehicleHideCondutorForStatus(v && v.situacao ? v.situacao : 'Em uso');
+}
+function vehicleVisibleCondutor(v){
+  return vehicleShowCondutor(v) ? (v && v.tec ? v.tec : '-') : '-';
+}
+function vehicleTitleLabel(v){
+  if(vehicleShowCondutor(v)) return (v && v.tec ? v.tec : 'Condutor');
+  return (v && v.situacao ? v.situacao : 'Veículo');
+}
+function vehicleStatusInstruction(v){
+  return vehicleShowCondutor(v)
+    ? 'Status em uso: o condutor aparece na vistoria.'
+    : 'Este status não exibe condutor nesta tela.';
+}
 function canEditVehicleFull(){
   return currentRole() === 'admin';
 }
@@ -3637,7 +3660,7 @@ function renderVehicles(){
     d.onclick = () => viewVehicle(v.id);
     d.innerHTML = `<div class="vehicle-top">
       <div>
-        <h3>${escapeHtml(v.tec || 'Condutor')}</h3>
+        <h3>${escapeHtml(vehicleTitleLabel(v))}</h3>
         <p>${escapeHtml(vehicleOwnerTypeLabel(inferVehicleOwnerType(v)))}</p>
         <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
         <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
@@ -3685,12 +3708,16 @@ function getVehicleChecklist(){
 }
 function vehicleViewHtml(v){
   const st = vehicleStatus(v);
+  const quickStatusHtml = `<div class="vehicle-quick-status">
+    <div><div class="vqs-title">Status do carro</div><div class="vqs-sub">${escapeHtml(vehicleStatusInstruction(v))}</div></div>
+    <div>${vehicleMaintenanceStatusControl(v)}</div>
+  </div>`;
   const meta = [
     ['Empresa', v.empresa || 'Lumar Telecom'],
     ['Responsavel', v.resp || '-'],
     ['Vinculo', vehicleOwnerTypeLabel(inferVehicleOwnerType(v))],
     ['Situacao', v.situacao || 'Em uso'],
-    ['Condutor', v.tec || '-'],
+    ['Condutor', vehicleVisibleCondutor(v)],
     ['Supervisor', v.sup || '-'],
     ['Data/Hora', `${fmtDate(v.data)}${v.hora ? ' - ' + v.hora : ''}`],
     ['Local', v.local || '-'],
@@ -3716,24 +3743,24 @@ function vehicleViewHtml(v){
   const fotosHtml = v.fotos && v.fotos.length
     ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=>`<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`).join('')}</div></div>`
     : '';
-  return `${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}</div>${checksHtml}
+  return `${quickStatusHtml}${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}</div>${checksHtml}
     ${v.obsGerais ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes Gerais</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(v.obsGerais)}</div></div>` : ''}
     ${fotosHtml}`;
 }
 function viewVehicle(id){
   const v = vehicles.find(x => x.id === id);
   if(!v) return;
-  document.getElementById('invToolsTitle').textContent = 'Vistoria Veicular - ' + (v.tec || 'Condutor');
+  document.getElementById('invToolsTitle').textContent = 'Vistoria Veicular - ' + vehicleTitleLabel(v);
   document.getElementById('invToolsSubtitle').innerHTML = `${fmtDate(v.data)}${v.hora ? ' - ' + escapeHtml(v.hora) : ''}${v.placa ? ' · Placa ' + escapeHtml(v.placa) : ''}`;
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto">${vehicleViewHtml(v)}</div>
-    <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>${vehicleMaintenanceStatusControl(v)}${canEditVehicleFull() ? `<button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}</div>`;
+    <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>${canEditVehicleFull() ? `<button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}</div>`;
   document.getElementById('invToolsModal').classList.add('open');
 }
 function viewVehicleHistory(tec){
   const list = (vehicles || []).filter(v => (v.tec || '') === (tec || '')).sort((a,b)=>(b.ts||0)-(a.ts||0));
   if(!list.length) return;
   const canDeleteVehicle = currentRole() === 'admin';
-  document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + (tec || 'Condutor');
+  document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + vehicleTitleLabel(list[0]);
   document.getElementById('invToolsSubtitle').innerHTML = `${list.length} vistoria${list.length!==1?'s':''} registrada${list.length!==1?'s':''}`;
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
     ${list.map(v => {
@@ -4004,16 +4031,16 @@ function printVehicle(id){
   const html = `<div class="pp-page">
     <div class="pp-hdr"><h2>FORMULARIO DE VISTORIA VEICULAR</h2><p>${escapeHtml(v.empresa || 'Lumar Telecom')}</p></div>
     <table class="pp-tbl"><tbody>
-      <tr><td><b>Responsavel</b><br>${escapeHtml(v.resp||'')}</td><td><b>Condutor</b><br>${escapeHtml(v.tec||'')}</td><td><b>Data/Hora</b><br>${fmtDate(v.data)} ${escapeHtml(v.hora||'')}</td></tr>
+      <tr><td><b>Responsavel</b><br>${escapeHtml(v.resp||'')}</td><td><b>Condutor</b><br>${escapeHtml(vehicleVisibleCondutor(v))}</td><td><b>Data/Hora</b><br>${fmtDate(v.data)} ${escapeHtml(v.hora||'')}</td></tr>
       <tr><td><b>Local</b><br>${escapeHtml(v.local||'')}</td><td><b>Supervisor</b><br>${escapeHtml(v.sup||'')}</td><td><b>KM Atual</b><br>${escapeHtml(v.km||'')}</td></tr>
       <tr><td><b>KM Óleo</b><br>${escapeHtml(v.kmOleo||'')}</td><td><b>Próxima Troca Óleo</b><br>${escapeHtml(oilNext||'')}</td><td><b>Status Óleo</b><br>${escapeHtml(oil ? oil.label : '')}</td></tr>
       <tr><td><b>Marca/Modelo</b><br>${escapeHtml(v.modelo||'')}</td><td><b>Placa</b><br>${escapeHtml(v.placa||'')}</td><td><b>Ano/Cor</b><br>${escapeHtml((v.ano||'')+' '+(v.cor||''))}</td></tr>
     </tbody></table>
     ${rows}
     <h3>Observa&ccedil;&otilde;es Gerais</h3><p style="min-height:70px;border:1px solid #ddd;padding:8px;font-size:11px">${escapeHtml(v.obsGerais||'')}</p>
-    <div class="sign-blk"><div class="sign-row"><div class="sign-box"><p>Respons&aacute;vel pela vistoria</p><b>${escapeHtml(v.assResp||v.resp||'')}</b></div><div class="sign-box"><p>Condutor/Motorista</p><b>${escapeHtml(v.assCond||v.tec||'')}</b></div></div></div>
+    <div class="sign-blk"><div class="sign-row"><div class="sign-box"><p>Respons&aacute;vel pela vistoria</p><b>${escapeHtml(v.assResp||v.resp||'')}</b></div><div class="sign-box"><p>Condutor/Motorista</p><b>${escapeHtml(vehicleShowCondutor(v) ? (v.assCond||v.tec||'') : '')}</b></div></div></div>
   </div>`;
-  openPrintWindow(html, 'Vistoria Veicular - ' + (v.tec || 'Condutor'));
+  openPrintWindow(html, 'Vistoria Veicular - ' + vehicleTitleLabel(v));
 }
 
 function latestVehicleList(){
