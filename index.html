@@ -1431,7 +1431,6 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="tab-panel" id="tab-ticketVeicular">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-orange" onclick="openVehicleTicketModal()">+ Novo Ticket</button>
-      <button class="btn btn-cyan" onclick="forceVehicleTicketsCloudSync()">Reenviar tickets para a nuvem</button>
       <select id="ticketSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
@@ -1492,6 +1491,7 @@ setInterval(_updateOfflineBanner, 5000);
       <div><label id="vTecLabel">Motorista / Condutor *</label><select id="vTec"></select></div>
       <div id="vGestaoWrap" style="display:none"><label>Respons&aacute;vel da gest&atilde;o *</label><input type="text" id="vGestaoResp" placeholder="Supervisor, coordenador, gestor..."></div>
       <div id="vSupWrap"><label>Supervisor</label><select id="vSup"></select></div>
+      <div><label>Situa&ccedil;&atilde;o do ve&iacute;culo</label><select id="vSituacao"><option>Em uso</option><option>Reserva</option><option>Em manuten&ccedil;&atilde;o</option><option>Parado</option><option>Baixado</option></select></div>
       <div><label>Data</label><input type="date" id="vData"></div>
       <div><label>Hora</label><input type="time" id="vHora"></div>
       <div class="full"><label>Local</label><input type="text" id="vLocal"></div>
@@ -3542,6 +3542,11 @@ function fillVehicleTechFilter(supFilter){
   if(cur && Array.from(tecF.options).some(o => o.value === cur)) tecF.value = cur;
 }
 function vehicleStatus(v){
+  const situacao = (v && v.situacao ? v.situacao : '').toString();
+  if(situacao === 'Em manutenção') return {cls:'warn', label:'Em manutenção'};
+  if(situacao === 'Parado') return {cls:'warn', label:'Parado'};
+  if(situacao === 'Baixado') return {cls:'bad', label:'Baixado'};
+  if(situacao === 'Reserva') return {cls:'ok', label:'Reserva'};
   const oil = vehicleOilInfo(v);
   if(oil && oil.level === 'bad') return {cls:'bad', label:'Troca de óleo urgente'};
   if(oil && oil.level === 'warn') return {cls:'warn', label:'Troca de óleo próxima'};
@@ -3632,6 +3637,7 @@ function vehicleViewHtml(v){
     ['Empresa', v.empresa || 'Lumar Telecom'],
     ['Responsavel', v.resp || '-'],
     ['Vinculo', vehicleOwnerTypeLabel(inferVehicleOwnerType(v))],
+    ['Situacao', v.situacao || 'Em uso'],
     ['Condutor', v.tec || '-'],
     ['Supervisor', v.sup || '-'],
     ['Data/Hora', `${fmtDate(v.data)}${v.hora ? ' - ' + v.hora : ''}`],
@@ -3719,6 +3725,7 @@ function updateVehicleOwnerMode(){
   const gestaoWrap = document.getElementById('vGestaoWrap');
   const supSel = document.getElementById('vSup');
   const supWrap = document.getElementById('vSupWrap');
+  const situacaoSel = document.getElementById('vSituacao');
   if(tecSel) tecSel.disabled = tipo !== 'tecnico';
   if(tecLabel) tecLabel.textContent = tipo === 'tecnico' ? 'Motorista / Condutor *' : 'Motorista / Condutor';
   if(gestaoWrap) gestaoWrap.style.display = tipo === 'gestao' ? '' : 'none';
@@ -3729,8 +3736,11 @@ function updateVehicleOwnerMode(){
   }
   if(tipo !== 'tecnico' && tecSel) tecSel.value = '';
   if(tipo === 'reserva'){
+    if(situacaoSel) situacaoSel.value = 'Reserva';
     const assCond = document.getElementById('vAssCond');
     if(assCond && !assCond.value) assCond.value = 'Reserva';
+  } else if(tipo === 'tecnico' && situacaoSel && situacaoSel.value === 'Reserva') {
+    situacaoSel.value = 'Em uso';
   }
 }
 function prevVehiclePhotos(inp){
@@ -3799,6 +3809,7 @@ function openVehicleModal(id=null, modo='vistoria'){
   const noPhotoEl = document.getElementById('vNoPhoto');
   if(noPhotoEl) noPhotoEl.checked = false;
   document.getElementById('vEmpresa').value = 'Lumar Telecom';
+  document.getElementById('vSituacao').value = 'Em uso';
   document.getElementById('vData').value = today.toISOString().slice(0,10);
   document.getElementById('vHora').value = today.toTimeString().slice(0,5);
   if(curSup) supSel.value = curSup;
@@ -3814,6 +3825,7 @@ function openVehicleModal(id=null, modo='vistoria'){
     document.getElementById('vTec').value = tipoVinculo === 'tecnico' ? (v.tec || '') : '';
     document.getElementById('vGestaoResp').value = v.gestaoResp || (tipoVinculo === 'gestao' ? (v.tec || '') : '');
     document.getElementById('vSup').value = tipoVinculo === 'tecnico' ? (v.sup || '') : '';
+    document.getElementById('vSituacao').value = v.situacao || (tipoVinculo === 'reserva' ? 'Reserva' : 'Em uso');
     document.getElementById('vData').value = v.data || '';
     document.getElementById('vHora').value = v.hora || '';
     document.getElementById('vLocal').value = v.local || '';
@@ -3885,6 +3897,7 @@ async function saveVehicle(){
     gestaoResp: vinculo === 'gestao' ? gestaoResp : '',
     tec,
     sup: vinculo === 'tecnico' ? document.getElementById('vSup').value : '',
+    situacao: document.getElementById('vSituacao').value,
     data: document.getElementById('vData').value,
     hora: document.getElementById('vHora').value,
     local: document.getElementById('vLocal').value.trim(),
