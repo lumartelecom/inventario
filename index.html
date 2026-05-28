@@ -546,6 +546,26 @@ tr.inv-hidden{display:none}
 .vehicle-history-button{display:flex;justify-content:center;width:min(190px,100%);min-height:34px;margin:13px auto 0;padding:8px 14px;border-radius:8px;text-transform:uppercase}
 .vehicle-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;margin-top:12px}
 .vehicle-actions .btn{width:100%;justify-content:center;padding-left:8px;padding-right:8px}
+.vehicle-maint-select{
+  width:100%;
+  min-height:34px;
+  cursor:pointer;
+  text-align:center;
+  text-align-last:center;
+  color:#06111f!important;
+  background:linear-gradient(135deg,#f5c518,#ff8a2a)!important;
+  border:1px solid rgba(245,197,24,.75)!important;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.7px;
+  text-transform:uppercase;
+  border-radius:7px;
+  padding:6px 8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+}
+.vehicle-maint-select:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.vehicle-maint-select option{background:#111c2e!important;color:#f8fbff!important;text-transform:none}
 .vehicle-form-section{border:1px solid var(--border);border-radius:8px;margin-top:12px;overflow:hidden}
 .vehicle-form-title{background:rgba(26,79,214,.18);padding:9px 12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-weight:700}
 .vehicle-check-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -767,7 +787,7 @@ select option:disabled{
 function _getCreds() {
   const def = {
     adminPass: 'admin@2026',
-    vehiclePass: 'veiculos@2026',
+    vehiclePass: 'lm@2026',
     supervisores: [
       { nome: 'Geovanio Junior', senha: 'geo@2026' },
       { nome: 'Cleiton Azevedo', senha: 'cleiton@2026' }
@@ -860,7 +880,7 @@ function _mergeCreds(base, incoming) {
   const fallback = incomingIsNewer ? base : incoming;
   const merged = {
     adminPass: (preferred && preferred.adminPass) || (fallback && fallback.adminPass) || 'admin@2026',
-    vehiclePass: (preferred && preferred.vehiclePass) || (fallback && fallback.vehiclePass) || 'veiculos@2026',
+    vehiclePass: (preferred && preferred.vehiclePass) || (fallback && fallback.vehiclePass) || 'lm@2026',
     supervisores: [],
     credsUpdatedAt: Math.max(baseTs, incomingTs)
   };
@@ -3554,6 +3574,37 @@ function vehicleStatus(v){
   const bad = Object.values(checks).some(c => ['Nao OK','Não OK','NÃ£o OK','Avaria','Regular','Ruim'].includes(c.status));
   return bad ? {cls:'warn', label:'Com observação'} : {cls:'ok', label:'Em ordem'};
 }
+function vehicleMaintenanceStatusOptions(){
+  return ['Em uso','Em manutenção','Parado','Baixado','Reserva'];
+}
+function canEditVehicleFull(){
+  return currentRole() === 'admin';
+}
+function vehicleMaintenanceStatusControl(v){
+  if(!v || !v.id) return '';
+  const atual = v.situacao || 'Em uso';
+  return `<select class="vehicle-maint-select" title="Selecionar status da manutenção" onclick="event.stopPropagation()" onchange="updateVehicleMaintenanceStatus('${escapeHtml(v.id)}', this.value, event)">
+    <option disabled>Status manutenção</option>
+    ${vehicleMaintenanceStatusOptions().map(o => `<option value="${escapeHtml(o)}"${atual===o?' selected':''}>${escapeHtml(o)}</option>`).join('')}
+  </select>`;
+}
+function updateVehicleMaintenanceStatus(id, status, e){
+  if(e) e.stopPropagation();
+  const v = vehicles.find(x => x.id === id);
+  if(!v) return;
+  if(!vehicleMaintenanceStatusOptions().includes(status)) return;
+  const before = v.situacao || 'Em uso';
+  if(before === status) return;
+  v.situacao = status;
+  v.tsStatusManutencao = Date.now();
+  v.statusManutencaoAtualizadoPor = currentRole() || 'usuario';
+  auditLog('Status de Manutencao Veicular Alterado', `Condutor: ${v.tec || '-'}`, `${before} → ${status}`);
+  save();
+  renderVehicles();
+  if(document.getElementById('invToolsModal')?.classList.contains('open')) viewVehicle(id);
+  if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
+  toast('Status da manutenção atualizado: ' + status, 'success');
+}
 function renderVehicles(){
   fillVehicleSupOptions();
   const supFilter = activeSupervisorFilter('vehicleSupF');
@@ -3598,7 +3649,8 @@ function renderVehicles(){
     </div>
     <div class="vehicle-actions" onclick="event.stopPropagation()">
       <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Visualizar</button>
-      <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>
+      ${canEditVehicleFull() ? `<button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>` : ''}
+      ${vehicleMaintenanceStatusControl(v)}
       <button class="btn btn-orange btn-sm" onclick="openVehicleTicketModal(null,'${escapeHtml(v.id)}')">Ticket</button>
     </div>`;
     grid.appendChild(d);
@@ -3674,7 +3726,7 @@ function viewVehicle(id){
   document.getElementById('invToolsTitle').textContent = 'Vistoria Veicular - ' + (v.tec || 'Condutor');
   document.getElementById('invToolsSubtitle').innerHTML = `${fmtDate(v.data)}${v.hora ? ' - ' + escapeHtml(v.hora) : ''}${v.placa ? ' · Placa ' + escapeHtml(v.placa) : ''}`;
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto">${vehicleViewHtml(v)}</div>
-    <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button><button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button></div>`;
+    <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>${vehicleMaintenanceStatusControl(v)}${canEditVehicleFull() ? `<button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}</div>`;
   document.getElementById('invToolsModal').classList.add('open');
 }
 function viewVehicleHistory(tec){
@@ -3698,7 +3750,8 @@ function viewVehicleHistory(tec){
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Ver</button>
-            <button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>
+            ${canEditVehicleFull() ? `<button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}
+            ${vehicleMaintenanceStatusControl(v)}
             <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
             ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicleFromHistory('${escapeHtml(v.id)}','${escapeHtml(tec || '')}',event)">Excluir</button>` : ''}
           </div>
@@ -3792,6 +3845,10 @@ function renderVehiclePP(){
     : pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
 }
 function openVehicleModal(id=null, modo='vistoria'){
+  if(id && !canEditVehicleFull()){
+    toast('Edição completa disponível apenas no login admin. Use o botão Status manutenção.', 'warn');
+    return;
+  }
   editingVehicleId = id;
   pendingVehiclePh = [];
   const modal = document.getElementById('vehicleModal');
