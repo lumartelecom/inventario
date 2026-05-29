@@ -1483,6 +1483,14 @@ setInterval(_updateOfflineBanner, 5000);
         <option value="desconexao">Desconexão</option>
         <option value="mdu">Construção MDU</option>
       </select>
+      <select id="dbPrintTipo" style="min-width:220px" title="Escolha a categoria do técnico para imprimir o ferramental">
+        <option value="">Imprimir todos os tipos</option>
+        <option value="manutencao">Manutenção</option>
+        <option value="instalacao">Instalação</option>
+        <option value="desconexao">Desconexão</option>
+        <option value="mdu">Construção MDU</option>
+      </select>
+      <button class="btn btn-ghost" onclick="printFerramentalPorCategoriaTecnico()">🖨️ Imprimir por categoria</button>
       <button class="btn btn-cyan" onclick="openDbModal()">+ Adicionar</button>
     </div>
     <div class="db-grid" id="bancoGrid"></div>
@@ -5390,6 +5398,64 @@ function saveDb(){
   if(editDbId){ const i=banco.findIndex(b=>b.id===editDbId); banco[i]=obj; }
   else banco.push(obj);
   saveBanco(); closeDB(); renderBanco();
+}
+function ferramentasPorTipoTecnico(tipoId){
+  return (banco || [])
+    .filter(b => normalizaTiposFerramenta(b).includes(tipoId))
+    .sort((a,b) => String(a.categoria || '').localeCompare(String(b.categoria || ''), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+}
+function printFerramentalPorCategoriaTecnico(){
+  const sel = document.getElementById('dbPrintTipo');
+  const tipoSel = sel ? sel.value : '';
+  const tipos = tipoSel ? TOOL_TECH_TYPES.filter(t => t.id === tipoSel) : TOOL_TECH_TYPES;
+  if(!tipos.length){ alert('Selecione uma categoria de técnico válida.'); return; }
+  const now = nowStr();
+  let html = '';
+  let totalGeral = 0;
+  tipos.forEach(tipo => {
+    const lista = ferramentasPorTipoTecnico(tipo.id);
+    totalGeral += lista.length;
+    const grupos = {};
+    lista.forEach(item => {
+      const cat = item.categoria || 'Outros';
+      if(!grupos[cat]) grupos[cat] = [];
+      grupos[cat].push(item);
+    });
+    html += `<div class="pp-page">
+      <div class="pp-hdr">
+        <h2>LUMAR TELECOM - FERRAMENTAL POR CATEGORIA DO TÉCNICO</h2>
+        <p>Categoria do técnico: <strong>${escapeHtml(tipo.label)}</strong> &nbsp;|&nbsp; Total: <strong>${lista.length}</strong> ferramenta(s)</p>
+        <p>Emitido em: ${escapeHtml(now)}</p>
+      </div>`;
+    if(!lista.length){
+      html += '<p style="font-size:12px;text-align:center;padding:22px;border:1px solid #ddd">Nenhuma ferramenta cadastrada para esta categoria de técnico.</p>';
+    } else {
+      Object.keys(grupos).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(cat => {
+        html += `<h3 style="font-size:13px;margin:14px 0 6px;color:#1a4fd6">${escapeHtml(cat)}</h3>
+          <table class="pp-tbl"><thead><tr class="lt-hdr">
+            <th style="width:34px">#</th><th>Ferramenta</th><th style="width:90px">Valor</th><th>Descrição</th>
+          </tr></thead><tbody>`;
+        grupos[cat].forEach((item,i) => {
+          html += `<tr>
+            <td>${i+1}</td>
+            <td><strong>${escapeHtml(item.nome)}</strong></td>
+            <td>${escapeHtml(fmtMoney(item.valor))}</td>
+            <td>${escapeHtml(item.desc || '')}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+      });
+    }
+    html += `<div class="sign-blk">
+      <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
+      <div class="sign-row">
+        <div class="sign-box"><p><strong>Responsável pelo ferramental</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+        <div class="sign-box"><p><strong>Supervisor / Conferente</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+      </div>
+    </div></div>`;
+  });
+  if(!totalGeral){ toast('Nenhuma ferramenta marcada para a categoria selecionada.', 'warn'); }
+  openPrintWindow(html, tipoSel ? 'Ferramental - ' + tipos[0].label : 'Ferramental por categoria do técnico');
 }
 function renderBanco(){
   const search = document.getElementById('dbSearch').value.toLowerCase();
