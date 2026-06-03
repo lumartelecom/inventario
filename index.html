@@ -529,7 +529,20 @@ tr.inv-hidden{display:none}
 }
 
 /* VISTORIA VEICULAR */
-.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px}
+.vehicle-fleet-head{display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:12px;align-items:start;margin-bottom:16px;padding:14px;background:rgba(255,255,255,.035);border:1px solid rgba(127,154,190,.18);border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+.vehicle-fleet-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.vehicle-fleet-filters{display:grid;grid-template-columns:minmax(220px,1.2fr) repeat(3,minmax(170px,.7fr));gap:8px;margin:0 0 14px}
+.vehicle-fleet-search{position:relative;min-width:0}
+.vehicle-fleet-search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--cyan)}
+.vehicle-fleet-search input{width:100%;height:40px;padding-left:34px}
+.vehicle-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}
+.vehicle-kpi{border:1px solid rgba(127,154,190,.2);border-radius:8px;background:rgba(255,255,255,.035);padding:11px 12px;cursor:pointer;transition:.18s;text-align:left}
+.vehicle-kpi:hover{border-color:rgba(0,194,224,.45);background:rgba(0,194,224,.07);transform:translateY(-1px)}
+.vehicle-kpi.active{border-color:var(--cyan);background:rgba(0,194,224,.13);box-shadow:0 0 0 2px rgba(0,194,224,.12)}
+.vehicle-kpi b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:23px;line-height:1;color:#fff}
+.vehicle-kpi span{display:block;margin-top:4px;font-size:10px;color:var(--mid);font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.vehicle-kpi.ok b{color:var(--green)}.vehicle-kpi.warn b{color:#f5c518}.vehicle-kpi.garage b{color:var(--cyan)}.vehicle-kpi.bad b{color:var(--red)}
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(305px,1fr));gap:14px}
 .vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:14px 16px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;min-width:0}
 .vehicle-card:hover{border-color:rgba(0,194,224,.55);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
 .vehicle-card.stack:before,.vehicle-card.stack:after{content:'';position:absolute;inset:7px -5px -5px 7px;border:1px solid rgba(0,194,224,.12);border-radius:8px;background:rgba(255,255,255,.025);z-index:-1}
@@ -542,7 +555,12 @@ tr.inv-hidden{display:none}
 .vehicle-status{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}
 .vehicle-status.ok{color:var(--green);background:rgba(24,201,106,.1);border:1px solid rgba(24,201,106,.32)}
 .vehicle-status.warn{color:#f5c518;background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.32)}
+.vehicle-status.garage{color:var(--cyan);background:rgba(0,194,224,.10);border:1px solid rgba(0,194,224,.32)}
 .vehicle-history-chip{display:inline-flex;align-items:center;margin-top:7px;padding:3px 7px;border-radius:999px;border:1px solid rgba(0,194,224,.28);color:var(--cyan);background:rgba(0,194,224,.08);font-size:10px;font-weight:800;letter-spacing:.5px}
+.vehicle-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}
+.vehicle-meta-grid div{border:1px solid rgba(127,154,190,.18);border-radius:7px;background:rgba(255,255,255,.035);padding:7px 8px;min-width:0}
+.vehicle-meta-grid span{display:block;font-size:9px;color:var(--mid);font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.vehicle-meta-grid strong{display:block;margin-top:2px;font-size:12px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vehicle-history-button{display:flex;justify-content:center;width:min(190px,100%);min-height:34px;margin:13px auto 0;padding:8px 14px;border-radius:8px;text-transform:uppercase}
 .vehicle-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;margin-top:12px}
 .vehicle-actions .btn{width:100%;justify-content:center;padding-left:8px;padding-right:8px}
@@ -579,6 +597,11 @@ tr.inv-hidden{display:none}
 .vehicle-check-table td:first-child{color:#fff;font-weight:600}
 
 .vehicle-status.bad{color:var(--red);background:rgba(224,48,48,.12);border:1px solid rgba(224,48,48,.36)}
+.vehicle-transfer-summary{border:1px solid rgba(0,194,224,.28);background:rgba(0,194,224,.07);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.vehicle-transfer-summary h3{font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:.8px;color:#fff;margin-bottom:4px}
+.vehicle-transfer-summary p{font-size:12px;color:var(--mid);margin:2px 0}
+@media(max-width:900px){.vehicle-fleet-head{grid-template-columns:1fr}.vehicle-fleet-actions{justify-content:flex-start}.vehicle-fleet-filters{grid-template-columns:1fr 1fr}.vehicle-fleet-search{grid-column:1/-1}}
+@media(max-width:560px){.vehicle-fleet-filters{grid-template-columns:1fr}.vehicle-meta-grid{grid-template-columns:1fr}.vehicle-grid{grid-template-columns:1fr}}
 .vehicle-oil-alerts{margin:0 0 14px;background:linear-gradient(180deg,rgba(245,197,24,.10),rgba(224,48,48,.06));border:1px solid rgba(245,197,24,.34);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm)}
 .vehicle-oil-alert-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#f5c518;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .vehicle-oil-alert-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
@@ -1435,17 +1458,39 @@ setInterval(_updateOfflineBanner, 5000);
 
   <!-- VEICULOS -->
   <div class="tab-panel" id="tab-veiculos">
-    <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-      <button class="btn btn-cyan" onclick="openVehicleModal(null,'vistoria')">+ Realizar Vistoria</button>
-      <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
-      <select id="vehicleSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
+    <div class="vehicle-fleet-head">
+      <div>
+        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:24px;letter-spacing:1px;text-transform:uppercase;color:#fff;margin-bottom:4px">Controle de Frota</h2>
+        <p style="font-size:12px;color:var(--mid)">Acompanhamento por placa, condutor, garagem e manuten&ccedil;&atilde;o.</p>
+      </div>
+      <div class="vehicle-fleet-actions">
+        <button class="btn btn-cyan" onclick="openVehicleModal(null,'vistoria')">+ Realizar Vistoria</button>
+        <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
+      </div>
+    </div>
+    <div class="vehicle-fleet-filters">
+      <div class="vehicle-fleet-search">
+        <span>🔍</span>
+        <input type="text" id="vehicleSearchF" placeholder="Pesquisar por placa, ve&iacute;culo ou t&eacute;cnico..." oninput="renderVehicles()" autocomplete="off">
+      </div>
+      <select id="vehicleSupF" onchange="syncSupFilter(this.value)">
         <option value="">Todos os supervisores</option>
       </select>
-      <select id="vehicleTecF" onchange="renderVehicles()" style="min-width:220px">
+      <select id="vehicleTecF" onchange="renderVehicles()">
         <option value="">Todos os v&iacute;nculos</option>
       </select>
-      <span id="vehicleCount" style="font-size:11px;color:var(--mid);margin-left:auto;white-space:nowrap"></span>
+      <select id="vehicleStatusF" onchange="vehicleKpiFilter='';renderVehicles()">
+        <option value="">Todos os status</option>
+        <option>Em uso</option>
+        <option>Na garagem</option>
+        <option>Em manuten&ccedil;&atilde;o</option>
+        <option>Parado</option>
+        <option>Reserva</option>
+        <option>Baixado</option>
+      </select>
     </div>
+    <div class="vehicle-kpi-row" id="vehicleKpis"></div>
+    <div id="vehicleCount" style="font-size:11px;color:var(--mid);margin:-4px 0 12px;text-align:right;white-space:nowrap"></div>
     <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
     <div class="vehicle-grid" id="vehicleGrid"></div>
     <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
@@ -1523,7 +1568,7 @@ setInterval(_updateOfflineBanner, 5000);
       <div><label id="vTecLabel">Motorista / Condutor *</label><select id="vTec"></select></div>
       <div id="vGestaoWrap" style="display:none"><label>Respons&aacute;vel da gest&atilde;o *</label><input type="text" id="vGestaoResp" placeholder="Supervisor, coordenador, gestor..."></div>
       <div id="vSupWrap"><label>Supervisor</label><select id="vSup"></select></div>
-      <div><label>Situa&ccedil;&atilde;o do ve&iacute;culo</label><select id="vSituacao"><option>Em uso</option><option>Reserva</option><option>Em manuten&ccedil;&atilde;o</option><option>Parado</option><option>Baixado</option></select></div>
+      <div><label>Situa&ccedil;&atilde;o do ve&iacute;culo</label><select id="vSituacao"><option>Em uso</option><option>Na garagem</option><option>Reserva</option><option>Em manuten&ccedil;&atilde;o</option><option>Parado</option><option>Baixado</option></select></div>
       <div><label>Data</label><input type="date" id="vData"></div>
       <div><label>Hora</label><input type="time" id="vHora"></div>
       <div class="full"><label>Local</label><input type="text" id="vLocal"></div>
@@ -1547,6 +1592,27 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
       <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Ve&iacute;culo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRANSFERENCIA VEICULAR -->
+<div class="modal-ov" id="vehicleTransferModal">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-close" onclick="closeVehicleTransferModal()">&times;</button>
+    <h2>Transferir Ve&iacute;culo</h2>
+    <div class="vehicle-transfer-summary" id="vehicleTransferSummary"></div>
+    <div class="fg">
+      <div><label>Novo v&iacute;nculo</label><select id="vtTipoVinculo" onchange="updateVehicleTransferOwnerMode()"><option value="tecnico">T&eacute;cnico</option><option value="gestao">Gest&atilde;o</option><option value="reserva">Reserva</option></select></div>
+      <div><label>Situa&ccedil;&atilde;o ap&oacute;s transfer&ecirc;ncia</label><select id="vtSituacao"><option>Em uso</option><option>Na garagem</option><option>Reserva</option><option>Em manuten&ccedil;&atilde;o</option><option>Parado</option><option>Baixado</option></select></div>
+      <div id="vtTecWrap"><label>Novo t&eacute;cnico / condutor *</label><select id="vtTec"></select></div>
+      <div id="vtSupWrap"><label>Supervisor</label><select id="vtSup"></select></div>
+      <div id="vtGestaoWrap" style="display:none" class="full"><label>Respons&aacute;vel da gest&atilde;o *</label><input type="text" id="vtGestaoResp" placeholder="Supervisor, coordenador, gestor..."></div>
+      <div class="full"><label>Observa&ccedil;&atilde;o da transfer&ecirc;ncia</label><textarea id="vtObs" rows="3" placeholder="Motivo ou termo de entrega"></textarea></div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeVehicleTransferModal()">Cancelar</button>
+      <button class="btn btn-cyan" onclick="saveVehicleTransfer()">Confirmar Transfer&ecirc;ncia</button>
     </div>
   </div>
 </div>
@@ -3429,6 +3495,8 @@ function prevTechPhoto(inp){
 
 // ── VEÍCULOS / VISTORIA VEICULAR ─────────────────────────────────────────────
 let editingVehicleId = null;
+let transferringVehicleId = null;
+let vehicleKpiFilter = '';
 let editingVehicleTicketId = null;
 const VEHICLE_SECTIONS = [
   {id:'doc', title:'1. Documentacao', opts:['OK','Nao OK'], items:['CRLV atualizado']},
@@ -3576,6 +3644,7 @@ function fillVehicleTechFilter(supFilter){
 function vehicleStatus(v){
   const situacao = (v && v.situacao ? v.situacao : '').toString();
   if(situacao === 'Em manutenção') return {cls:'warn', label:'Em manutenção'};
+  if(situacao === 'Na garagem') return {cls:'garage', label:'Na garagem'};
   if(situacao === 'Parado') return {cls:'warn', label:'Parado'};
   if(situacao === 'Baixado') return {cls:'bad', label:'Baixado'};
   if(situacao === 'Reserva') return {cls:'ok', label:'Reserva'};
@@ -3587,11 +3656,11 @@ function vehicleStatus(v){
   return bad ? {cls:'warn', label:'Com observação'} : {cls:'ok', label:'Em ordem'};
 }
 function vehicleMaintenanceStatusOptions(){
-  return ['Em uso','Em manutenção','Parado','Baixado','Reserva'];
+  return ['Em uso','Na garagem','Em manutenção','Parado','Baixado','Reserva'];
 }
 function vehicleHideCondutorForStatus(status){
   const s = (status || 'Em uso').toString().trim();
-  return ['Em manutenção','Parado','Baixado','Reserva'].includes(s);
+  return ['Em manutenção','Na garagem','Parado','Baixado','Reserva'].includes(s);
 }
 function vehicleShowCondutor(v){
   return !vehicleHideCondutorForStatus(v && v.situacao ? v.situacao : 'Em uso');
@@ -3610,6 +3679,51 @@ function vehicleStatusInstruction(v){
 }
 function canEditVehicleFull(){
   return currentRole() === 'admin';
+}
+function vehicleIdentityKey(v){
+  const placa = (v && v.placa ? v.placa : '').toString().replace(/[^A-Z0-9]/gi,'').toUpperCase();
+  if(placa) return 'PLACA:' + placa;
+  const modelo = (v && v.modelo ? v.modelo : '').toString().trim().toUpperCase();
+  const ano = (v && v.ano ? v.ano : '').toString().trim().toUpperCase();
+  return 'SEMPLACA:' + [modelo, ano, v && v.id ? v.id : ''].filter(Boolean).join('|');
+}
+function vehicleSearchText(v){
+  return [
+    v.placa, v.modelo, v.ano, v.cor, v.tec, v.sup, v.resp, v.gestaoResp,
+    v.situacao, vehicleOwnerTypeLabel(inferVehicleOwnerType(v)), v.local
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+function renderVehicleKpis(latestList){
+  const el = document.getElementById('vehicleKpis');
+  if(!el) return;
+  const counts = latestList.reduce((acc,v) => {
+    const s = v.situacao || 'Em uso';
+    if(s === 'Em manutenção') acc.manut++;
+    else if(s === 'Na garagem') acc.garagem++;
+    else if(s === 'Baixado' || s === 'Parado') acc.alerta++;
+    else acc.operando++;
+    return acc;
+  }, {operando:0, manut:0, garagem:0, alerta:0});
+  el.innerHTML = `
+    <button type="button" class="vehicle-kpi ok ${vehicleKpiFilter==='operando'?'active':''}" onclick="setVehicleKpiFilter('operando')"><b>${counts.operando}</b><span>Operando / reserva</span></button>
+    <button type="button" class="vehicle-kpi warn ${vehicleKpiFilter==='manut'?'active':''}" onclick="setVehicleKpiFilter('manut')"><b>${counts.manut}</b><span>Em manuten&ccedil;&atilde;o</span></button>
+    <button type="button" class="vehicle-kpi garage ${vehicleKpiFilter==='garagem'?'active':''}" onclick="setVehicleKpiFilter('garagem')"><b>${counts.garagem}</b><span>Na garagem</span></button>
+    <button type="button" class="vehicle-kpi bad ${vehicleKpiFilter==='alerta'?'active':''}" onclick="setVehicleKpiFilter('alerta')"><b>${counts.alerta}</b><span>Parado / baixado</span></button>`;
+}
+function setVehicleKpiFilter(filter){
+  vehicleKpiFilter = vehicleKpiFilter === filter ? '' : filter;
+  const statusSel = document.getElementById('vehicleStatusF');
+  if(statusSel) statusSel.value = '';
+  renderVehicles();
+}
+function vehicleMatchesKpiFilter(v, filter){
+  if(!filter) return true;
+  const s = (v && v.situacao ? v.situacao : 'Em uso').toString();
+  if(filter === 'operando') return s === 'Em uso' || s === 'Reserva';
+  if(filter === 'manut') return s === 'Em manutenção';
+  if(filter === 'garagem') return s === 'Na garagem';
+  if(filter === 'alerta') return s === 'Parado' || s === 'Baixado';
+  return true;
 }
 function vehicleMaintenanceStatusControl(v){
   if(!v || !v.id) return '';
@@ -3641,6 +3755,8 @@ function renderVehicles(){
   const supFilter = activeSupervisorFilter('vehicleSupF');
   fillVehicleTechFilter(supFilter);
   const tecFilter = (document.getElementById('vehicleTecF') || {}).value || '';
+  const statusFilter = (document.getElementById('vehicleStatusF') || {}).value || '';
+  const search = ((document.getElementById('vehicleSearchF') || {}).value || '').toLowerCase().trim();
   const grid = document.getElementById('vehicleGrid');
   const empty = document.getElementById('vehicleEmpty');
   const count = document.getElementById('vehicleCount');
@@ -3649,45 +3765,54 @@ function renderVehicles(){
   const list = (vehicles || [])
     .filter(v => !supFilter || v.sup === supFilter || techNames.includes(v.tec))
     .filter(v => !tecFilter || (tecFilter === '__gestao' ? inferVehicleOwnerType(v) === 'gestao' : tecFilter === '__reserva' ? inferVehicleOwnerType(v) === 'reserva' : v.tec === tecFilter))
+    .filter(v => !search || vehicleSearchText(v).includes(search))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
-  renderVehicleOilAlerts(list);
-  grid.innerHTML = '';
-  const groups = [];
-  const byTec = {};
+  const byVehicle = {};
   list.forEach(v => {
-    const key = v.tec || 'Condutor sem nome';
-    if(!byTec[key]){ byTec[key] = []; groups.push(byTec[key]); }
-    byTec[key].push(v);
+    const key = vehicleIdentityKey(v);
+    if(!byVehicle[key]) byVehicle[key] = [];
+    byVehicle[key].push(v);
   });
-  groups.forEach(history => {
-    history.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const groups = Object.values(byVehicle).map(history => history.sort((a,b)=>(b.ts||0)-(a.ts||0)));
+  const visibleGroups = groups
+    .filter(history => !statusFilter || ((history[0].situacao || 'Em uso') === statusFilter))
+    .filter(history => vehicleMatchesKpiFilter(history[0], vehicleKpiFilter));
+  const latestVisible = visibleGroups.map(history => history[0]);
+  renderVehicleKpis(groups.map(history => history[0]));
+  renderVehicleOilAlerts(latestVisible);
+  grid.innerHTML = '';
+  visibleGroups.forEach(history => {
     const v = history[0];
     const st = vehicleStatus(v);
+    const key = vehicleIdentityKey(v);
     const d = document.createElement('div');
     d.className = 'vehicle-card' + (history.length > 1 ? ' stack' : '');
     d.onclick = () => viewVehicle(v.id);
     d.innerHTML = `<div class="vehicle-top">
       <div>
-        <h3>${escapeHtml(vehicleTitleLabel(v))}</h3>
-        <p>${escapeHtml(vehicleOwnerTypeLabel(inferVehicleOwnerType(v)))}</p>
-        <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}</p>
-        <p>${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
-        ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
+        <h3>${escapeHtml(v.placa || v.modelo || 'Veiculo sem placa')}</h3>
+        <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.ano ? ' - '+escapeHtml(v.ano) : ''}${v.cor ? ' - '+escapeHtml(v.cor) : ''}</p>
+        <div class="vehicle-meta-grid">
+          <div><span>Condutor atual</span><strong>${escapeHtml(vehicleVisibleCondutor(v))}</strong></div>
+          <div><span>Supervisor</span><strong>${escapeHtml(v.sup || '-')}</strong></div>
+          <div><span>Vinculo</span><strong>${escapeHtml(vehicleOwnerTypeLabel(inferVehicleOwnerType(v)))}</strong></div>
+          <div><span>Ultima vistoria</span><strong>${fmtDate(v.data)}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</strong></div>
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v)}</div>
-        <button class="vehicle-history-chip vehicle-history-button" onclick="event.stopPropagation();viewVehicleHistory('${escapeHtml(v.tec || '')}')">${history.length} vistoria${history.length!==1?'s':''}</button>
+        <button class="vehicle-history-chip vehicle-history-button" onclick="event.stopPropagation();viewVehicleHistory('${escapeHtml(key)}')">${history.length} registro${history.length!==1?'s':''}</button>
       </div>
       <div class="vehicle-ico">&#128663;</div>
     </div>
     <div class="vehicle-actions" onclick="event.stopPropagation()">
       <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Visualizar</button>
       ${canEditVehicleFull() ? `<button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}')">Editar</button>` : ''}
+      <button class="btn btn-green btn-sm" onclick="openVehicleTransferModal('${escapeHtml(v.id)}')">Transferir</button>
       ${vehicleMaintenanceStatusControl(v)}
-      <button class="btn btn-orange btn-sm" onclick="openVehicleTicketModal(null,'${escapeHtml(v.id)}')">Ticket</button>
     </div>`;
     grid.appendChild(d);
   });
-  if(empty) empty.style.display = list.length ? 'none' : 'block';
-  if(count) count.textContent = `${groups.length} vínculo${groups.length!==1?'s':''} · ${list.length} vistoria${list.length!==1?'s':''}`;
+  if(empty) empty.style.display = visibleGroups.length ? 'none' : 'block';
+  if(count) count.textContent = `${visibleGroups.length} veículo${visibleGroups.length!==1?'s':''} · ${list.length} registro${list.length!==1?'s':''}`;
 }
 function renderVehicleChecklist(checks){
   const wrap = document.getElementById('vehicleChecklist');
@@ -3764,11 +3889,11 @@ function viewVehicle(id){
     <div class="ma"><button class="btn btn-ghost" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>${canEditVehicleFull() ? `<button class="btn btn-cyan" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}</div>`;
   document.getElementById('invToolsModal').classList.add('open');
 }
-function viewVehicleHistory(tec){
-  const list = (vehicles || []).filter(v => (v.tec || '') === (tec || '')).sort((a,b)=>(b.ts||0)-(a.ts||0));
+function viewVehicleHistory(vehicleKey){
+  const list = (vehicles || []).filter(v => vehicleIdentityKey(v) === (vehicleKey || '')).sort((a,b)=>(b.ts||0)-(a.ts||0));
   if(!list.length) return;
   const canDeleteVehicle = currentRole() === 'admin';
-  document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + vehicleTitleLabel(list[0]);
+  document.getElementById('invToolsTitle').textContent = 'Histórico Veicular - ' + (list[0].placa || list[0].modelo || vehicleTitleLabel(list[0]));
   document.getElementById('invToolsSubtitle').innerHTML = `${list.length} vistoria${list.length!==1?'s':''} registrada${list.length!==1?'s':''}`;
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
     ${list.map(v => {
@@ -3788,7 +3913,7 @@ function viewVehicleHistory(tec){
             ${canEditVehicleFull() ? `<button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}
             ${vehicleMaintenanceStatusControl(v)}
             <button class="btn btn-ghost btn-sm" onclick="printVehicle('${escapeHtml(v.id)}')">Imprimir</button>
-            ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicleFromHistory('${escapeHtml(v.id)}','${escapeHtml(tec || '')}',event)">Excluir</button>` : ''}
+            ${canDeleteVehicle ? `<button class="btn btn-danger btn-sm" onclick="deleteVehicleFromHistory('${escapeHtml(v.id)}','${escapeHtml(vehicleKey || '')}',event)">Excluir</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -3878,6 +4003,94 @@ function renderVehiclePP(){
   if(count) count.textContent = (noPhoto && noPhoto.checked && pendingVehiclePh.length === 0)
     ? 'Sem nova foto marcado'
     : pendingVehiclePh.length + ' / ' + VEHICLE_MAX_FOTOS + ' foto(s)';
+}
+function populateVehicleTransferOptions(){
+  const tecSel = document.getElementById('vtTec');
+  const supSel = document.getElementById('vtSup');
+  if(tecSel){
+    tecSel.innerHTML = '<option value="">Selecione</option>';
+    techs.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(t => tecSel.innerHTML += `<option value="${escapeHtml(t.nome)}" data-sup="${escapeHtml(t.sup||'')}">${escapeHtml(t.nome)}</option>`);
+    tecSel.onchange = () => {
+      const opt = tecSel.options[tecSel.selectedIndex];
+      if(opt && opt.dataset.sup && supSel) supSel.value = opt.dataset.sup;
+    };
+  }
+  if(supSel){
+    supSel.innerHTML = '<option value="">Selecione</option>';
+    sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
+  }
+}
+function updateVehicleTransferOwnerMode(){
+  const tipo = document.getElementById('vtTipoVinculo')?.value || 'tecnico';
+  const tecWrap = document.getElementById('vtTecWrap');
+  const supWrap = document.getElementById('vtSupWrap');
+  const gestaoWrap = document.getElementById('vtGestaoWrap');
+  const situacao = document.getElementById('vtSituacao');
+  if(tecWrap) tecWrap.style.display = tipo === 'tecnico' ? '' : 'none';
+  if(supWrap) supWrap.style.display = tipo === 'tecnico' ? '' : 'none';
+  if(gestaoWrap) gestaoWrap.style.display = tipo === 'gestao' ? '' : 'none';
+  if(tipo === 'reserva' && situacao) situacao.value = 'Reserva';
+  if(tipo === 'gestao' && situacao && situacao.value === 'Reserva') situacao.value = 'Na garagem';
+  if(tipo === 'tecnico' && situacao && ['Reserva','Na garagem'].includes(situacao.value)) situacao.value = 'Em uso';
+}
+function openVehicleTransferModal(id){
+  const v = vehicles.find(x => x.id === id);
+  if(!v) return;
+  transferringVehicleId = id;
+  populateVehicleTransferOptions();
+  const summary = document.getElementById('vehicleTransferSummary');
+  if(summary){
+    summary.innerHTML = `<h3>${escapeHtml(v.placa || v.modelo || 'Veiculo')}</h3>
+      <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
+      <p>Atual: ${escapeHtml(vehicleVisibleCondutor(v))} ${v.sup ? ' - Sup: '+escapeHtml(v.sup) : ''} - ${escapeHtml(v.situacao || 'Em uso')}</p>`;
+  }
+  document.getElementById('vtTipoVinculo').value = 'tecnico';
+  document.getElementById('vtSituacao').value = 'Em uso';
+  document.getElementById('vtTec').value = '';
+  document.getElementById('vtSup').value = '';
+  document.getElementById('vtGestaoResp').value = '';
+  document.getElementById('vtObs').value = '';
+  updateVehicleTransferOwnerMode();
+  document.getElementById('vehicleTransferModal').classList.add('open');
+}
+function closeVehicleTransferModal(){
+  transferringVehicleId = null;
+  document.getElementById('vehicleTransferModal').classList.remove('open');
+}
+function saveVehicleTransfer(){
+  const base = vehicles.find(x => x.id === transferringVehicleId);
+  if(!base) return;
+  const vinculo = document.getElementById('vtTipoVinculo').value || 'tecnico';
+  const tecSelecionado = document.getElementById('vtTec').value;
+  const gestaoResp = document.getElementById('vtGestaoResp').value.trim();
+  if(vinculo === 'tecnico' && !tecSelecionado){ alert('Selecione o novo tecnico/condutor.'); return; }
+  if(vinculo === 'gestao' && !gestaoResp){ alert('Informe o responsavel da gestao.'); return; }
+  const tec = vinculo === 'tecnico' ? tecSelecionado : (vinculo === 'gestao' ? gestaoResp : 'Reserva');
+  const now = new Date();
+  const before = vehicleVisibleCondutor(base);
+  const obsTransfer = document.getElementById('vtObs').value.trim();
+  const obj = {
+    ...base,
+    id: 'veh_' + Date.now(),
+    ts: Date.now(),
+    vinculo,
+    gestaoResp: vinculo === 'gestao' ? gestaoResp : '',
+    tec,
+    sup: vinculo === 'tecnico' ? document.getElementById('vtSup').value : '',
+    situacao: document.getElementById('vtSituacao').value,
+    data: now.toISOString().slice(0,10),
+    hora: now.toTimeString().slice(0,5),
+    semNovaFoto: true,
+    obsGerais: [base.obsGerais || '', `Transferencia: ${before} -> ${tec}.${obsTransfer ? ' ' + obsTransfer : ''}`].filter(Boolean).join('\n')
+  };
+  vehicles.push(obj);
+  auditLog('Veiculo Transferido', `Placa: ${obj.placa || '-'}`, `${before} -> ${tec}`);
+  save();
+  closeVehicleTransferModal();
+  renderVehicles();
+  if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
+  if(typeof cloudSave === 'function') cloudSave(true);
+  toast('Veiculo transferido com sucesso.', 'success');
 }
 function openVehicleModal(id=null, modo='vistoria'){
   if(id && !canEditVehicleFull()){
@@ -4024,7 +4237,7 @@ function deleteVehicle(id,e){
 }
 function deleteVehicleFromHistory(id,tec,e){
   if(!deleteVehicle(id,e)) return;
-  const rest = (vehicles || []).filter(v => (v.tec || '') === (tec || ''));
+  const rest = (vehicles || []).filter(v => vehicleIdentityKey(v) === (tec || ''));
   if(rest.length) viewVehicleHistory(tec);
   else closeInvTools();
 }
@@ -4054,7 +4267,7 @@ function printVehicle(id){
 function latestVehicleList(){
   const latest = {};
   (vehicles || []).forEach(v => {
-    const key = (v.placa || v.tec || v.id || '').toString().toUpperCase();
+    const key = vehicleIdentityKey(v);
     if(!key) return;
     if(!latest[key] || (v.ts || 0) > (latest[key].ts || 0)) latest[key] = v;
   });
@@ -5747,6 +5960,7 @@ function closeFadeLayer(layer){
     case 'fotoMgrModal': if(typeof closeFotoMgr === 'function') closeFotoMgr(); else layer.classList.remove('open'); break;
     case 'adminModal': if(typeof closeAdminModal === 'function') closeAdminModal(); else layer.classList.remove('open'); break;
     case 'vehicleModal': if(typeof closeVehicleModal === 'function') closeVehicleModal(); else layer.classList.remove('open'); break;
+    case 'vehicleTransferModal': if(typeof closeVehicleTransferModal === 'function') closeVehicleTransferModal(); else layer.classList.remove('open'); break;
     case 'vehicleTicketModal': if(typeof closeVehicleTicketModal === 'function') closeVehicleTicketModal(); else layer.classList.remove('open'); break;
     case 'loanModal': if(typeof closeLM === 'function') closeLM(); else layer.classList.remove('open'); break;
     case 'invToolsModal': if(typeof closeInvTools === 'function') closeInvTools(); else layer.classList.remove('open'); break;
