@@ -1500,6 +1500,7 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="tab-panel" id="tab-ticketVeicular">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-orange" onclick="openVehicleTicketModal()">+ Novo Ticket</button>
+      <input type="text" id="ticketPlateF" placeholder="Pesquisar ticket por placa..." oninput="renderVehicleTickets()" style="min-width:210px;text-transform:uppercase">
       <select id="ticketSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
@@ -1623,6 +1624,7 @@ setInterval(_updateOfflineBanner, 5000);
     <button class="modal-close" onclick="closeVehicleTicketModal()">&times;</button>
     <h2 id="ticketMTitle">Novo Ticket de Manuten&ccedil;&atilde;o</h2>
     <div class="fg">
+      <div class="full"><label>Pesquisar ve&iacute;culo por placa</label><input type="text" id="mtPlateSearch" placeholder="Digite a placa para localizar o ve&iacute;culo" oninput="filterTicketVehicleByPlate()" style="text-transform:uppercase"></div>
       <div class="full"><label>Ve&iacute;culo cadastrado *</label><select id="mtVehicle" onchange="fillTicketVehicleData()"></select></div>
       <div><label>Condutor</label><input type="text" id="mtTec" readonly></div>
       <div id="mtSupWrap"><label>Supervisor</label><select id="mtSup"></select></div>
@@ -4295,6 +4297,7 @@ function renderVehicleTickets(){
   fillTicketSupOptions();
   const supFilter = activeSupervisorFilter('ticketSupF');
   const statusFilter = (document.getElementById('ticketStatusF') || {}).value || '';
+  const plateFilter = ((document.getElementById('ticketPlateF') || {}).value || '').replace(/[^A-Z0-9]/gi,'').toUpperCase();
   const grid = document.getElementById('ticketGrid');
   const empty = document.getElementById('ticketEmpty');
   const count = document.getElementById('ticketCount');
@@ -4303,6 +4306,7 @@ function renderVehicleTickets(){
   const list = (vehicleTickets || [])
     .filter(t => !supFilter || t.sup === supFilter || techNames.includes(t.tec))
     .filter(t => !statusFilter || t.status === statusFilter)
+    .filter(t => !plateFilter || (t.placa || '').replace(/[^A-Z0-9]/gi,'').toUpperCase().includes(plateFilter))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   const canDeleteTicket = currentRole() === 'admin';
   grid.innerHTML = '';
@@ -4332,18 +4336,46 @@ function renderVehicleTickets(){
   if(empty) empty.style.display = list.length ? 'none' : 'block';
   if(count) count.textContent = `${list.length} ticket${list.length!==1?'s':''}`;
 }
+function populateTicketVehicleSelect(selectedId='', plateSearch=''){
+  const vehicleSel = document.getElementById('mtVehicle');
+  if(!vehicleSel) return [];
+  const search = (plateSearch || '').replace(/[^A-Z0-9]/gi,'').toUpperCase();
+  const latest = latestVehicleList();
+  const filtered = latest.filter(v => {
+    if(!search) return true;
+    const placa = (v.placa || '').replace(/[^A-Z0-9]/gi,'').toUpperCase();
+    return placa.includes(search);
+  });
+  vehicleSel.innerHTML = '<option value="">Selecione um veiculo cadastrado</option>';
+  filtered.forEach(v => {
+    const label = `${v.placa ? 'Placa '+v.placa+' - ' : ''}${v.modelo || 'Veiculo'} - ${v.tec || 'Condutor'}`;
+    vehicleSel.innerHTML += `<option value="${escapeHtml(v.id)}">${escapeHtml(label)}</option>`;
+  });
+  if(selectedId && Array.from(vehicleSel.options).some(o => o.value === selectedId)) vehicleSel.value = selectedId;
+  return filtered;
+}
+function filterTicketVehicleByPlate(){
+  const inp = document.getElementById('mtPlateSearch');
+  const search = inp ? inp.value : '';
+  const filtered = populateTicketVehicleSelect('', search);
+  const vehicleSel = document.getElementById('mtVehicle');
+  if(filtered.length === 1 && vehicleSel){
+    vehicleSel.value = filtered[0].id;
+    fillTicketVehicleData();
+  } else {
+    ['mtTec','mtPlaca','mtKm'].forEach(k => { const el = document.getElementById(k); if(el) el.value = ''; });
+    updateTicketSupervisorMode(null);
+  }
+}
 function openVehicleTicketModal(id=null, vehicleId=null){
   editingVehicleTicketId = id;
   const modal = document.getElementById('vehicleTicketModal');
   const title = document.getElementById('ticketMTitle');
   if(title) title.textContent = id ? 'Editar Ticket de Manutencao' : 'Novo Ticket de Manutencao';
   const vehicleSel = document.getElementById('mtVehicle');
-  const latest = latestVehicleList();
-  vehicleSel.innerHTML = '<option value="">Selecione um veiculo cadastrado</option>';
-  latest.forEach(v => {
-    const label = `${v.tec || 'Condutor'} - ${v.modelo || 'Veiculo'}${v.placa ? ' - Placa '+v.placa : ''}`;
-    vehicleSel.innerHTML += `<option value="${escapeHtml(v.id)}">${escapeHtml(label)}</option>`;
-  });
+  const plateSearch = document.getElementById('mtPlateSearch');
+  if(plateSearch) plateSearch.value = '';
+  populateTicketVehicleSelect();
   const supSel = document.getElementById('mtSup');
   supSel.innerHTML = '<option value="">Selecione</option>';
   sups.forEach(s => supSel.innerHTML += `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`);
@@ -4359,9 +4391,13 @@ function openVehicleTicketModal(id=null, vehicleId=null){
   if(vehicleId && Array.from(vehicleSel.options).some(o => o.value === vehicleId)){
     vehicleSel.value = vehicleId;
     fillTicketVehicleData();
+    const linked = latestVehicleList().find(x => x.id === vehicleId);
+    if(plateSearch && linked && linked.placa) plateSearch.value = linked.placa;
   }
   if(id){
     const t = vehicleTickets.find(x => x.id === id); if(!t) return;
+    if(plateSearch) plateSearch.value = t.placa || '';
+    populateTicketVehicleSelect(t.vehicleId || '', t.placa || '');
     if(t.vehicleId && Array.from(vehicleSel.options).some(o => o.value === t.vehicleId)) vehicleSel.value = t.vehicleId;
     const linkedVehicle = latestVehicleList().find(x => x.id === t.vehicleId);
     document.getElementById('mtTec').value = t.tec || '';
@@ -4399,6 +4435,8 @@ function fillTicketVehicleData(){
   const id = document.getElementById('mtVehicle').value;
   const v = latestVehicleList().find(x => x.id === id);
   if(!v) return;
+  const plateSearch = document.getElementById('mtPlateSearch');
+  if(plateSearch && v.placa) plateSearch.value = v.placa;
   document.getElementById('mtTec').value = v.tec || '';
   document.getElementById('mtSup').value = inferVehicleOwnerType(v) === 'tecnico' ? (v.sup || '') : '';
   document.getElementById('mtPlaca').value = v.placa || '';
