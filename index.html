@@ -1537,6 +1537,7 @@ setInterval(_updateOfflineBanner, 5000);
         <option value="mdu">Construção MDU</option>
       </select>
       <button class="btn btn-ghost" onclick="printFerramentalPorCategoriaTecnico()">🖨️ Imprimir por categoria</button>
+      <button class="btn btn-ghost" onclick="printTodasFerramentas()">🖨️ Imprimir todas</button>
       <button class="btn btn-cyan" onclick="openDbModal()">+ Adicionar</button>
     </div>
     <div class="db-grid" id="bancoGrid"></div>
@@ -5665,6 +5666,55 @@ function ferramentasPorTipoTecnico(tipoId){
   return (banco || [])
     .filter(b => normalizaTiposFerramenta(b).includes(tipoId))
     .sort((a,b) => String(a.categoria || '').localeCompare(String(b.categoria || ''), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+}
+function printTodasFerramentas(){
+  const lista = (banco || [])
+    .slice()
+    .sort((a,b) => String(a.categoria || 'Outros').localeCompare(String(b.categoria || 'Outros'), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+  if(!lista.length){ alert('Nenhuma ferramenta cadastrada para imprimir.'); return; }
+
+  const grupos = {};
+  lista.forEach(item => {
+    const cat = item.categoria || 'Outros';
+    if(!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(item);
+  });
+
+  const totalCategorias = Object.keys(grupos).length;
+  let html = `<div class="pp-page">
+    <div class="pp-hdr">
+      <h2>LUMAR TELECOM - TODAS AS FERRAMENTAS</h2>
+      <p>Total: <strong>${lista.length}</strong> ferramenta(s) &nbsp;|&nbsp; Categorias: <strong>${totalCategorias}</strong></p>
+      <p>Emitido em: ${escapeHtml(nowStr())}</p>
+    </div>`;
+
+  Object.keys(grupos).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(cat => {
+    html += `<h3 style="font-size:13px;margin:14px 0 6px;color:#1a4fd6">${escapeHtml(cat)} (${grupos[cat].length})</h3>
+      <table class="pp-tbl"><thead><tr class="lt-hdr">
+        <th style="width:34px">#</th><th>Ferramenta</th><th style="width:90px">Valor</th><th style="width:170px">Tipo técnico</th><th>Descrição</th>
+      </tr></thead><tbody>`;
+    grupos[cat].forEach((item,i) => {
+      const tipos = normalizaTiposFerramenta(item).map(tipoTecLabel).join(', ') || 'Não definido';
+      html += `<tr>
+        <td>${i+1}</td>
+        <td><strong>${escapeHtml(item.nome || '')}</strong></td>
+        <td>${escapeHtml(fmtMoney(item.valor))}</td>
+        <td>${escapeHtml(tipos)}</td>
+        <td>${escapeHtml(item.desc || '')}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  });
+
+  html += `<div class="sign-blk">
+    <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
+    <div class="sign-row">
+      <div class="sign-box"><p><strong>Responsável pelo ferramental</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+      <div class="sign-box"><p><strong>Supervisor / Conferente</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+    </div>
+  </div></div>`;
+
+  openPrintWindow(html, 'Todas as ferramentas');
 }
 function printFerramentalPorCategoriaTecnico(){
   const sel = document.getElementById('dbPrintTipo');
