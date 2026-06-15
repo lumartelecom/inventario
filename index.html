@@ -1520,7 +1520,7 @@ setInterval(_updateOfflineBanner, 5000);
       <input type="text" id="dbSearch" placeholder="🔍 Buscar no banco..." oninput="renderBanco()">
       <select id="dbCatF" onchange="renderBanco()">
         <option value="">Todas as categorias</option>
-        <option>Óptica</option><option>HFC</option><option>Segurança</option><option>Outros</option>
+        <option>Óptica</option><option>HFC</option><option>EPI</option><option>EPC</option><option>Segurança</option><option>Outros</option>
       </select>
       <select id="dbTipoF" onchange="renderBanco()" style="min-width:170px">
         <option value="">Todos os tipos</option>
@@ -1816,7 +1816,7 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="fg">
       <div><label>Nome *</label><input type="text" id="dbNome" placeholder="Ex: OTDR"></div>
       <div><label>Categoria</label>
-        <select id="dbCat"><option>Óptica</option><option>HFC</option><option>Segurança</option><option>Outros</option></select>
+        <select id="dbCat"><option>Óptica</option><option>HFC</option><option>EPI</option><option>EPC</option><option>Segurança</option><option>Outros</option></select>
       </div>
       <div class="full"><label>Tipos de técnico</label>
         <div id="dbTiposTec" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:rgba(255,255,255,0.03)">
@@ -2041,7 +2041,7 @@ async function idbLoadAll(){
     hist  = h || []; banco = b || []; audit = a || []; vehicles = v || []; vehicleTickets = vt || [];
   }
   if(!Array.isArray(banco) || banco.length === 0){
-    banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
+    banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:b.valor||'', desc:'', tiposTec:b.tiposTec||[]}));
     try { await idbSet('banco', banco); } catch(e) {}
   }
   const _oldSupsLen = sups.length;
@@ -2182,35 +2182,100 @@ localStorage.removeItem('lm_logo');
 
 // ── BANCO PADRÃO ──────────────────────────────────────────────────────
 const defaultBanco = [
-  {nome:'MALA P/ FERRAMENTAS',cat:'Outros',icon:'🧰'},
-  {nome:'MARTELO UNHA',cat:'Outros',icon:'🔨'},
-  {nome:'ÁLICATE UNIVERSAL',cat:'Outros',icon:'🔧'},
-  {nome:'ÁLICATE DE CORTE',cat:'Outros',icon:'🔧'},
-  {nome:'ÁLICATE DE BICO',cat:'Outros',icon:'🔧'},
-  {nome:'ÁLICATE DE COMPRESSÃO F6/59',cat:'HFC',icon:'🔧'},
-  {nome:'DECAPADOR',cat:'Óptica',icon:'🔧'},
-  {nome:'CHAVE DE FENDA MÉDIA',cat:'Outros',icon:'🪛'},
-  {nome:'CHAVE ESTRELA MÉDIA',cat:'Outros',icon:'🪛'},
-  {nome:'CHAVE TORQUE',cat:'Outros',icon:'🔩'},
-  {nome:'CHAVE SLEEV',cat:'HFC',icon:'🔩'},
-  {nome:'CHAVE TESTE NEON',cat:'Outros',icon:'💡'},
-  {nome:'TELEFONE DE TESTE',cat:'Outros',icon:'📞'},
-  {nome:'CONES',cat:'Segurança',icon:'🔺'},
-  {nome:'ÓCULOS DE PROTEÇÃO',cat:'Segurança',icon:'🥽'},
-  {nome:'LUVAS DE COURO',cat:'Segurança',icon:'🧤'},
-  {nome:'LUVAS DE BORRACHA',cat:'Segurança',icon:'🧤'},
-  {nome:'CAPACETE C/ JUGULAR',cat:'Segurança',icon:'⛑️'},
-  {nome:'ESCADA 6M FIBRA',cat:'Outros',icon:'🪜'},
-  {nome:'CLIVADOR',cat:'Óptica',icon:'✂️'},
-  {nome:'RASPADOR DE ACRILATO',cat:'Óptica',icon:'🔧'},
-  {nome:'POWER METER',cat:'Óptica',icon:'📡'},
-  {nome:'CANETA LASER',cat:'Óptica',icon:'🔦'},
-  {nome:'DECAPADOR DE FIBRA',cat:'Óptica',icon:'🔧'},
-  {nome:'MEDIDOR HFC',cat:'HFC',icon:'📊'},
-  {nome:'CINTO PARAQUEDISTA E TALABARTE',cat:'Segurança',icon:'🦺'},
+  {nome:'ÁLICATE DE COMPRESSÃO F6/59',cat:'HFC',icon:'🔧',valor:'50',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ALICATE RJ45/RJ11',cat:'HFC',icon:'🔧',valor:'80',tiposTec:['manutencao','instalacao']},
+  {nome:'CHAVE SLEEV',cat:'HFC',icon:'🔩',valor:'50',tiposTec:['manutencao','instalacao']},
+  {nome:'MEDIDOR HFC',cat:'HFC',icon:'📊',valor:'2000',tiposTec:['manutencao']},
+  {nome:'CANETA DE LIMPEZA FIBRA',cat:'Óptica',icon:'🧼',valor:'70',tiposTec:['manutencao','instalacao']},
+  {nome:'CANETA LASER',cat:'Óptica',icon:'🔦',valor:'60',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CLIVADOR',cat:'Óptica',icon:'✂️',valor:'250',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'DECAPADOR DE FIBRA',cat:'Óptica',icon:'🔧',valor:'70',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'DECAPADOR HFC',cat:'Óptica',icon:'🔧',valor:'35',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ETIQUETADORA',cat:'Óptica',icon:'🏷️',valor:'250',tiposTec:['mdu']},
+  {nome:'MAQUINA DE FUSÃO',cat:'Óptica',icon:'🔌',valor:'6000',tiposTec:['mdu']},
+  {nome:'MEDIDOR DE FIBRA ATIVA',cat:'Óptica',icon:'📡',valor:'600',tiposTec:['mdu']},
+  {nome:'POWER METER',cat:'Óptica',icon:'📡',valor:'150',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'RASPADOR DE ACRILATO',cat:'Óptica',icon:'🔧',valor:'80',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ALAVANCA DE AÇO',cat:'Outros',icon:'🔧',valor:'150',tiposTec:['mdu']},
+  {nome:'ÁLICATE DE BICO',cat:'Outros',icon:'🔧',valor:'50',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ÁLICATE DE CORTE',cat:'Outros',icon:'🔧',valor:'50',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ÁLICATE UNIVERSAL',cat:'Outros',icon:'🔧',valor:'60',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CHAVE DE FENDA MÉDIA',cat:'Outros',icon:'🪛',valor:'25',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CHAVE ESTRELA MÉDIA',cat:'Outros',icon:'🪛',valor:'25',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CHAVE TESTE NEON',cat:'Outros',icon:'💡',valor:'15',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CHAVE TORQUE',cat:'Outros',icon:'🔩',valor:'140',tiposTec:['manutencao','instalacao']},
+  {nome:'ESCADA 6M FIBRA',cat:'Outros',icon:'🪜',valor:'1100',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'EXTENSÃO ELÉTRICA',cat:'Outros',icon:'🔌',valor:'180',tiposTec:['instalacao','mdu']},
+  {nome:'FURADEIRA',cat:'Outros',icon:'🪛',valor:'500',tiposTec:['instalacao','mdu']},
+  {nome:'FUSIMEC',cat:'Outros',icon:'🔧',valor:'150',tiposTec:['instalacao']},
+  {nome:'MALA P/ FERRAMENTAS',cat:'Outros',icon:'🧰',valor:'250',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'MARTELO UNHA',cat:'Outros',icon:'🔨',valor:'50',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'PASSA FIO',cat:'Outros',icon:'🔧',valor:'100',tiposTec:['instalacao','mdu']},
+  {nome:'PE DE CABRA',cat:'Outros',icon:'🔧',valor:'80',tiposTec:['mdu']},
+  {nome:'TELEFONE DE TESTE',cat:'Outros',icon:'📞',valor:'180',tiposTec:['manutencao','instalacao']},
+  {nome:'CAPACETE C/ JUGULAR',cat:'EPI',icon:'⛑️',valor:'80',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CHAPEU COM ABA',cat:'EPI',icon:'🧢',valor:'40',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CINTO PARAQUEDISTA E TALABARTE',cat:'EPI',icon:'🦺',valor:'600',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'LUVAS DE VAQUETA',cat:'EPI',icon:'🧤',valor:'35',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'ÓCULOS DE PROTEÇÃO',cat:'EPI',icon:'🥽',valor:'20',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CONES',cat:'EPC',icon:'🔺',valor:'120',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'CORRENTE DE SEGURANÇA',cat:'EPC',icon:'⛓️',valor:'100',tiposTec:['instalacao']},
+  {nome:'ESCADA FIBRA INTERNA',cat:'EPC',icon:'🪜',valor:'700',tiposTec:['instalacao']},
+  {nome:'GARRAFA TERMICA',cat:'EPC',icon:'🧴',valor:'80',tiposTec:['manutencao','instalacao','mdu']},
+  {nome:'KIT LVM',cat:'EPC',icon:'🧰',valor:'1600',tiposTec:['instalacao']},
 ];
+const FERRAMENTAL_VALORES_KEY = 'lm_ferramental_valores_20260615_v2';
+function normToolKey(nome){
+  return String(nome || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ')
+    .trim().replace(/\s+/g, ' ');
+}
+function canonicalToolKey(nome){
+  const key = normToolKey(nome);
+  return {
+    'DECAPADOR':'DECAPADOR HFC',
+    'LUVAS DE COURO':'LUVAS DE VAQUETA',
+    'LUVAS DE BORRACHA':'LUVAS DE VAQUETA'
+  }[key] || key;
+}
+function makeDefaultBanco(){
+  return defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:b.valor||'', desc:'', tiposTec:b.tiposTec||[]}));
+}
+function aplicarValoresFerramentalAproximados(force=false){
+  if(!Array.isArray(banco)) banco = [];
+  if(!force && localStorage.getItem(FERRAMENTAL_VALORES_KEY) === '1') return false;
+  const catalogo = new Map(defaultBanco.map(item => [canonicalToolKey(item.nome), item]));
+  let changed = false;
+
+  banco.forEach(item => {
+    const ref = catalogo.get(canonicalToolKey(item.nome));
+    if(!ref) return;
+    if(canonicalToolKey(item.nome) !== normToolKey(ref.nome) && !item.desc){
+      item.nome = ref.nome;
+    }
+    item.categoria = ref.cat;
+    item.icon = item.icon || ref.icon;
+    item.valor = ref.valor || item.valor || '';
+    item.tiposTec = Array.isArray(item.tiposTec) && item.tiposTec.length ? item.tiposTec : (ref.tiposTec || []);
+    changed = true;
+  });
+
+  const existentes = new Set(banco.map(item => canonicalToolKey(item.nome)));
+  defaultBanco.forEach(ref => {
+    const key = canonicalToolKey(ref.nome);
+    if(existentes.has(key)) return;
+    banco.push({id:'cat_'+key.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_'+Date.now(), nome:ref.nome, categoria:ref.cat, icon:ref.icon, valor:ref.valor||'', desc:'', tiposTec:ref.tiposTec||[]});
+    existentes.add(key);
+    changed = true;
+  });
+
+  localStorage.setItem(FERRAMENTAL_VALORES_KEY, '1');
+  if(changed) saveBanco();
+  return changed;
+}
 if(banco.length === 0){
-  banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:b.icon, valor:'', desc:'', tiposTec:[]}));
+  banco = makeDefaultBanco();
   saveBanco();
 }
 
@@ -5668,7 +5733,14 @@ function ferramentasPorTipoTecnico(tipoId){
     .sort((a,b) => String(a.categoria || '').localeCompare(String(b.categoria || ''), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
 }
 function printTodasFerramentas(){
+  const vistos = new Set();
   const lista = (banco || [])
+    .filter(item => {
+      const key = canonicalToolKey(item && item.nome);
+      if(!key || vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    })
     .slice()
     .sort((a,b) => String(a.categoria || 'Outros').localeCompare(String(b.categoria || 'Outros'), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
   if(!lista.length){ alert('Nenhuma ferramenta cadastrada para imprimir.'); return; }
@@ -5680,16 +5752,24 @@ function printTodasFerramentas(){
     grupos[cat].push(item);
   });
 
+  const ordemCategorias = ['HFC','Óptica','Outros','EPI','EPC','Segurança'];
+  const cats = Object.keys(grupos).sort((a,b) => {
+    const ia = ordemCategorias.indexOf(a);
+    const ib = ordemCategorias.indexOf(b);
+    if(ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    return a.localeCompare(b, 'pt-BR');
+  });
   const totalCategorias = Object.keys(grupos).length;
-  let html = `<div class="pp-page">
+  let html = '';
+
+  cats.forEach(cat => {
+    html += `<div class="pp-page">
     <div class="pp-hdr">
       <h2>LUMAR TELECOM - TODAS AS FERRAMENTAS</h2>
-      <p>Total: <strong>${lista.length}</strong> ferramenta(s) &nbsp;|&nbsp; Categorias: <strong>${totalCategorias}</strong></p>
+      <p>Categoria: <strong>${escapeHtml(cat)}</strong> &nbsp;|&nbsp; ${grupos[cat].length} de ${lista.length} ferramenta(s) &nbsp;|&nbsp; Categorias: <strong>${totalCategorias}</strong></p>
       <p>Emitido em: ${escapeHtml(nowStr())}</p>
-    </div>`;
-
-  Object.keys(grupos).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(cat => {
-    html += `<h3 style="font-size:13px;margin:14px 0 6px;color:#1a4fd6">${escapeHtml(cat)} (${grupos[cat].length})</h3>
+    </div>
+    <h3 style="font-size:13px;margin:14px 0 6px;color:#1a4fd6">${escapeHtml(cat)} (${grupos[cat].length})</h3>
       <table class="pp-tbl"><thead><tr class="lt-hdr">
         <th style="width:34px">#</th><th>Ferramenta</th><th style="width:90px">Valor</th><th style="width:170px">Tipo técnico</th><th>Descrição</th>
       </tr></thead><tbody>`;
@@ -5703,15 +5783,19 @@ function printTodasFerramentas(){
         <td>${escapeHtml(item.desc || '')}</td>
       </tr>`;
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
   });
 
-  html += `<div class="sign-blk">
+  html += `<div class="pp-page"><div class="pp-hdr">
+    <h2>LUMAR TELECOM - CONFERÊNCIA DO FERRAMENTAL</h2>
+    <p>Total impresso: <strong>${lista.length}</strong> ferramenta(s) &nbsp;|&nbsp; Categorias: <strong>${totalCategorias}</strong></p>
+  </div><div class="sign-blk">
     <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
     <div class="sign-row">
       <div class="sign-box"><p><strong>Responsável pelo ferramental</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
       <div class="sign-box"><p><strong>Supervisor / Conferente</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
     </div>
+    <p style="font-size:9px;color:#666;text-align:center;margin-top:24px">* Valores aproximados de mercado, sem frete, sujeitos a variação por marca, modelo e fornecedor.</p>
   </div></div>`;
 
   openPrintWindow(html, 'Todas as ferramentas');
@@ -5789,7 +5873,7 @@ function renderBanco(){
       ${b.valor?`<p style="color:var(--green);font-weight:600;margin-top:3px">${fmtMoney(b.valor)}</p>`:''}
       ${b.desc?`<p style="font-size:10px;margin-top:3px;opacity:.6">${escapeHtml(b.desc.slice(0,55))}${b.desc.length>55?'...':''}</p>`:''}
       <div style="display:flex;gap:5px;margin-top:9px;justify-content:center">
-        <button class="btn btn-ghost btn-sm" onclick="openDbModal('${b.id}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDbModal('${b.id}')" title="Editar ferramenta e valor">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="delDb('${b.id}')">🗑</button>
       </div>`;
     grid.appendChild(div);
@@ -7757,6 +7841,7 @@ async function bootApp(){
     vehicleTickets = mergedVehicleTickets;
     try { if(_idb) idbSave(['vehicleTickets']).catch(()=>{}); } catch(e){}
   }
+  const valoresFerramentalAtualizados = aplicarValoresFerramentalAproximados();
 
   rebuildItems();
   renderSupSel();
@@ -7798,6 +7883,11 @@ async function bootApp(){
 
   // Aplica patch nas funções de save para sincronizar com a nuvem
   _patchSaveWithCloud();
+  if(valoresFerramentalAtualizados){
+    setTimeout(() => {
+      try { if(typeof cloudSave === 'function') cloudSave(true); } catch(e) {}
+    }, 900);
+  }
   if(needsVehicleTicketResync){
     setTimeout(() => {
       try {
