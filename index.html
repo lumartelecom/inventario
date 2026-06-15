@@ -584,6 +584,17 @@ tr.inv-hidden{display:none}
 }
 .vehicle-maint-select:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .vehicle-maint-select option{background:#111c2e!important;color:#f8fbff!important;text-transform:none}
+.vehicle-history-entry{cursor:default;padding:12px;overflow:visible}
+.vehicle-history-entry-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:14px;align-items:start}
+.vehicle-history-entry-main{min-width:0}
+.vehicle-history-entry-actions{display:grid;grid-template-columns:repeat(2,minmax(88px,1fr));gap:8px;align-items:stretch}
+.vehicle-history-entry-actions .btn{width:100%;min-height:44px;justify-content:center;padding:8px 10px}
+.vehicle-history-entry-actions .vehicle-maint-select{grid-column:1/-1;min-width:0;min-height:42px}
+.vehicle-history-entry-actions .btn-danger{border-color:rgba(255,91,91,.42)}
+@media(max-width:760px){
+  .vehicle-history-entry-head{grid-template-columns:1fr}
+  .vehicle-history-entry-actions{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+}
 .vehicle-quick-status{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,260px);gap:10px;align-items:center;margin:0 0 12px;padding:11px 12px;border:1px solid rgba(245,197,24,.34);border-radius:8px;background:linear-gradient(180deg,rgba(245,197,24,.10),rgba(255,107,0,.05))}
 .vehicle-quick-status .vqs-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#f5c518}
 .vehicle-quick-status .vqs-sub{font-size:11px;color:var(--mid);margin-top:2px}
@@ -1443,6 +1454,7 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="tab-panel" id="tab-historico">
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-green" onclick="openHistModal()">+ Novo Inventário de Campo</button>
+      <button class="btn btn-orange" onclick="openHistModal('ferias')">🏖️ Inventário de Férias</button>
       <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
       <select id="histSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">👔 Todos os supervisores</option>
@@ -1518,26 +1530,15 @@ setInterval(_updateOfflineBanner, 5000);
   <div class="tab-panel" id="tab-banco">
     <div class="toolbar">
       <input type="text" id="dbSearch" placeholder="🔍 Buscar no banco..." oninput="renderBanco()">
-      <select id="dbCatF" onchange="renderBanco()">
-        <option value="">Todas as categorias</option>
-        <option>Óptica</option><option>HFC</option><option>EPI</option><option>EPC</option><option>Segurança</option><option>Outros</option>
-      </select>
-      <select id="dbTipoF" onchange="renderBanco()" style="min-width:170px">
-        <option value="">Todos os tipos</option>
+      <select id="dbPrintTipo" style="min-width:220px" title="Escolha o setor do técnico novo para imprimir o ferramental">
+        <option value="">Todos os setores</option>
         <option value="manutencao">Manutenção</option>
         <option value="instalacao">Instalação</option>
         <option value="desconexao">Desconexão</option>
         <option value="mdu">Construção MDU</option>
       </select>
-      <select id="dbPrintTipo" style="min-width:220px" title="Escolha a categoria do técnico para imprimir o ferramental">
-        <option value="">Imprimir todos os tipos</option>
-        <option value="manutencao">Manutenção</option>
-        <option value="instalacao">Instalação</option>
-        <option value="desconexao">Desconexão</option>
-        <option value="mdu">Construção MDU</option>
-      </select>
-      <button class="btn btn-ghost" onclick="printFerramentalPorCategoriaTecnico()">🖨️ Imprimir por categoria</button>
-      <button class="btn btn-ghost" onclick="printTodasFerramentas()">🖨️ Imprimir todas</button>
+      <button class="btn btn-ghost" onclick="printFerramentalPorCategoriaTecnico()">🖨️ Imprimir ferramental</button>
+      <button class="btn btn-ghost" onclick="printCompraNovoTecnico()">🛒 Novo técnico</button>
       <button class="btn btn-cyan" onclick="openDbModal()">+ Adicionar</button>
     </div>
     <div class="db-grid" id="bancoGrid"></div>
@@ -2097,6 +2098,7 @@ let editTechId = null, editDbId = null;
 let pendingTechPh = null, pendingHistPh = [], currentInvRows = [], editingHistId = null;
 let pendingVehiclePh = [];
 let currentPrintTech = null;
+let currentHistTipo = 'campo';
 
 // ── IMPRESSÃO (compatível com Electron e navegador) ──────────────────
 // Em vez de usar window.print() na própria página (que falha em algumas versões
@@ -3522,6 +3524,7 @@ function renderTechs(){
   list.forEach(t => {
     const ini = t.nome.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const tc = items.filter(i => i.tecnico === t.nome).length;
+    const feriasCount = hist.filter(h => h.tec === t.nome && h.tipoInventario === 'ferias').length;
     const col = funcColors[t.func] || '#7eb3ff';
     const safeId = escapeHtml(t.id);
     const safeFoto = escapeHtml(t.foto || '');
@@ -3534,6 +3537,7 @@ function renderTechs(){
       ${t.mat?`<p>Mat: ${escapeHtml(t.mat)}</p>`:''}
       ${t.tel?`<p style="color:var(--cyan)">${escapeHtml(t.tel)}</p>`:''}
       <div class="tcount">🔧 ${tc} item${tc!==1?'s':''}</div>
+      ${feriasCount?`<div class="tcount" style="border-color:rgba(255,107,0,0.45);color:var(--orange);background:rgba(255,107,0,0.1)">🏖️ ${feriasCount} inv. férias</div>`:''}
       <div style="display:flex;gap:5px;margin-top:4px" onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-sm" onclick="openTechModal('${t.id}')">✏️ Editar</button>
         <button class="btn btn-danger btn-sm" onclick="delTech('${t.id}',event)">🗑</button>
@@ -3988,9 +3992,9 @@ function viewVehicleHistory(vehicleKey){
   document.getElementById('invToolsBody').innerHTML = `<div style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
     ${list.map(v => {
       const st = vehicleStatus(v);
-      return `<div class="vehicle-card" style="cursor:default;padding:10px">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <div>
+      return `<div class="vehicle-card vehicle-history-entry">
+        <div class="vehicle-history-entry-head">
+          <div class="vehicle-history-entry-main">
             <h3 style="font-size:16px;margin-bottom:3px">${fmtDate(v.data)}${v.hora ? ' - '+escapeHtml(v.hora) : ''}</h3>
             <p><strong>${escapeHtml(v.modelo || 'Veiculo nao informado')}</strong>${v.placa ? ' - Placa '+escapeHtml(v.placa) : ''}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</p>
             ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
@@ -3998,7 +4002,7 @@ function viewVehicleHistory(vehicleKey){
             ${vehicleOilChipHtml(v)}
             ${v.semNovaFoto ? '<span class="vehicle-history-chip" style="margin-left:6px">Sem nova foto</span>' : ''}
           </div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <div class="vehicle-history-entry-actions" onclick="event.stopPropagation()">
             <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Ver</button>
             ${canEditVehicleFull() ? `<button class="btn btn-ghost btn-sm" onclick="openVehicleModal('${escapeHtml(v.id)}');closeInvTools()">Editar</button>` : ''}
             ${vehicleMaintenanceStatusControl(v)}
@@ -4679,8 +4683,12 @@ function openTechInv(t){
   // Histórico de inventários do técnico
   const techHist = hist.filter(h => h.tec === t.nome).sort((a,b) => b.ts - a.ts);
   if(techHist.length){
-    html += `<div class="sec-title" style="margin-top:20px">Histórico de Inventários de Campo</div>`;
-    techHist.forEach(h => {
+    const feriasHist = techHist.filter(h => h.tipoInventario === 'ferias');
+    const campoHist = techHist.filter(h => h.tipoInventario !== 'ferias');
+    const renderHistCards = (lista, titulo, isFeriasSec=false) => {
+      if(!lista.length) return;
+      html += `<div class="sec-title" style="margin-top:20px;color:${isFeriasSec?'var(--orange)':'var(--cyan)'}">${titulo}</div>`;
+      lista.forEach(h => {
       const updHtml = h.atualizacoes && h.atualizacoes.length
         ? `<p style="font-size:10px;color:var(--cyan);margin-top:4px">🔄 Última atualização: ${h.atualizacoes[h.atualizacoes.length-1]}</p>`
         : '';
@@ -4691,15 +4699,18 @@ function openTechInv(t){
             : ''
           ).join('') + '</div>'
         : '';
-      html += `<div class="hist-card">
-        <h4>📋 ${fmtDate(h.dt)} – ${h.local||'Sem local'}</h4>
+      html += `<div class="hist-card" style="${isFeriasSec?'border-color:rgba(255,107,0,0.55);background:rgba(255,107,0,0.08)':''}">
+        <h4>${isFeriasSec?'🏖️ Inventário de Férias':'📋'} ${fmtDate(h.dt)} – ${h.local||'Sem local'}</h4>
         ${h.sup?`<p>👔 Supervisor: ${h.sup}</p>`:''}
         ${h.obs?`<p>${h.obs}</p>`:''}
         <p style="font-size:10px;opacity:.5">Registrado: ${h.criadoEm}</p>
         ${updHtml}
         ${fotosHtml}
       </div>`;
-    });
+      });
+    };
+    renderHistCards(feriasHist, 'Inventários de Férias', true);
+    renderHistCards(campoHist, 'Histórico de Inventários de Campo', false);
   }
   document.getElementById('timBody').innerHTML = html;
   filterTechInvStatus('');
@@ -4764,15 +4775,16 @@ function printTechInv(){
 }
 
 // ── HISTÓRICO ─────────────────────────────────────────────────────────
-function openHistModal(){
+function openHistModal(tipo='campo'){
   editingHistId = null;
+  currentHistTipo = tipo === 'ferias' ? 'ferias' : 'campo';
   const titleEl = document.querySelector('#histModal .modal-title, #histModal h3, #histModal h2');
-  if(titleEl) titleEl.textContent = 'Novo Inventário de Campo';
+  if(titleEl) titleEl.textContent = currentHistTipo === 'ferias' ? 'Inventário de Férias' : 'Novo Inventário de Campo';
   pendingHistPh = [];
   renderPP();
   document.getElementById('hDt').value = new Date().toISOString().slice(0,10);
-  document.getElementById('hLocal').value = '';
-  document.getElementById('hObs').value = '';
+  document.getElementById('hLocal').value = currentHistTipo === 'ferias' ? 'Férias' : '';
+  document.getElementById('hObs').value = currentHistTipo === 'ferias' ? 'Inventário realizado para saída/retorno de férias.' : '';
   document.getElementById('hTec').value = '';
 
   // Popula select de supervisores
@@ -5130,6 +5142,7 @@ async function saveHist(){
         dt: document.getElementById('hDt').value,
         local: document.getElementById('hLocal').value.trim(),
         sup: supSel,
+        tipoInventario: currentHistTipo,
         obs: document.getElementById('hObs').value.trim(),
         fotos: fotosFinais,
         invRows: normalizaInventarioCompra(currentInvRows),
@@ -5144,6 +5157,7 @@ async function saveHist(){
       dt: document.getElementById('hDt').value,
       local: document.getElementById('hLocal').value.trim(),
       sup: supSel,
+      tipoInventario: currentHistTipo,
       obs: document.getElementById('hObs').value.trim(),
       fotos: fotosFinais,
       invRows: normalizaInventarioCompra(currentInvRows),
@@ -5180,8 +5194,9 @@ function editHist(id){
   }
   openHistModal();
   editingHistId = id;
+  currentHistTipo = h.tipoInventario === 'ferias' ? 'ferias' : 'campo';
   const titleEl = document.querySelector('#histModal .modal-title, #histModal h3, #histModal h2');
-  if(titleEl) titleEl.textContent = '✏️ Atualizar Inventário – ' + h.tec;
+  if(titleEl) titleEl.textContent = (currentHistTipo === 'ferias' ? '✏️ Atualizar Inventário de Férias – ' : '✏️ Atualizar Inventário – ') + h.tec;
   // Preenche campos
   document.getElementById('hDt').value = h.dt || new Date().toISOString().slice(0,10);
   document.getElementById('hLocal').value = h.local || '';
@@ -5296,7 +5311,12 @@ function renderHist(){
       👷 ${tName} ${tech?`<span style="font-size:10px;opacity:.7;margin-left:6px">${tech.func||''}</span>`:''}
     </div>`;
     techHists.forEach(h => {
+      const isFerias = h.tipoInventario === 'ferias';
       const card = document.createElement('div'); card.className = 'hist-card';
+      if(isFerias){
+        card.style.borderColor = 'rgba(255,107,0,0.55)';
+        card.style.background = 'rgba(255,107,0,0.08)';
+      }
       // botão para abrir popup com a tabela de ferramentas
       let invHtml = '';
       if(h.invRows && h.invRows.length){
@@ -5316,7 +5336,7 @@ function renderHist(){
       // Lista de atualizações — exibida apenas no modal do técnico
       let updHtml = '';
       card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;flex-wrap:wrap">
-        <h4>📋 ${fmtDate(h.dt)}${h.local?` · ${h.local}`:''}</h4>
+        <h4>${isFerias?'🏖️ Inventário de Férias':'📋'} ${fmtDate(h.dt)}${h.local?` · ${h.local}`:''}</h4>
         <div class="hist-actions">
           <button class="btn btn-green btn-sm" onclick="editHist('${h.id}')" title="Atualizar inventário" style="font-size:10px;padding:3px 7px;font-weight:700">✏️ Atualizar</button>
           <button class="btn btn-ghost btn-sm" onclick="openFotoMgr('${h.id}')" title="Gerenciar fotos" style="font-size:10px;padding:3px 7px">📷</button>
@@ -5807,8 +5827,12 @@ function printTodasFerramentas(){
 function printFerramentalPorCategoriaTecnico(){
   const sel = document.getElementById('dbPrintTipo');
   const tipoSel = sel ? sel.value : '';
+  if(!tipoSel){
+    printTodasFerramentas();
+    return;
+  }
   const tipos = tipoSel ? TOOL_TECH_TYPES.filter(t => t.id === tipoSel) : TOOL_TECH_TYPES;
-  if(!tipos.length){ alert('Selecione uma categoria de técnico válida.'); return; }
+  if(!tipos.length){ alert('Selecione um setor válido.'); return; }
   const now = nowStr();
   let html = '';
   let totalGeral = 0;
@@ -5823,12 +5847,12 @@ function printFerramentalPorCategoriaTecnico(){
     });
     html += `<div class="pp-page">
       <div class="pp-hdr">
-        <h2>LUMAR TELECOM - FERRAMENTAL POR CATEGORIA DO TÉCNICO</h2>
-        <p>Categoria do técnico: <strong>${escapeHtml(tipo.label)}</strong> &nbsp;|&nbsp; Total: <strong>${lista.length}</strong> ferramenta(s)</p>
+        <h2>LUMAR TELECOM - FERRAMENTAL PARA TÉCNICO NOVO</h2>
+        <p>Setor/Função: <strong>${escapeHtml(tipo.label)}</strong> &nbsp;|&nbsp; Total: <strong>${lista.length}</strong> ferramenta(s)</p>
         <p>Emitido em: ${escapeHtml(now)}</p>
       </div>`;
     if(!lista.length){
-      html += '<p style="font-size:12px;text-align:center;padding:22px;border:1px solid #ddd">Nenhuma ferramenta cadastrada para esta categoria de técnico.</p>';
+      html += '<p style="font-size:12px;text-align:center;padding:22px;border:1px solid #ddd">Nenhuma ferramenta cadastrada para este setor.</p>';
     } else {
       Object.keys(grupos).sort((a,b) => a.localeCompare(b, 'pt-BR')).forEach(cat => {
         html += `<h3 style="font-size:13px;margin:14px 0 6px;color:#1a4fd6">${escapeHtml(cat)}</h3>
@@ -5855,16 +5879,85 @@ function printFerramentalPorCategoriaTecnico(){
     </div></div>`;
   });
   if(!totalGeral){ toast('Nenhuma ferramenta marcada para a categoria selecionada.', 'warn'); }
-  openPrintWindow(html, tipoSel ? 'Ferramental - ' + tipos[0].label : 'Ferramental por categoria do técnico');
+  openPrintWindow(html, tipoSel ? 'Ferramental técnico novo - ' + tipos[0].label : 'Ferramental técnico novo - todos os setores');
+}
+function printCompraNovoTecnico(){
+  const sel = document.getElementById('dbPrintTipo');
+  const tipoSel = sel ? sel.value : '';
+  if(!tipoSel){
+    alert('Selecione o setor do técnico novo para gerar a lista de compras.');
+    return;
+  }
+  const tipo = TOOL_TECH_TYPES.find(t => t.id === tipoSel);
+  if(!tipo){ alert('Selecione um setor válido.'); return; }
+  const vistos = new Set();
+  const lista = ferramentasPorTipoTecnico(tipo.id)
+    .filter(item => {
+      const key = canonicalToolKey(item && item.nome);
+      if(!key || vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    })
+    .map(item => ({...item, qtd:isCones(item.nome) ? 3 : 1}))
+    .sort((a,b) => grupoImpressaoFerramental(a).localeCompare(grupoImpressaoFerramental(b), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+  if(!lista.length){
+    alert('Nenhuma ferramenta marcada para este setor.');
+    return;
+  }
+
+  const grupos = {Ferramentas:[], EPI:[], EPC:[]};
+  lista.forEach(item => grupos[grupoImpressaoFerramental(item)].push(item));
+  const secoes = ['Ferramentas','EPI','EPC'].filter(sec => grupos[sec].length);
+  const totalItens = lista.reduce((s,item) => s + item.qtd, 0);
+  const totalValor = lista.reduce((s,item) => s + ((parseFloat(item.valor) || 0) * item.qtd), 0);
+  let html = `<div class="pp-page">
+    <div class="pp-hdr">
+      <h2>LUMAR TELECOM - LISTA DE COMPRAS PARA TÉCNICO NOVO</h2>
+      <p>Setor/Função: <strong>${escapeHtml(tipo.label)}</strong> &nbsp;|&nbsp; Total: <strong>${totalItens}</strong> item(ns)</p>
+      <p>Valor referência: <strong>${escapeHtml(fmtMoney(totalValor))}</strong> &nbsp;|&nbsp; Emitido em: ${escapeHtml(nowStr())}</p>
+    </div>`;
+
+  secoes.forEach(sec => {
+    const subtotal = grupos[sec].reduce((s,item) => s + ((parseFloat(item.valor) || 0) * item.qtd), 0);
+    html += `<h3 style="font-size:14px;margin:16px 0 6px;color:#1a4fd6;page-break-after:avoid">${escapeHtml(sec)} (${grupos[sec].length}) - ${escapeHtml(fmtMoney(subtotal))}</h3>
+      <table class="pp-tbl"><thead><tr class="lt-hdr">
+        <th style="width:34px">#</th><th>Item</th><th style="width:70px">Qtd</th><th style="width:95px">Valor unit.</th><th style="width:95px">Total</th><th>Descrição</th>
+      </tr></thead><tbody>`;
+    grupos[sec].forEach((item,i) => {
+      const valor = parseFloat(item.valor) || 0;
+      html += `<tr>
+        <td>${i+1}</td>
+        <td><strong>${escapeHtml(item.nome || '')}</strong><br><span style="font-size:9px;color:#666">${escapeHtml(item.categoria || sec)}</span></td>
+        <td>${item.qtd}</td>
+        <td>${escapeHtml(fmtMoney(item.valor))}</td>
+        <td><strong>${escapeHtml(fmtMoney(valor * item.qtd))}</strong></td>
+        <td>${escapeHtml(item.desc || '')}</td>
+      </tr>`;
+    });
+    html += `<tr>
+      <td colspan="4"><strong>Total ${escapeHtml(sec)}</strong></td>
+      <td><strong>${escapeHtml(fmtMoney(subtotal))}</strong></td>
+      <td></td>
+    </tr></tbody></table>`;
+  });
+
+  html += `<div class="sign-blk">
+    <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
+    <div class="sign-row">
+      <div class="sign-box"><p><strong>Solicitante</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+      <div class="sign-box"><p><strong>Compras / Almoxarifado</strong></p><p style="margin-top:26px">Assinatura: _______________________</p></div>
+    </div>
+    <p style="font-size:9px;color:#666;text-align:center;margin-top:24px">* Lista gerada pelos tipos de técnico marcados no cadastro de cada ferramenta. Valores aproximados, sujeitos a variação por marca, modelo e fornecedor.</p>
+  </div></div>`;
+
+  openPrintWindow(html, 'Lista de compras - técnico novo - ' + tipo.label);
 }
 function renderBanco(){
   const search = document.getElementById('dbSearch').value.toLowerCase();
-  const fC = document.getElementById('dbCatF').value;
-  const fT = document.getElementById('dbTipoF') ? document.getElementById('dbTipoF').value : '';
   const filtered = banco.filter(b => {
     const tipos = normalizaTiposFerramenta(b);
     const texto = (b.nome + ' ' + (b.desc||'') + ' ' + (b.categoria||'') + ' ' + tipos.map(tipoTecLabel).join(' ')).toLowerCase();
-    return (!search || texto.includes(search)) && (!fC || b.categoria === fC) && (!fT || tipos.includes(fT));
+    return !search || texto.includes(search);
   });
   const grid = document.getElementById('bancoGrid'); grid.innerHTML = '';
   document.getElementById('bancoEmpty').style.display = filtered.length ? 'none' : 'block';
