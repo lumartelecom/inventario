@@ -2703,9 +2703,10 @@ function createLocalJsonBackup(reason='auto', download=false){
       stats: getBackupStats(data),
       json
     });
-    localStorage.setItem('lm_auto_json_backups', JSON.stringify(backups.slice(0,20)));
+    localStorage.setItem('lm_auto_json_backups', JSON.stringify(backups.slice(0,5)));
   } catch(e) {
     console.warn('Backup local antigo falhou:', e);
+    try { localStorage.removeItem('lm_auto_json_backups'); } catch(le) {}
   }
   if(download){
     const blob = new Blob([json], {type:'application/json'});
@@ -7539,6 +7540,57 @@ function _safeClone(obj){
   try { return JSON.parse(JSON.stringify(obj || {})); } catch(e) { return obj; }
 }
 
+function _cleanupBackupStorage(keepCount){
+  try {
+    const keep = Math.max(1, keepCount || 3);
+    const list = JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]');
+    const kept = Array.isArray(list) ? list.slice(0, keep) : [];
+    const keepKeys = new Set(kept.map(b => b && b.key).filter(Boolean));
+    const removeKeys = [];
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('lm_local_backup_') && k !== 'lm_local_backup_index' && !keepKeys.has(k)){
+        removeKeys.push(k);
+      }
+    }
+    removeKeys.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('lm_local_backup_index', JSON.stringify(kept));
+  } catch(e) {}
+  try { localStorage.removeItem('lm_auto_json_backups'); } catch(e) {}
+  try { localStorage.removeItem('lm_pending_cloud_backup'); } catch(e) {}
+}
+
+function _compactBackupForStorage(data){
+  const compact = _safeClone(data);
+  compact.backupCompact = true;
+  compact.logo = null;
+  compact.audit = Array.isArray(compact.audit) ? compact.audit.slice(0, 50) : [];
+  compact.hist = Array.isArray(compact.hist) ? compact.hist.map(h => ({...h, fotos: []})) : [];
+  compact.vehicles = Array.isArray(compact.vehicles) ? compact.vehicles.map(v => ({...v, fotos: []})) : [];
+  return compact;
+}
+
+function _writeLocalSafetyBackup(data, key){
+  const json = JSON.stringify(data);
+  localStorage.setItem(key, json);
+  const list = JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]');
+  list.unshift({
+    key,
+    reason:data.backupReason,
+    at:data.backupAt,
+    techs:Array.isArray(data.techs) ? data.techs.length : (techs||[]).length,
+    hist:Array.isArray(data.hist) ? data.hist.length : (hist||[]).length,
+    size: json.length,
+    compact: !!data.backupCompact
+  });
+  while(list.length > 5){
+    const old = list.pop();
+    if(old && old.key) localStorage.removeItem(old.key);
+  }
+  localStorage.setItem('lm_local_backup_index', JSON.stringify(list));
+  return key;
+}
+
 function localSafetyBackup(reason){
   try {
     const data = (typeof getBackupPayload === 'function')
@@ -7547,23 +7599,17 @@ function localSafetyBackup(reason){
     data.backupReason = reason || 'manual_local';
     data.backupAt = new Date().toISOString();
     const key = 'lm_local_backup_' + data.backupAt.replace(/[:.]/g,'-');
-    const json = JSON.stringify(data);
-    localStorage.setItem(key, json);
-    const list = JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]');
-    list.unshift({
-      key,
-      reason:data.backupReason,
-      at:data.backupAt,
-      techs:Array.isArray(data.techs) ? data.techs.length : (techs||[]).length,
-      hist:Array.isArray(data.hist) ? data.hist.length : (hist||[]).length,
-      size: json.length
-    });
-    while(list.length > 8){
-      const old = list.pop();
-      if(old && old.key) localStorage.removeItem(old.key);
+    try {
+      return _writeLocalSafetyBackup(data, key);
+    } catch(firstErr) {
+      _cleanupBackupStorage(2);
+      try {
+        return _writeLocalSafetyBackup(data, key);
+      } catch(secondErr) {
+        const compact = _compactBackupForStorage(data);
+        return _writeLocalSafetyBackup(compact, key);
+      }
     }
-    localStorage.setItem('lm_local_backup_index', JSON.stringify(list));
-    return key;
   } catch(e) {
     console.warn('Backup local falhou:', e);
     try { toast('Backup local falhou: espaço do navegador insuficiente.', 'warn', 5000); } catch(te) {}
@@ -7671,10 +7717,11 @@ function renderLocalBackupList(){
   return list.slice(0,10).map((b, i) => {
     const dt = b.at ? new Date(b.at).toLocaleString('pt-BR') : 'sem data';
     const sizeTxt = b.size ? ' · Tamanho: ' + Math.round(b.size/1024) + ' KB' : '';
+    const compactTxt = b.compact ? ' · Compacto sem fotos' : '';
     return `<div style="background:rgba(24,201,106,0.06);border:1px solid rgba(24,201,106,0.25);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <div style="flex:1;min-width:220px">
         <div style="font-size:13px;font-weight:700;color:#fff">${i===0?'Mais recente · ':''}${dt}</div>
-        <div style="font-size:11px;color:var(--mid)">Motivo: ${b.reason || 'auto'} · Técnicos: ${b.techs||0} · Inventários: ${b.hist||0}${sizeTxt}</div>
+        <div style="font-size:11px;color:var(--mid)">Motivo: ${b.reason || 'auto'} · Técnicos: ${b.techs||0} · Inventários: ${b.hist||0}${sizeTxt}${compactTxt}</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="exportLocalBackup('${b.key}')">Baixar JSON</button>
       <button class="btn btn-green btn-sm" onclick="restoreLocalBackup('${b.key}')">Restaurar</button>
