@@ -7541,13 +7541,23 @@ function _safeClone(obj){
 
 function localSafetyBackup(reason){
   try {
-    const data = _buildPayload();
+    const data = (typeof getBackupPayload === 'function')
+      ? getBackupPayload(true)
+      : _buildPayload();
     data.backupReason = reason || 'manual_local';
     data.backupAt = new Date().toISOString();
     const key = 'lm_local_backup_' + data.backupAt.replace(/[:.]/g,'-');
-    localStorage.setItem(key, JSON.stringify(data));
+    const json = JSON.stringify(data);
+    localStorage.setItem(key, json);
     const list = JSON.parse(localStorage.getItem('lm_local_backup_index') || '[]');
-    list.unshift({key, reason:data.backupReason, at:data.backupAt, techs:(techs||[]).length, hist:(hist||[]).length});
+    list.unshift({
+      key,
+      reason:data.backupReason,
+      at:data.backupAt,
+      techs:Array.isArray(data.techs) ? data.techs.length : (techs||[]).length,
+      hist:Array.isArray(data.hist) ? data.hist.length : (hist||[]).length,
+      size: json.length
+    });
     while(list.length > 8){
       const old = list.pop();
       if(old && old.key) localStorage.removeItem(old.key);
@@ -7556,6 +7566,7 @@ function localSafetyBackup(reason){
     return key;
   } catch(e) {
     console.warn('Backup local falhou:', e);
+    try { toast('Backup local falhou: espaço do navegador insuficiente.', 'warn', 5000); } catch(te) {}
     return null;
   }
 }
@@ -7659,10 +7670,11 @@ function renderLocalBackupList(){
   if(!list.length) return '<div style="font-size:12px;color:var(--mid);padding:8px 0">Nenhum backup local ainda. Ele será criado automaticamente após alterações.</div>';
   return list.slice(0,10).map((b, i) => {
     const dt = b.at ? new Date(b.at).toLocaleString('pt-BR') : 'sem data';
+    const sizeTxt = b.size ? ' · Tamanho: ' + Math.round(b.size/1024) + ' KB' : '';
     return `<div style="background:rgba(24,201,106,0.06);border:1px solid rgba(24,201,106,0.25);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <div style="flex:1;min-width:220px">
         <div style="font-size:13px;font-weight:700;color:#fff">${i===0?'Mais recente · ':''}${dt}</div>
-        <div style="font-size:11px;color:var(--mid)">Motivo: ${b.reason || 'auto'} · Técnicos: ${b.techs||0} · Inventários: ${b.hist||0}</div>
+        <div style="font-size:11px;color:var(--mid)">Motivo: ${b.reason || 'auto'} · Técnicos: ${b.techs||0} · Inventários: ${b.hist||0}${sizeTxt}</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="exportLocalBackup('${b.key}')">Baixar JSON</button>
       <button class="btn btn-green btn-sm" onclick="restoreLocalBackup('${b.key}')">Restaurar</button>
