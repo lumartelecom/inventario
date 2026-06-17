@@ -1455,6 +1455,7 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-green" onclick="openHistModal()">+ Novo Inventário de Campo</button>
       <button class="btn btn-orange" onclick="openHistModal('ferias')">🏖️ Inventário de Férias</button>
+      <button class="btn btn-danger btn-sm" onclick="openLostTermModal()">🧾 Termo itens perdidos</button>
       <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
       <select id="histSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">👔 Todos os supervisores</option>
@@ -1776,6 +1777,42 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeTIM()">Fechar</button>
       <button class="btn btn-ghost" onclick="printTechInv()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TERMO DE ITENS PERDIDOS -->
+<div class="modal-ov" id="lostTermModal">
+  <div class="modal" style="max-width:860px">
+    <button class="modal-close" onclick="closeLostTermModal()">✕</button>
+    <h2>Termo de Itens Perdidos</h2>
+    <p style="font-size:12px;color:var(--mid);margin-top:-6px;margin-bottom:14px">Selecione o técnico e marque os itens perdidos que serão pagos pelo técnico.</p>
+    <div class="fg">
+      <div>
+        <label>Técnico *</label>
+        <select id="lostTermTec" onchange="renderLostTermItems()"><option value="">— Selecione o técnico —</option></select>
+      </div>
+      <div>
+        <label>Data do termo</label>
+        <input type="date" id="lostTermDate">
+      </div>
+      <div class="full">
+        <label>Observação do termo</label>
+        <textarea id="lostTermObs" placeholder="Ex: Itens não localizados no fechamento do inventário."></textarea>
+      </div>
+    </div>
+    <div id="lostTermInfo" style="font-size:12px;color:var(--mid);margin:12px 0 8px"></div>
+    <div class="tbl-wrap" style="max-height:320px;overflow:auto">
+      <table>
+        <thead><tr><th style="width:42px">Sel.</th><th>Item</th><th>Status</th><th>Qtd</th><th>Valor unit.</th><th>Obs.</th></tr></thead>
+        <tbody id="lostTermItems">
+          <tr><td colspan="6" style="text-align:center;color:var(--mid);padding:18px">Selecione um técnico para carregar os itens.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeLostTermModal()">Cancelar</button>
+      <button class="btn btn-green" onclick="printLostTerm()">🖨️ Imprimir termo</button>
     </div>
   </div>
 </div>
@@ -4811,6 +4848,142 @@ function printTechInv(){
     </div>
   </div>`;
   openPrintWindow(html, 'Inventário – ' + t.nome);
+}
+
+function latestHistForTech(tecNome){
+  return (hist || [])
+    .filter(h => h && h.tec === tecNome)
+    .sort((a,b) => (b.ts || 0) - (a.ts || 0) || String(b.dt || '').localeCompare(String(a.dt || '')))[0] || null;
+}
+
+function itemValorInventario(row){
+  const b = (banco || []).find(x => canonicalToolKey(x.nome) === canonicalToolKey(row.nome));
+  const raw = row.valor != null && row.valor !== '' ? row.valor : (b ? b.valor : '');
+  const n = parseFloat(String(raw || '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+function openLostTermModal(){
+  const sel = document.getElementById('lostTermTec');
+  const body = document.getElementById('lostTermItems');
+  const info = document.getElementById('lostTermInfo');
+  if(!sel || !body) return;
+
+  const sup = activeSupervisorFilter('histSupF') || localStorage.getItem('lm_cursup') || '';
+  const lista = (techs || [])
+    .filter(t => !sup || t.sup === sup || t.supervisor === sup)
+    .slice()
+    .sort((a,b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+
+  sel.innerHTML = '<option value="">— Selecione o técnico —</option>' + lista.map(t => `<option value="${escapeHtml(t.nome)}">${escapeHtml(t.nome)}</option>`).join('');
+  const dt = document.getElementById('lostTermDate');
+  if(dt) dt.value = new Date().toISOString().slice(0,10);
+  const obs = document.getElementById('lostTermObs');
+  if(obs) obs.value = '';
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mid);padding:18px">Selecione um técnico para carregar os itens.</td></tr>';
+  if(info) info.textContent = lista.length ? 'Os itens com status Perdido no último inventário já vêm marcados.' : 'Nenhum técnico encontrado para o supervisor atual.';
+  document.getElementById('lostTermModal').classList.add('open');
+}
+
+function closeLostTermModal(){
+  document.getElementById('lostTermModal').classList.remove('open');
+}
+
+function renderLostTermItems(){
+  const tecNome = document.getElementById('lostTermTec').value;
+  const body = document.getElementById('lostTermItems');
+  const info = document.getElementById('lostTermInfo');
+  if(!body) return;
+  if(!tecNome){
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mid);padding:18px">Selecione um técnico para carregar os itens.</td></tr>';
+    if(info) info.textContent = '';
+    return;
+  }
+
+  const ultimo = latestHistForTech(tecNome);
+  if(!ultimo || !Array.isArray(ultimo.invRows) || !ultimo.invRows.length){
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mid);padding:18px">Nenhum inventário encontrado para este técnico.</td></tr>';
+    if(info) info.textContent = 'Cadastre um inventário para o técnico antes de gerar o termo.';
+    return;
+  }
+
+  window._lostTermRows = ultimo.invRows.map((row, idx) => ({...row, _idx: idx}));
+  body.innerHTML = window._lostTermRows.map(row => {
+    const status = row.status === 'NÃO RECEBEU' ? 'Não Recebeu' : (row.status || '');
+    const checked = status === 'Perdido' ? 'checked' : '';
+    const qtd = parseInt(row.qtd, 10) || 1;
+    const valor = itemValorInventario(row);
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="lost-term-check" data-idx="${row._idx}" ${checked}></td>
+      <td><strong>${escapeHtml(row.nome || '')}</strong>${row.serie ? `<br><span style="font-size:10px;color:var(--mid)">Patrimônio/Série: ${escapeHtml(row.serie)}</span>` : ''}</td>
+      <td>${escapeHtml(status || '—')}</td>
+      <td>${qtd}</td>
+      <td>${valor ? fmtMoney(valor) : '—'}</td>
+      <td>${escapeHtml(row.obs || '')}</td>
+    </tr>`;
+  }).join('');
+  const lostCount = window._lostTermRows.filter(r => (r.status === 'Perdido')).length;
+  if(info) info.textContent = `Último inventário: ${fmtDate(ultimo.dt)} · ${ultimo.local || 'sem local'} · ${lostCount} item(ns) marcado(s) como perdido.`;
+}
+
+function selectedLostTermRows(){
+  const checks = Array.from(document.querySelectorAll('#lostTermItems .lost-term-check:checked'));
+  const rows = window._lostTermRows || [];
+  return checks.map(ch => rows.find(r => String(r._idx) === String(ch.dataset.idx))).filter(Boolean);
+}
+
+function printLostTerm(){
+  const tecNome = document.getElementById('lostTermTec').value;
+  if(!tecNome){ toast('Selecione o técnico para gerar o termo.','warn'); return; }
+  const t = (techs || []).find(x => x.nome === tecNome) || {nome: tecNome};
+  const selecionados = selectedLostTermRows();
+  if(!selecionados.length){ toast('Marque pelo menos um item para imprimir o termo.','warn'); return; }
+
+  const ultimo = latestHistForTech(tecNome) || {};
+  const termoDt = document.getElementById('lostTermDate').value || new Date().toISOString().slice(0,10);
+  const obsTermo = document.getElementById('lostTermObs').value || 'Itens não localizados no fechamento do inventário.';
+  const sup = t.sup || t.supervisor || curSup();
+  let total = 0;
+  const rows = selecionados.map((row, i) => {
+    const qtd = parseInt(row.qtd, 10) || 1;
+    const valor = itemValorInventario(row);
+    const subtotal = qtd * valor;
+    total += subtotal;
+    return `<tr>
+      <td>${i + 1}</td>
+      <td><strong>${escapeHtml(row.nome || '')}</strong>${row.serie ? `<br><span style="font-size:10px">Patrimônio/Série: ${escapeHtml(row.serie)}</span>` : ''}</td>
+      <td>${qtd}</td>
+      <td>${valor ? fmtMoney(valor) : '—'}</td>
+      <td><strong>${valor ? fmtMoney(subtotal) : '—'}</strong></td>
+      <td>${escapeHtml(row.obs || '')}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<div class="pp-page">
+    <div class="pp-hdr">
+      <h2>LUMAR TELECOM - TERMO DE RESPONSABILIDADE POR ITENS PERDIDOS</h2>
+      <p>Técnico: <strong>${escapeHtml(t.nome || '')}</strong> &nbsp;|&nbsp; Função: ${escapeHtml(t.func || '—')} &nbsp;|&nbsp; Supervisor: <strong>${escapeHtml(sup || '')}</strong></p>
+      <p>Data do termo: ${fmtDate(termoDt)} &nbsp;|&nbsp; Inventário base: ${fmtDate(ultimo.dt)} - ${escapeHtml(ultimo.local || 'sem local')}</p>
+    </div>
+    <p style="font-size:12px;line-height:1.45;text-align:justify;margin:0 0 12px">
+      Declaro estar ciente de que os itens abaixo foram registrados como perdidos no inventário de ferramental sob minha responsabilidade e autorizo a cobrança/pagamento dos valores correspondentes, conforme validação da empresa.
+    </p>
+    <table class="pp-tbl"><thead><tr class="lt-hdr">
+      <th>#</th><th>Item perdido</th><th>Qtd</th><th>Valor unit.</th><th>Total</th><th>Obs.</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <p style="text-align:right;font-size:12px;margin:8px 0 12px"><strong>Total estimado: ${total ? fmtMoney(total) : '—'}</strong></p>
+    <div style="border:1px solid #ddd;padding:8px;font-size:11px;min-height:44px"><strong>Observação:</strong> ${escapeHtml(obsTermo)}</div>
+    <div class="sign-blk">
+      <div class="sign-meta">Data: ___/___/_______ &nbsp;&nbsp;&nbsp; Local: ___________________________________________________</div>
+      <div class="sign-row">
+        <div class="sign-box"><p><strong>Técnico Responsável</strong></p><p>${escapeHtml(t.nome || '')}</p><p style="margin-top:30px">Assinatura: _______________________</p></div>
+        <div class="sign-box"><p><strong>Supervisor</strong></p><p>${escapeHtml(sup || '')}</p><p style="margin-top:30px">Assinatura: _______________________</p></div>
+        <div class="sign-box"><p><strong>Administrativo / RH</strong></p><p>&nbsp;</p><p style="margin-top:30px">Assinatura: _______________________</p></div>
+      </div>
+    </div>
+  </div>`;
+  if(typeof auditLog === 'function') auditLog('Termo Itens Perdidos', tecNome, selecionados.length + ' item(ns)');
+  openPrintWindow(html, 'Termo itens perdidos - ' + tecNome);
 }
 
 // ── HISTÓRICO ─────────────────────────────────────────────────────────
