@@ -2929,7 +2929,7 @@ function applyBackupData(data){
   if(Array.isArray(data.banco)) window.banco = banco = data.banco;
   if(Array.isArray(data.loans)) window.loans = loans = data.loans;
   if(Array.isArray(data.hist))  window.hist  = hist  = data.hist;
-  if(Array.isArray(data.vehicles)) window.vehicles = vehicles = data.vehicles;
+  if(Array.isArray(data.vehicles)) window.vehicles = vehicles = mergeVehicleLocalPhotos(vehicles, data.vehicles);
   if(Array.isArray(data.vehicleTickets)) window.vehicleTickets = vehicleTickets = data.vehicleTickets;
   if(Array.isArray(data.audit)) window.audit = audit = data.audit;
   if(data.logo && !String(data.logo).startsWith('data:image/')) localStorage.setItem('lm_logo', data.logo);
@@ -3015,7 +3015,7 @@ function importBackup(input){
       if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
       if(Array.isArray(data.banco)) banco = data.banco;
       if(Array.isArray(data.loans)) loans = data.loans;
-      if(Array.isArray(data.vehicles)) vehicles = data.vehicles;
+      if(Array.isArray(data.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, data.vehicles);
       if(Array.isArray(data.vehicleTickets)) vehicleTickets = data.vehicleTickets;
       if(Array.isArray(data.hist)){
         // Normaliza inventários antigos: garante campos obrigatórios
@@ -3969,7 +3969,7 @@ function renderVehicles(){
           <div><span>Vinculo</span><strong>${escapeHtml(vehicleOwnerTypeLabel(inferVehicleOwnerType(v)))}</strong></div>
           <div><span>Ultima vistoria</span><strong>${fmtDate(v.data)}${v.km ? ' - KM '+escapeHtml(v.km) : ''}</strong></div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v)}${vehiclePhotoStatusHtml(v)}</div>
         <button class="vehicle-history-chip vehicle-history-button" onclick="event.stopPropagation();viewVehicleHistory('${escapeHtml(key)}')">${history.length} registro${history.length!==1?'s':''}</button>
       </div>
       <div class="vehicle-ico">&#128663;</div>
@@ -4047,7 +4047,7 @@ function vehicleViewHtml(v){
   const fotosHtml = v.fotos && v.fotos.length
     ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=>`<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`).join('')}</div></div>`
     : '';
-  return `${quickStatusHtml}${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}</div>${checksHtml}
+  return `${quickStatusHtml}${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}${vehiclePhotoStatusHtml(v)}</div>${checksHtml}
     ${v.obsGerais ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes Gerais</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(v.obsGerais)}</div></div>` : ''}
     ${fotosHtml}`;
 }
@@ -4077,7 +4077,7 @@ function viewVehicleHistory(vehicleKey){
             ${v.sup ? `<p>Sup: <strong>${escapeHtml(v.sup)}</strong></p>` : ''}
             <span class="vehicle-status ${st.cls}">${st.label}</span>
             ${vehicleOilChipHtml(v)}
-            ${v.semNovaFoto ? '<span class="vehicle-history-chip" style="margin-left:6px">Sem nova foto</span>' : ''}
+            ${v.semNovaFoto ? '<span class="vehicle-history-chip" style="margin-left:6px">Sem nova foto</span>' : ''}${vehiclePhotoStatusHtml(v)}
           </div>
           <div class="vehicle-history-entry-actions" onclick="event.stopPropagation()">
             <button class="btn btn-cyan btn-sm" onclick="viewVehicle('${escapeHtml(v.id)}')">Ver</button>
@@ -4093,6 +4093,106 @@ function viewVehicleHistory(vehicleKey){
   document.getElementById('invToolsModal').classList.add('open');
 }
 const VEHICLE_MAX_FOTOS = 5;
+const VEHICLE_LOCAL_PHOTOS_ONLY = false;
+const VEHICLE_PHOTO_LOCAL_FALLBACK = true;
+let _vehiclePhotoDirHandle = null;
+
+function isLocalDataPhoto(src){ return typeof src === 'string' && src.startsWith('data:'); }
+function isCloudPhoto(src){ return typeof src === 'string' && /^https?:\/\//i.test(src); }
+function sanitizePhotosForCloud(fotos){
+  return (Array.isArray(fotos) ? fotos : []).filter(isCloudPhoto);
+}
+function safeFolderName(name){
+  return String(name || 'sem_identificacao')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, '_')
+    .slice(0, 80) || 'sem_identificacao';
+}
+function dataUrlToBlob(dataUrl){
+  const parts = String(dataUrl || '').split(',');
+  const meta = parts[0] || '';
+  const mime = (meta.match(/data:([^;]+)/) || [,'image/jpeg'])[1];
+  const bin = atob(parts[1] || '');
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type:mime});
+}
+async function saveVehiclePhotosToLocalFolder(vehicle, fotos){
+  if(!VEHICLE_PHOTO_LOCAL_FALLBACK || !window.showDirectoryPicker) return [];
+  const dataFotos = (fotos || []).filter(f => f && f.startsWith && f.startsWith('data:'));
+  if(!dataFotos.length) return [];
+  try {
+    if(!_vehiclePhotoDirHandle){
+      _vehiclePhotoDirHandle = await window.showDirectoryPicker({id:'lumar-fotos-veiculares', mode:'readwrite'});
+    }
+    const root = await _vehiclePhotoDirHandle.getDirectoryHandle('Lumar_Fotos_Veiculares', {create:true});
+    const data = safeFolderName(vehicle.data || new Date().toISOString().slice(0,10));
+    const placa = safeFolderName(vehicle.placa || vehicle.tec || vehicle.id);
+    const pasta = await root.getDirectoryHandle(`${data}_${placa}_${safeFolderName(vehicle.id)}`, {create:true});
+    const saved = [];
+    for(let i = 0; i < dataFotos.length; i++){
+      const fileName = `foto_${String(i + 1).padStart(2, '0')}.jpg`;
+      const file = await pasta.getFileHandle(fileName, {create:true});
+      const writable = await file.createWritable();
+      await writable.write(dataUrlToBlob(dataFotos[i]));
+      await writable.close();
+      saved.push(`Lumar_Fotos_Veiculares/${data}_${placa}_${safeFolderName(vehicle.id)}/${fileName}`);
+    }
+    return saved;
+  } catch(e) {
+    console.warn('Falha ao salvar fotos em pasta local:', e);
+    return [];
+  }
+}
+function stripVehiclePhotosForCloud(v){
+  if(!v || typeof v !== 'object') return v;
+  const fotos = Array.isArray(v.fotos) ? v.fotos : [];
+  const cloudFotos = VEHICLE_LOCAL_PHOTOS_ONLY ? [] : sanitizePhotosForCloud(fotos);
+  const pendingCount = fotos.filter(isLocalDataPhoto).length;
+  return {
+    ...v,
+    fotos: cloudFotos,
+    fotosLocal: pendingCount && Array.isArray(v.fotosLocal) ? v.fotosLocal : [],
+    fotosLocalCount: pendingCount,
+    fotosLocalOnly: VEHICLE_LOCAL_PHOTOS_ONLY ? !!fotos.length : false,
+    fotosPendenteUpload: pendingCount > 0
+  };
+}
+function stripHistPhotosForCloud(h){
+  if(!h || typeof h !== 'object') return h;
+  return { ...h, fotos: sanitizePhotosForCloud(h.fotos), fotosPendenteUpload: (h.fotos || []).some(isLocalDataPhoto) };
+}
+function mergeVehicleLocalPhotos(localList, incomingList){
+  const localById = new Map((Array.isArray(localList) ? localList : []).map(v => [v && v.id, v]).filter(x => x[0]));
+  return (Array.isArray(incomingList) ? incomingList : []).map(v => {
+    const local = localById.get(v && v.id);
+    if(!local) return v;
+    const localFotos = Array.isArray(local.fotos) ? local.fotos : [];
+    const incomingFotos = Array.isArray(v.fotos) ? v.fotos : [];
+    const pendingLocal = localFotos.filter(isLocalDataPhoto);
+    const cloudFotos = incomingFotos.filter(isCloudPhoto);
+    const mergedFotos = cloudFotos.length ? [...cloudFotos, ...pendingLocal] : (localFotos.length ? localFotos : incomingFotos);
+    return {
+      ...v,
+      fotos: mergedFotos,
+      fotosLocal: Array.isArray(local.fotosLocal) && local.fotosLocal.length ? local.fotosLocal : (Array.isArray(v.fotosLocal) ? v.fotosLocal : []),
+      fotosLocalCount: pendingLocal.length,
+      fotosLocalOnly: VEHICLE_LOCAL_PHOTOS_ONLY ? (localFotos.length ? true : !!v.fotosLocalOnly) : false,
+      fotosPendenteUpload: pendingLocal.length > 0
+    };
+  });
+}
+function vehiclePhotoStatusHtml(v){
+  const fotos = Array.isArray(v && v.fotos) ? v.fotos : [];
+  const cloudCount = fotos.filter(isCloudPhoto).length;
+  const pendingCount = fotos.filter(isLocalDataPhoto).length || Number(v && v.fotosLocalCount || 0);
+  if(!cloudCount && !pendingCount) return '';
+  const chips = [];
+  if(cloudCount) chips.push(`<span class="vehicle-history-chip" style="margin-left:6px">Fotos na nuvem: ${cloudCount}</span>`);
+  if(pendingCount) chips.push(`<span class="vehicle-history-chip" style="margin-left:6px;border-color:rgba(245,197,24,.38);color:#f5c518;background:rgba(245,197,24,.10)">Fotos pendentes/local: ${pendingCount}</span>`);
+  return chips.join('');
+}
 function vehicleOwnerTypeLabel(tipo){
   return tipo === 'gestao' ? 'Gestao' : tipo === 'reserva' ? 'Reserva' : 'Tecnico';
 }
@@ -4344,18 +4444,20 @@ async function saveVehicle(){
   }
   const vehicleId = editingVehicleId || 'veh_' + Date.now();
   let fotosFinais = [...pendingVehiclePh];
-  const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
-  if(temBase64){
+  const temBase64 = fotosFinais.some(isLocalDataPhoto);
+  if(temBase64 && !VEHICLE_LOCAL_PHOTOS_ONLY){
     showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
     toast('📷 Enviando fotos da vistoria para a nuvem...', 'info', 3000);
     fotosFinais = [];
+    let falhasUploadFoto = 0;
     for(let i = 0; i < pendingVehiclePh.length; i++){
       const f = pendingVehiclePh[i];
       if(f && f.startsWith('data:')){
         const url = await uploadVehicleFotoStorage(vehicleId, f, i);
         if(!url){
-          alert('Erro ao enviar foto da vistoria para o Firebase. Verifique a conexão e tente novamente.');
-          return;
+          falhasUploadFoto++;
+          fotosFinais.push(f);
+          continue;
         }
         fotosFinais.push(url);
       } else {
@@ -4363,7 +4465,14 @@ async function saveVehicle(){
       }
     }
     pendingVehiclePh = [...fotosFinais];
+    if(falhasUploadFoto){
+      showCloudStatus('⚠️ Fotos salvas localmente', 'var(--yellow)');
+      toast('Algumas fotos ficaram locais e serão reenviadas quando o Firebase permitir.', 'warn', 6500);
+    } else {
+      toast('Fotos da vistoria salvas na nuvem.', 'success', 3500);
+    }
   }
+  const anterior = vehicles.find(v => v.id === vehicleId);
   const obj = {
     id: vehicleId,
     ts: Date.now(),
@@ -4389,8 +4498,23 @@ async function saveVehicle(){
     semNovaFoto,
     obsGerais: document.getElementById('vObsGerais').value.trim(),
     assResp: document.getElementById('vAssResp').value.trim(),
-    assCond: document.getElementById('vAssCond').value.trim()
+    assCond: document.getElementById('vAssCond').value.trim(),
+    fotosLocal: Array.isArray(anterior && anterior.fotosLocal) ? [...anterior.fotosLocal] : [],
+    fotosLocalOnly: VEHICLE_LOCAL_PHOTOS_ONLY,
+    fotosPendenteUpload: fotosFinais.some(isLocalDataPhoto)
   };
+  const fotosPendentesUpload = fotosFinais.filter(isLocalDataPhoto);
+  if(fotosPendentesUpload.length && VEHICLE_PHOTO_LOCAL_FALLBACK){
+    const savedPaths = await saveVehiclePhotosToLocalFolder(obj, fotosPendentesUpload);
+    if(savedPaths.length){
+      obj.fotosLocal = [...obj.fotosLocal, ...savedPaths].slice(-VEHICLE_MAX_FOTOS);
+      toast('Cópia de segurança das fotos salva na pasta local do computador.', 'success', 4500);
+    } else if(window.showDirectoryPicker){
+      toast('Vistoria salva. As fotos pendentes ficaram no armazenamento local do navegador.', 'warn', 5500);
+    } else {
+      toast('Este navegador nao permite escolher pasta. Fotos pendentes salvas localmente no navegador.', 'warn', 5500);
+    }
+  }
   const i = vehicles.findIndex(v => v.id === obj.id);
   if(i >= 0) vehicles[i] = obj; else vehicles.push(obj);
   auditLog(editingVehicleId ? 'Vistoria Veicular Editada' : 'Vistoria Veicular Cadastrada', `Condutor: ${obj.tec}`, `Placa: ${obj.placa || '-'}`);
@@ -6230,8 +6354,8 @@ function delDb(id){ if(!confirm('Remover do banco?'))return; banco=banco.filter(
 
 // ── FOTOS ─────────────────────────────────────────────────────────────
 const MAX_FOTOS = 3;
-const FOTO_MAX_PX = 1200; // comprime para no máximo 1200px
-const FOTO_QUALITY = 0.72; // qualidade JPEG
+const FOTO_MAX_PX = 900; // comprime para no máximo 900px
+const FOTO_QUALITY = 0.65; // qualidade JPEG
 
 // Comprime uma imagem (base64 ou File) e retorna base64 comprimido
 function compressImage(file, callback){
@@ -7516,9 +7640,9 @@ function _buildPayload() {
     techs: techs || [],
     loans: loans || [],
     sups:  (sups || []).filter(supervisorValido),
-    hist:  hist  || [],
+    hist:  (hist || []).map(stripHistPhotosForCloud),
     banco: banco || [],
-    vehicles: vehicles || [],
+    vehicles: (vehicles || []).map(stripVehiclePhotosForCloud),
     vehicleTickets: vehicleTickets || [],
     audit: (audit || []).slice(0, 100),
     logo: localStorage.getItem('lm_logo') || null,
@@ -7697,7 +7821,7 @@ async function restoreLocalBackup(key){
     if(Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if(Array.isArray(data.hist))  hist  = data.hist;
     if(Array.isArray(data.banco)) banco = data.banco;
-    if(Array.isArray(data.vehicles)) vehicles = data.vehicles;
+    if(Array.isArray(data.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, data.vehicles);
     if(Array.isArray(data.audit)) audit = data.audit;
     if(data.logo) localStorage.setItem('lm_logo', data.logo);
     if(typeof data.cursup === 'string') localStorage.setItem('lm_cursup', data.cursup);
@@ -7902,8 +8026,8 @@ async function cloudSave(force = false) {
 
     const vehiclesComUrls = [];
     for (const v of (vehicles || [])) {
-      const hasBase64 = (v.fotos || []).some(f => f && f.startsWith('data:'));
-      if (hasBase64) {
+      const hasBase64 = (v.fotos || []).some(isLocalDataPhoto);
+      if (!VEHICLE_LOCAL_PHOTOS_ONLY && hasBase64) {
         const migrado = await migrateVehiclePhotosToStorage(v);
         vehiclesComUrls.push(migrado);
         const idx = vehicles.findIndex(x => x.id === v.id);
@@ -7915,8 +8039,8 @@ async function cloudSave(force = false) {
 
     const payload = _buildPayload();
     payload.ts = Date.now();
-    payload.hist = histComUrls;
-    payload.vehicles = vehiclesComUrls;
+    payload.hist = histComUrls.map(stripHistPhotosForCloud);
+    payload.vehicles = vehiclesComUrls.map(stripVehiclePhotosForCloud);
 
     // Antes de sobrescrever a nuvem, salva cópia quando houver risco de perda ou por intervalo.
     let oldData = null;
@@ -7997,7 +8121,7 @@ async function startRealtimeSync() {
     if (Array.isArray(data.sups))  sups  = mergeSupList(data.sups.filter(supervisorValido));
     if (Array.isArray(data.hist))  hist  = data.hist;
     if (Array.isArray(data.banco)) banco = data.banco;
-    if (Array.isArray(data.vehicles)) vehicles = data.vehicles;
+    if (Array.isArray(data.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, data.vehicles);
     if (Array.isArray(data.vehicleTickets)) vehicleTickets = data.vehicleTickets;
     if (Array.isArray(data.audit)) audit = data.audit;
     if (data.logo) localStorage.setItem('lm_logo', data.logo);
@@ -8119,10 +8243,10 @@ async function migrateVehiclePhotosToStorage(v) {
     } else if (f && f.startsWith('data:')) {
       showCloudStatus('📷 Enviando fotos veiculares...', 'var(--cyan)');
       const url = await uploadVehicleFotoStorage(v.id, f, i);
-      if(url) newFotos.push(url);
+      newFotos.push(url || f);
     }
   }
-  return { ...v, fotos: newFotos };
+  return { ...v, fotos: newFotos, fotosPendenteUpload: newFotos.some(isLocalDataPhoto), fotosLocalOnly: false };
 }
 function mergeVehicleTicketLists(localList, cloudList){
   const merged = new Map();
@@ -8216,7 +8340,7 @@ async function bootApp(){
       if (Array.isArray(cloudData.sups))  sups  = mergeSupList(cloudData.sups);
       if (Array.isArray(cloudData.hist))  hist  = cloudData.hist;
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
-      if (Array.isArray(cloudData.vehicles)) vehicles = cloudData.vehicles;
+      if (Array.isArray(cloudData.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, cloudData.vehicles);
       if (Array.isArray(cloudData.vehicleTickets)) vehicleTickets = mergedVehicleTickets;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
