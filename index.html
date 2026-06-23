@@ -1479,6 +1479,7 @@ setInterval(_updateOfflineBanner, 5000);
       <div class="vehicle-fleet-actions">
         <button class="btn btn-cyan" onclick="openVehicleModal(null,'vistoria')">+ Realizar Vistoria</button>
         <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
+        <button class="btn btn-green" onclick="forceVehiclePhotosUpload()">Reenviar fotos pendentes</button>
       </div>
     </div>
     <div class="vehicle-fleet-filters">
@@ -8248,6 +8249,45 @@ async function migrateVehiclePhotosToStorage(v) {
   }
   return { ...v, fotos: newFotos, fotosPendenteUpload: newFotos.some(isLocalDataPhoto), fotosLocalOnly: false };
 }
+
+async function forceVehiclePhotosUpload(){
+  const pendentes = (vehicles || []).filter(v => (v.fotos || []).some(isLocalDataPhoto));
+  if(!pendentes.length){
+    toast('Nenhuma foto veicular pendente para reenviar.', 'info', 3500);
+    return;
+  }
+  try {
+    showCloudStatus('📷 Reenviando fotos...', 'var(--cyan)');
+    renderSyncBar('Reenviando fotos pendentes para o Firebase Storage...', 'syncing');
+    let totalPendentes = 0;
+    let totalEnviadas = 0;
+    for(const v of pendentes){
+      const antes = (v.fotos || []).filter(isLocalDataPhoto).length;
+      totalPendentes += antes;
+      const migrado = await migrateVehiclePhotosToStorage(v);
+      const depois = (migrado.fotos || []).filter(isLocalDataPhoto).length;
+      totalEnviadas += Math.max(0, antes - depois);
+      const idx = vehicles.findIndex(x => x.id === v.id);
+      if(idx >= 0) vehicles[idx] = migrado;
+    }
+    if(_idb) await idbSave(['vehicles']);
+    await cloudSave(true);
+    renderVehicles();
+    const restantes = (vehicles || []).reduce((acc, v) => acc + ((v.fotos || []).filter(isLocalDataPhoto).length), 0);
+    if(restantes){
+      toast(`${totalEnviadas} foto(s) reenviada(s). ${restantes} ainda pendente(s). Confira regras/conexão do Firebase.`, 'warn', 6500);
+      showCloudStatus('⚠️ Fotos ainda pendentes', 'var(--yellow)');
+    } else {
+      toast(`${totalEnviadas || totalPendentes} foto(s) reenviada(s) para a nuvem.`, 'success', 4500);
+      showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
+    }
+  } catch(e) {
+    console.warn('Falha ao reenviar fotos veiculares:', e);
+    toast('Falha ao reenviar fotos pendentes. Verifique conexão e regras do Firebase.', 'error', 6500);
+    showCloudStatus('⚠️ Falha no reenvio', 'var(--yellow)');
+  }
+}
+
 function mergeVehicleTicketLists(localList, cloudList){
   const merged = new Map();
   [...(Array.isArray(cloudList) ? cloudList : []), ...(Array.isArray(localList) ? localList : [])].forEach(t => {
