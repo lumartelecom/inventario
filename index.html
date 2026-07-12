@@ -706,7 +706,6 @@ select option:disabled{
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
 </head>
 <body>
@@ -1457,7 +1456,6 @@ setInterval(_updateOfflineBanner, 5000);
       <button class="btn btn-orange" onclick="openHistModal('ferias')">🏖️ Inventário de Férias</button>
       <button class="btn btn-danger btn-sm" onclick="openLostTermModal()">🧾 Termo itens perdidos</button>
       <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
-      <button class="btn btn-green btn-sm" onclick="forceLegacyPhotosToDrive()">Subir antigas para Drive</button>
       <select id="histSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
         <option value="">👔 Todos os supervisores</option>
       </select>
@@ -1480,7 +1478,6 @@ setInterval(_updateOfflineBanner, 5000);
       <div class="vehicle-fleet-actions">
         <button class="btn btn-cyan" onclick="openVehicleModal(null,'vistoria')">+ Realizar Vistoria</button>
         <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
-        <button class="btn btn-green" onclick="forceLegacyPhotosToDrive()">Subir antigas para Drive</button>
       </div>
     </div>
     <div class="vehicle-fleet-filters">
@@ -4117,9 +4114,7 @@ function viewVehicleHistory(vehicleKey){
 }
 const VEHICLE_MAX_FOTOS = 5;
 const VEHICLE_LOCAL_PHOTOS_ONLY = false;
-const VEHICLE_PHOTO_LOCAL_FALLBACK = true;
 const VEHICLE_FROTAS = ['Frota Afonso','Frota Movida','Frota Mazzini'];
-let _vehiclePhotoDirHandle = null;
 
 // ── GOOGLE DRIVE — fotos de vistoria veicular ─────────────────────────
 // Preencha após implantar o Apps Script (ver AppsScript_Drive_Vistorias.gs)
@@ -4139,67 +4134,75 @@ function safeFolderName(name){
     .replace(/\s+/g, '_')
     .slice(0, 80) || 'sem_identificacao';
 }
-function dataUrlToBlob(dataUrl){
-  const parts = String(dataUrl || '').split(',');
-  const meta = parts[0] || '';
-  const mime = (meta.match(/data:([^;]+)/) || [,'image/jpeg'])[1];
-  const bin = atob(parts[1] || '');
-  const arr = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], {type:mime});
-}
-function blobToDataUrl(blob){
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error || new Error('Falha ao ler arquivo'));
-    reader.readAsDataURL(blob);
-  });
-}
-async function photoSourceToDataUrl(src){
-  if(isLocalDataPhoto(src)) return src;
-  if(!isCloudPhoto(src) || isDriveLink(src)) return null;
-  try {
-    const resp = await fetch(src, {mode:'cors'});
-    if(!resp.ok) return null;
-    const blob = await resp.blob();
-    if(!blob || !String(blob.type || '').startsWith('image/')) return null;
-    return await blobToDataUrl(blob);
-  } catch(e) {
-    console.warn('Não foi possível baixar foto antiga para reenviar ao Drive:', e);
-    return null;
-  }
-}
 function photoNeedsDriveMigration(src){
   return typeof src === 'string' && !!src && !isDriveLink(src) && (isLocalDataPhoto(src) || isCloudPhoto(src));
 }
-async function saveVehiclePhotosToLocalFolder(vehicle, fotos){
-  if(!VEHICLE_PHOTO_LOCAL_FALLBACK || !window.showDirectoryPicker) return [];
-  const dataFotos = (fotos || []).filter(f => f && f.startsWith && f.startsWith('data:'));
-  if(!dataFotos.length) return [];
-  try {
-    if(!_vehiclePhotoDirHandle){
-      _vehiclePhotoDirHandle = await window.showDirectoryPicker({id:'lumar-fotos-veiculares', mode:'readwrite'});
-    }
-    const root = await _vehiclePhotoDirHandle.getDirectoryHandle('Lumar_Fotos_Veiculares', {create:true});
-    const data = safeFolderName(vehicle.data || new Date().toISOString().slice(0,10));
-    const placa = safeFolderName(vehicle.placa || vehicle.tec || vehicle.id);
-    const pasta = await root.getDirectoryHandle(`${data}_${placa}_${safeFolderName(vehicle.id)}`, {create:true});
-    const saved = [];
-    for(let i = 0; i < dataFotos.length; i++){
-      const fileName = `foto_${String(i + 1).padStart(2, '0')}.jpg`;
-      const file = await pasta.getFileHandle(fileName, {create:true});
-      const writable = await file.createWritable();
-      await writable.write(dataUrlToBlob(dataFotos[i]));
-      await writable.close();
-      saved.push(`Lumar_Fotos_Veiculares/${data}_${placa}_${safeFolderName(vehicle.id)}/${fileName}`);
-    }
-    return saved;
-  } catch(e) {
-    console.warn('Falha ao salvar fotos em pasta local:', e);
-    return [];
+
+// ── UPLOAD ÚNICO DE FOTOS — Google Drive (Apps Script) ──────────────────
+// Toda foto do sistema (inventário e vistoria veicular) passa por esta
+// função antes de ser salva. Ela decide o que fazer com base na origem
+// da foto e nunca deixa o Firebase Storage entrar no caminho de novas
+// fotos: uma foto só é lida do Storage se nunca tiver sido reenviada.
+//   • já está no Drive         → devolve a mesma URL, sem reenviar
+//   • é Base64 (foto nova)     → envia ao Apps Script, devolve URL do Drive
+//   • é URL antiga (Firebase)  → manda o Apps Script copiar via sourceUrl
+//   • qualquer falha           → lança exceção (nunca some com a foto)
+async function ensurePhotoOnDrive(photo, meta, driveUploadFn){
+  if(isDriveLink(photo)){
+    return { url: photo, folderUrl: null };
   }
+  if(isLocalDataPhoto(photo)){
+    let result;
+    try {
+      result = await driveUploadFn(meta, photo, meta.indice || 0);
+    } catch(e) {
+      console.warn('Falha ao enviar foto para o Google Drive:', e);
+      throw new Error('Falha ao enviar foto para o Google Drive.');
+    }
+    if(!result || !result.fileUrl) throw new Error('Falha ao enviar foto para o Google Drive.');
+    return { url: result.fileUrl, folderUrl: result.folderUrl || null };
+  }
+  if(isCloudPhoto(photo)){
+    // Foto antiga (ex.: Firebase Storage) — o Apps Script copia a
+    // imagem a partir da URL de origem direto para o Drive.
+    let result;
+    try {
+      result = await driveUploadFn({ ...meta, sourceUrl: photo }, null, meta.indice || 0);
+    } catch(e) {
+      console.warn('Falha ao migrar foto antiga para o Google Drive:', e);
+      throw new Error('Falha ao migrar foto antiga para o Google Drive.');
+    }
+    if(!result || !result.fileUrl) throw new Error('Falha ao migrar foto antiga para o Google Drive.');
+    return { url: result.fileUrl, folderUrl: result.folderUrl || null };
+  }
+  throw new Error('Formato de foto não reconhecido.');
 }
+function photoProgressBar(current, total, width){
+  width = width || 10;
+  const filled = total > 0 ? Math.round((current / total) * width) : 0;
+  return '█'.repeat(Math.max(0, Math.min(width, filled))) + '░'.repeat(Math.max(0, width - filled));
+}
+function showPhotoUploadProgress(current, total){
+  showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
+  renderSyncBar(`Enviando fotos... ${photoProgressBar(current, total)} Foto ${current} de ${total}`, 'syncing');
+}
+// Envia todas as fotos de um registro, sequencialmente (nunca em paralelo,
+// para não sobrecarregar o Apps Script), atualizando a barra de progresso
+// em tempo real. Se qualquer foto falhar, a exceção sobe para quem chamou
+// e NENHUMA foto/registro deve ser salvo parcialmente.
+async function uploadPhotosToDrive(fotos, metaBase, driveUploadFn){
+  const total = fotos.length;
+  const resultado = [];
+  let folderUrl = null;
+  for(let i = 0; i < total; i++){
+    showPhotoUploadProgress(i + 1, total);
+    const { url, folderUrl: fu } = await ensurePhotoOnDrive(fotos[i], { ...metaBase, indice: i }, driveUploadFn);
+    resultado.push(url);
+    if(fu) folderUrl = fu;
+  }
+  return { fotos: resultado, folderUrl };
+}
+
 function stripVehiclePhotosForCloud(v){
   if(!v || typeof v !== 'object') return v;
   const fotos = Array.isArray(v.fotos) ? v.fotos : [];
@@ -4242,12 +4245,8 @@ function mergeVehicleLocalPhotos(localList, incomingList){
 function vehiclePhotoStatusHtml(v){
   const fotos = Array.isArray(v && v.fotos) ? v.fotos : [];
   const cloudCount = fotos.filter(isCloudPhoto).length;
-  const pendingCount = fotos.filter(isLocalDataPhoto).length || Number(v && v.fotosLocalCount || 0);
-  if(!cloudCount && !pendingCount) return '';
-  const chips = [];
-  if(cloudCount) chips.push(`<span class="vehicle-history-chip" style="margin-left:6px">Fotos na nuvem: ${cloudCount}</span>`);
-  if(pendingCount) chips.push(`<span class="vehicle-history-chip" style="margin-left:6px;border-color:rgba(245,197,24,.38);color:#f5c518;background:rgba(245,197,24,.10)">Fotos pendentes/local: ${pendingCount}</span>`);
-  return chips.join('');
+  if(!cloudCount) return '';
+  return `<span class="vehicle-history-chip" style="margin-left:6px">Fotos na nuvem: ${cloudCount}</span>`;
 }
 function histPhotoLinksHtml(h){
   const fotos = Array.isArray(h && h.fotos) ? h.fotos : [];
@@ -4525,39 +4524,31 @@ async function saveVehicle(){
   }
   const vehicleId = editingVehicleId || 'veh_' + Date.now();
   let fotosFinais = [...pendingVehiclePh];
-  const temBase64 = fotosFinais.some(isLocalDataPhoto);
   let driveFolderUrl = null;
-  if(temBase64 && !VEHICLE_LOCAL_PHOTOS_ONLY){
-    showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
-    toast('📷 Enviando fotos da vistoria para o Google Drive...', 'info', 3000);
-    fotosFinais = [];
-    let falhasUploadFoto = 0;
-    const vehicleMetaUpload = {
-      placa: document.getElementById('vPlaca').value.trim(),
-      data: document.getElementById('vData').value,
-      tec: tec
-    };
-    for(let i = 0; i < pendingVehiclePh.length; i++){
-      const f = pendingVehiclePh[i];
-      if(f && f.startsWith('data:')){
-        const result = await uploadVehicleFotoDrive(vehicleMetaUpload, f, i);
-        if(!result){
-          falhasUploadFoto++;
-          fotosFinais.push(f);
-          continue;
-        }
-        fotosFinais.push(result.fileUrl);
-        if(result.folderUrl) driveFolderUrl = result.folderUrl;
-      } else {
-        fotosFinais.push(f);
-      }
-    }
-    pendingVehiclePh = [...fotosFinais];
-    if(falhasUploadFoto){
-      showCloudStatus('⚠️ Fotos salvas localmente', 'var(--yellow)');
-      toast('Algumas fotos ficaram locais e serão reenviadas quando o Drive permitir.', 'warn', 6500);
-    } else {
+  // Garante que toda foto (nova em Base64 ou antiga vinda do Firebase)
+  // esteja no Google Drive antes de salvar. Se qualquer foto falhar,
+  // a vistoria inteira não é salva (ver ALTERAÇÃO 6).
+  const precisaUpload = fotosFinais.some(f => !isDriveLink(f));
+  if(precisaUpload){
+    try {
+      const metaBase = {
+        placa: document.getElementById('vPlaca').value.trim(),
+        data: document.getElementById('vData').value,
+        tec: tec
+      };
+      const resultado = await uploadPhotosToDrive(fotosFinais, metaBase, uploadVehicleFotoDrive);
+      fotosFinais = resultado.fotos;
+      if(resultado.folderUrl) driveFolderUrl = resultado.folderUrl;
+      pendingVehiclePh = [...fotosFinais];
+      showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
+      renderSyncBar('Fotos da vistoria enviadas para o Google Drive.', 'ok');
       toast('Fotos da vistoria salvas no Google Drive.', 'success', 3500);
+    } catch(e){
+      console.warn('Falha ao enviar fotos da vistoria para o Drive:', e);
+      showCloudStatus('⚠️ Falha no envio', 'var(--yellow)');
+      renderSyncBar('Falha ao enviar fotos para o Google Drive.', 'err');
+      toast('Não foi possível enviar todas as fotos para o Google Drive.', 'error', 6000);
+      return;
     }
   }
   const anterior = vehicles.find(v => v.id === vehicleId);
@@ -4590,21 +4581,9 @@ async function saveVehicle(){
     assResp: document.getElementById('vAssResp').value.trim(),
     assCond: document.getElementById('vAssCond').value.trim(),
     fotosLocal: Array.isArray(anterior && anterior.fotosLocal) ? [...anterior.fotosLocal] : [],
-    fotosLocalOnly: VEHICLE_LOCAL_PHOTOS_ONLY,
-    fotosPendenteUpload: fotosFinais.some(photoNeedsDriveMigration)
+    fotosLocalOnly: false,
+    fotosPendenteUpload: false
   };
-  const fotosPendentesUpload = fotosFinais.filter(isLocalDataPhoto);
-  if(fotosPendentesUpload.length && VEHICLE_PHOTO_LOCAL_FALLBACK){
-    const savedPaths = await saveVehiclePhotosToLocalFolder(obj, fotosPendentesUpload);
-    if(savedPaths.length){
-      obj.fotosLocal = [...obj.fotosLocal, ...savedPaths].slice(-VEHICLE_MAX_FOTOS);
-      toast('Cópia de segurança das fotos salva na pasta local do computador.', 'success', 4500);
-    } else if(window.showDirectoryPicker){
-      toast('Vistoria salva. As fotos pendentes ficaram no armazenamento local do navegador.', 'warn', 5500);
-    } else {
-      toast('Este navegador nao permite escolher pasta. Fotos pendentes salvas localmente no navegador.', 'warn', 5500);
-    }
-  }
   const i = vehicles.findIndex(v => v.id === obj.id);
   if(i >= 0) vehicles[i] = obj; else vehicles.push(obj);
   auditLog(editingVehicleId ? 'Vistoria Veicular Editada' : 'Vistoria Veicular Cadastrada', `Condutor: ${obj.tec}`, `Placa: ${obj.placa || '-'}`);
@@ -5569,37 +5548,33 @@ async function saveHist(){
   }
   const histId = editingHistId || Date.now().toString();
   let driveFolderUrl = null;
-  // Faz upload das fotos base64 para o Google Drive antes de salvar.
-  // Se o Drive falhar, mantém o fallback antigo no Firebase/base64.
+  // Garante que toda foto (nova em Base64 ou antiga vinda do Firebase)
+  // esteja no Google Drive antes de salvar. Se qualquer foto falhar,
+  // o inventário inteiro não é salvo (ver ALTERAÇÃO 6).
   let fotosFinais = [...pendingHistPh];
-  const temBase64 = fotosFinais.some(f => f && f.startsWith('data:'));
-  if (temBase64) {
-    showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
-    toast('📷 Enviando fotos do inventário para o Google Drive...', 'info', 3000);
-    fotosFinais = [];
-    for (let i = 0; i < pendingHistPh.length; i++) {
-      const f = pendingHistPh[i];
-      if (f && f.startsWith('data:')) {
-        const driveResult = await uploadInventoryFotoDrive({
-          id: histId,
-          tec: tName,
-          data: document.getElementById('hDt').value,
-          sup: supSel,
-          local: document.getElementById('hLocal').value.trim()
-        }, f, i);
-        if(driveResult && driveResult.fileUrl){
-          fotosFinais.push(driveResult.fileUrl);
-          if(driveResult.folderUrl) driveFolderUrl = driveResult.folderUrl;
-        } else {
-          const url = await uploadFotoStorage(histId, f, i);
-          fotosFinais.push(url || f); // fallback base64 se upload falhar
-        }
-      } else {
-        fotosFinais.push(f);
-      }
+  const precisaUpload = fotosFinais.some(f => !isDriveLink(f));
+  if (precisaUpload) {
+    try {
+      const metaBase = {
+        id: histId,
+        tec: tName,
+        data: document.getElementById('hDt').value,
+        sup: supSel,
+        local: document.getElementById('hLocal').value.trim()
+      };
+      const resultado = await uploadPhotosToDrive(fotosFinais, metaBase, uploadInventoryFotoDrive);
+      fotosFinais = resultado.fotos;
+      if (resultado.folderUrl) driveFolderUrl = resultado.folderUrl;
+      pendingHistPh = [...fotosFinais];
+      showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
+      renderSyncBar('Fotos do inventário enviadas para o Google Drive.', 'ok');
+    } catch (e) {
+      console.warn('Falha ao enviar fotos do inventário para o Drive:', e);
+      showCloudStatus('⚠️ Falha no envio', 'var(--yellow)');
+      renderSyncBar('Falha ao enviar fotos para o Google Drive.', 'err');
+      toast('Não foi possível enviar todas as fotos para o Google Drive.', 'error', 6000);
+      return;
     }
-    // Atualiza pendingHistPh com as URLs
-    pendingHistPh = [...fotosFinais];
   }
 
   if(editingHistId){
@@ -5618,7 +5593,7 @@ async function saveHist(){
         obs: document.getElementById('hObs').value.trim(),
         fotos: fotosFinais,
         driveFolderUrl: driveFolderUrl || prev.driveFolderUrl || '',
-        fotosPendenteUpload: fotosFinais.some(photoNeedsDriveMigration),
+        fotosPendenteUpload: false,
         invRows: normalizaInventarioCompra(currentInvRows),
         atualizacoes: upds,
         updatedAt: Date.now()
@@ -5636,7 +5611,7 @@ async function saveHist(){
       obs: document.getElementById('hObs').value.trim(),
       fotos: fotosFinais,
       driveFolderUrl: driveFolderUrl || '',
-      fotosPendenteUpload: fotosFinais.some(photoNeedsDriveMigration),
+      fotosPendenteUpload: false,
       invRows: normalizaInventarioCompra(currentInvRows),
       criadoEm: new Date().toLocaleString('pt-BR'),
       atualizacoes: [],
@@ -6661,34 +6636,25 @@ async function addFotoMgr(inp){
   }
   inp.value = '';
   try {
-    showCloudStatus('📷 Enviando foto...', 'var(--cyan)');
     const b64 = await compressImageAsync(file);
     const idx = h.fotos.length;
-    let fotoFinal = b64;
-    const driveResult = await uploadInventoryFotoDrive({
-      id: h.id,
-      tec: h.tec,
-      data: h.dt,
-      sup: h.sup,
-      local: h.local
-    }, b64, idx);
-    if(driveResult && driveResult.fileUrl){
-      fotoFinal = driveResult.fileUrl;
-      if(driveResult.folderUrl) h.driveFolderUrl = driveResult.folderUrl;
-    } else {
-      const url = await uploadFotoStorage(h.id, b64, idx);
-      fotoFinal = url || b64;
-    }
-    h.fotos.push(fotoFinal);
-    h.fotosPendenteUpload = h.fotos.some(photoNeedsDriveMigration);
+    showPhotoUploadProgress(1, 1);
+    const { url, folderUrl } = await ensurePhotoOnDrive(b64, {
+      id: h.id, tec: h.tec, data: h.dt, sup: h.sup, local: h.local, indice: idx
+    }, uploadInventoryFotoDrive);
+    if(folderUrl) h.driveFolderUrl = folderUrl;
+    h.fotos.push(url);
+    h.fotosPendenteUpload = false;
     save();
     renderFotoMgr();
     renderHist();
     auditLog('Foto Adicionada', `Inventário de: ${h ? h.tec : '—'}`);
-    toast(isLocalDataPhoto(fotoFinal) ? 'Foto adicionada localmente. Ela será reenviada quando a nuvem permitir.' : 'Foto adicionada e enviada para a nuvem!', isLocalDataPhoto(fotoFinal) ? 'warn' : 'success', 4500);
+    showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
+    toast('Foto adicionada e enviada para o Google Drive!', 'success', 4500);
   } catch(e) {
     console.warn('Falha ao adicionar foto do inventário:', e);
-    toast('Falha ao adicionar foto. Tente novamente.', 'error', 4500);
+    showCloudStatus('⚠️ Falha no envio', 'var(--yellow)');
+    toast('Não foi possível enviar a foto para o Google Drive.', 'error', 4500);
   }
 }
 
@@ -8192,37 +8158,13 @@ async function cloudSave(force = false) {
     showCloudStatus('🔄 Sincronizando...', 'var(--cyan)');
     renderSyncBar('Preparando sincronização...', 'syncing');
 
-    // Migra fotos base64 de inventário para Drive/Storage
-    const histComUrls = [];
-    for (const h of (hist || [])) {
-      const hasBase64 = (h.fotos || []).some(f => f && f.startsWith('data:'));
-      if (hasBase64) {
-        const migrado = await migratePhotosToStorage(h);
-        histComUrls.push(migrado);
-        const idx = hist.findIndex(x => x.id === h.id);
-        if (idx >= 0) hist[idx] = migrado;
-      } else {
-        histComUrls.push(h);
-      }
-    }
-
-    const vehiclesComUrls = [];
-    for (const v of (vehicles || [])) {
-      const hasBase64 = (v.fotos || []).some(isLocalDataPhoto);
-      if (!VEHICLE_LOCAL_PHOTOS_ONLY && hasBase64) {
-        const migrado = await migrateVehiclePhotosToStorage(v);
-        vehiclesComUrls.push(migrado);
-        const idx = vehicles.findIndex(x => x.id === v.id);
-        if (idx >= 0) vehicles[idx] = migrado;
-      } else {
-        vehiclesComUrls.push(v);
-      }
-    }
-
+    // As fotos já chegam prontas do Google Drive (o upload acontece no
+    // momento de salvar cada inventário/vistoria — ver ensurePhotoOnDrive).
+    // Aqui só sanitizamos o payload para a nuvem, sem migração em lote.
     const payload = _buildPayload();
     payload.ts = Date.now();
-    payload.hist = histComUrls.map(stripHistPhotosForCloud);
-    payload.vehicles = vehiclesComUrls.map(stripVehiclePhotosForCloud);
+    payload.hist = (hist || []).map(stripHistPhotosForCloud);
+    payload.vehicles = (vehicles || []).map(stripVehiclePhotosForCloud);
 
     // Antes de sobrescrever a nuvem, salva cópia quando houver risco de perda ou por intervalo.
     let oldData = null;
@@ -8387,38 +8329,6 @@ function _patchSaveWithCloud() {
   };
 }
 
-// ── FIREBASE STORAGE — Upload de fotos ───────────────────────────────
-async function uploadFotoStorage(histId, base64, index) {
-  try {
-    const db = await _initFirebase();
-    if (!db) return null;
-    const storage = firebase.storage();
-    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
-    const ref = storage.ref(`fotos/${histId}/foto_${index + 1}.${ext}`);
-    await ref.putString(base64, 'data_url');
-    const url = await ref.getDownloadURL();
-    return url;
-  } catch(e) {
-    console.warn('Upload foto falhou:', e);
-    return null;
-  }
-}
-
-async function uploadVehicleFotoStorage(vehicleId, base64, index) {
-  try {
-    const db = await _initFirebase();
-    if (!db) return null;
-    const storage = firebase.storage();
-    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
-    const ref = storage.ref(`fotos_veiculos/${vehicleId}/foto_${index + 1}.${ext}`);
-    await ref.putString(base64, 'data_url');
-    return await ref.getDownloadURL();
-  } catch(e) {
-    console.warn('Upload foto veicular falhou:', e);
-    return null;
-  }
-}
-
 // ── GOOGLE DRIVE — Upload de fotos de vistoria (organizado por placa) ──
 // Envia a foto para o Apps Script implantado na conta Google do usuário,
 // que cria/usa a pasta "Vistorias Lumar Telecom/{PLACA}/{data_condutor}/"
@@ -8429,10 +8339,11 @@ async function uploadVehicleFotoDrive(vehicleMeta, base64, index) {
       console.warn('Google Drive: configure VEHICLE_DRIVE_UPLOAD_URL e VEHICLE_DRIVE_SECRET no index.html.');
       return null;
     }
-    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
+    const ext = base64 && base64.startsWith('data:image/png') ? 'png' : 'jpg';
     const payload = {
       secret: VEHICLE_DRIVE_SECRET,
-      base64: base64,
+      base64: base64 || '',
+      sourceUrl: vehicleMeta.sourceUrl || '',
       ext: ext,
       placa: (vehicleMeta.placa || 'SEM-PLACA').toUpperCase(),
       data: vehicleMeta.data || new Date().toISOString().slice(0, 10),
@@ -8471,12 +8382,13 @@ async function uploadInventoryFotoDrive(histMeta, base64, index) {
     }
     const nome = histMeta.tec || histMeta.nome || 'sem-tecnico';
     const data = histMeta.data || new Date().toISOString().slice(0, 10);
-    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
+    const ext = base64 && base64.startsWith('data:image/png') ? 'png' : 'jpg';
     const payload = {
       secret: VEHICLE_DRIVE_SECRET,
       tipo: 'inventario_ferramental',
       modulo: 'inventario_ferramental',
-      base64: base64,
+      base64: base64 || '',
+      sourceUrl: histMeta.sourceUrl || '',
       ext: ext,
       nome: nome,
       tecnico: nome,
@@ -8510,195 +8422,6 @@ async function uploadInventoryFotoDrive(histMeta, base64, index) {
   } catch(e) {
     console.warn('Upload foto inventário (Drive) falhou:', e);
     return null;
-  }
-}
-
-async function deleteFotoStorage(histId, index) {
-  try {
-    const storage = firebase.storage();
-    const refJpg = storage.ref(`fotos/${histId}/foto_${index + 1}.jpg`);
-    const refPng = storage.ref(`fotos/${histId}/foto_${index + 1}.png`);
-    await refJpg.delete().catch(() => {});
-    await refPng.delete().catch(() => {});
-  } catch(e) {}
-}
-
-// Converte fotos antigas/base64 para Drive, com Storage como fallback.
-async function migratePhotosToStorage(h) {
-  if (!h.fotos || !h.fotos.length) return h;
-  const newFotos = [];
-  let driveFolderUrl = h.driveFolderUrl || '';
-  for (let i = 0; i < h.fotos.length; i++) {
-    const f = h.fotos[i];
-    if (f && isDriveLink(f)) {
-      newFotos.push(f);
-    } else if (photoNeedsDriveMigration(f)) {
-      showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
-      const dataUrl = await photoSourceToDataUrl(f);
-      if(!dataUrl){
-        newFotos.push(f);
-        continue;
-      }
-      const driveResult = await uploadInventoryFotoDrive({
-        id: h.id,
-        tec: h.tec,
-        data: h.dt,
-        sup: h.sup,
-        local: h.local
-      }, dataUrl, i);
-      if(driveResult && driveResult.fileUrl){
-        newFotos.push(driveResult.fileUrl);
-        if(driveResult.folderUrl) driveFolderUrl = driveResult.folderUrl;
-      } else {
-        const url = isLocalDataPhoto(f) ? await uploadFotoStorage(h.id, dataUrl, i) : f;
-        newFotos.push(url || f);
-      }
-    } else {
-      newFotos.push(f);
-    }
-  }
-  return { ...h, fotos: newFotos, driveFolderUrl, fotosPendenteUpload: newFotos.some(photoNeedsDriveMigration) };
-}
-
-async function migrateVehiclePhotosToStorage(v) {
-  if (!v.fotos || !v.fotos.length) return v;
-  const newFotos = [];
-  let driveFolderUrl = v.driveFolderUrl || '';
-  for (let i = 0; i < v.fotos.length; i++) {
-    const f = v.fotos[i];
-    if (f && isDriveLink(f)) {
-      newFotos.push(f);
-    } else if (photoNeedsDriveMigration(f)) {
-      showCloudStatus('📷 Enviando fotos veiculares para o Drive...', 'var(--cyan)');
-      const dataUrl = await photoSourceToDataUrl(f);
-      if(!dataUrl){
-        newFotos.push(f);
-        continue;
-      }
-      const driveResult = await uploadVehicleFotoDrive({
-        placa: v.placa || 'SEM-PLACA',
-        data: v.data || new Date().toISOString().slice(0, 10),
-        tec: v.tec || 'sem-condutor'
-      }, dataUrl, i);
-      if(driveResult && driveResult.fileUrl){
-        newFotos.push(driveResult.fileUrl);
-        if(driveResult.folderUrl) driveFolderUrl = driveResult.folderUrl;
-      } else {
-        const url = isLocalDataPhoto(f) ? await uploadVehicleFotoStorage(v.id, dataUrl, i) : f;
-        newFotos.push(url || f);
-      }
-    } else {
-      newFotos.push(f);
-    }
-  }
-  return { ...v, fotos: newFotos, driveFolderUrl, fotosPendenteUpload: newFotos.some(photoNeedsDriveMigration), fotosLocalOnly: false };
-}
-
-async function forceHistPhotosUpload(){
-  const pendentes = (hist || []).filter(h => (h.fotos || []).some(photoNeedsDriveMigration));
-  if(!pendentes.length){
-    toast('Nenhuma foto de inventário antiga pendente para subir ao Drive.', 'info', 3500);
-    return;
-  }
-  try {
-    showCloudStatus('📷 Reenviando fotos...', 'var(--cyan)');
-    renderSyncBar('Reenviando fotos pendentes do inventário para o Google Drive...', 'syncing');
-    let totalPendentes = 0;
-    let totalEnviadas = 0;
-    for(const h of pendentes){
-      const antes = (h.fotos || []).filter(photoNeedsDriveMigration).length;
-      totalPendentes += antes;
-      const migrado = await migratePhotosToStorage(h);
-      const depois = (migrado.fotos || []).filter(photoNeedsDriveMigration).length;
-      totalEnviadas += Math.max(0, antes - depois);
-      const idx = hist.findIndex(x => x.id === h.id);
-      if(idx >= 0) hist[idx] = migrado;
-    }
-    if(_idb) await idbSave(['hist']);
-    await cloudSave(true);
-    renderHist();
-    renderTechs();
-    const restantes = (hist || []).reduce((acc, h) => acc + ((h.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-    if(restantes){
-      toast(`${totalEnviadas} foto(s) de inventário enviada(s) ao Drive. ${restantes} ainda ficaram fora do Drive.`, 'warn', 6500);
-      showCloudStatus('⚠️ Fotos ainda pendentes', 'var(--yellow)');
-    } else {
-      toast(`${totalEnviadas || totalPendentes} foto(s) de inventário enviada(s) ao Drive.`, 'success', 4500);
-      showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
-    }
-  } catch(e) {
-    console.warn('Falha ao reenviar fotos de inventário:', e);
-    toast('Falha ao reenviar fotos de inventário. Verifique conexão e Drive/Firebase.', 'error', 6500);
-    showCloudStatus('⚠️ Falha no reenvio', 'var(--yellow)');
-  }
-}
-
-async function forceVehiclePhotosUpload(){
-  const pendentes = (vehicles || []).filter(v => (v.fotos || []).some(photoNeedsDriveMigration));
-  if(!pendentes.length){
-    toast('Nenhuma foto veicular antiga pendente para subir ao Drive.', 'info', 3500);
-    return;
-  }
-  try {
-    showCloudStatus('📷 Reenviando fotos...', 'var(--cyan)');
-    renderSyncBar('Reenviando fotos antigas de vistoria para o Google Drive...', 'syncing');
-    let totalPendentes = 0;
-    let totalEnviadas = 0;
-    for(const v of pendentes){
-      const antes = (v.fotos || []).filter(photoNeedsDriveMigration).length;
-      totalPendentes += antes;
-      const migrado = await migrateVehiclePhotosToStorage(v);
-      const depois = (migrado.fotos || []).filter(photoNeedsDriveMigration).length;
-      totalEnviadas += Math.max(0, antes - depois);
-      const idx = vehicles.findIndex(x => x.id === v.id);
-      if(idx >= 0) vehicles[idx] = migrado;
-    }
-    if(_idb) await idbSave(['vehicles']);
-    await cloudSave(true);
-    renderVehicles();
-    const restantes = (vehicles || []).reduce((acc, v) => acc + ((v.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-    if(restantes){
-      toast(`${totalEnviadas} foto(s) de vistoria enviada(s) ao Drive. ${restantes} ainda ficaram fora do Drive.`, 'warn', 6500);
-      showCloudStatus('⚠️ Fotos ainda pendentes', 'var(--yellow)');
-    } else {
-      toast(`${totalEnviadas || totalPendentes} foto(s) de vistoria enviada(s) ao Drive.`, 'success', 4500);
-      showCloudStatus('✅ Fotos na nuvem', 'var(--green)');
-    }
-  } catch(e) {
-    console.warn('Falha ao reenviar fotos veiculares:', e);
-    toast('Falha ao reenviar fotos de vistoria para o Drive. Verifique conexão e permissões.', 'error', 6500);
-    showCloudStatus('⚠️ Falha no reenvio', 'var(--yellow)');
-  }
-}
-
-async function forceLegacyPhotosToDrive(){
-  const invPendentes = (hist || []).reduce((acc, h) => acc + ((h.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-  const vistPendentes = (vehicles || []).reduce((acc, v) => acc + ((v.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-  const total = invPendentes + vistPendentes;
-  if(!total){
-    toast('Nenhuma foto antiga pendente para subir ao Drive.', 'info', 3500);
-    return;
-  }
-  if(!confirm(`Subir ${total} foto(s) antiga(s) para o Google Drive?\n\nInventários: ${invPendentes}\nVistorias: ${vistPendentes}`)) return;
-  try {
-    showCloudStatus('📷 Subindo antigas...', 'var(--cyan)');
-    renderSyncBar('Subindo fotos antigas de inventários e vistorias para o Google Drive...', 'syncing');
-    if(invPendentes) await forceHistPhotosUpload();
-    if(vistPendentes) await forceVehiclePhotosUpload();
-    const invRestantes = (hist || []).reduce((acc, h) => acc + ((h.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-    const vistRestantes = (vehicles || []).reduce((acc, v) => acc + ((v.fotos || []).filter(photoNeedsDriveMigration).length), 0);
-    const restantes = invRestantes + vistRestantes;
-    if(restantes){
-      toast(`Migração concluída parcialmente. ${restantes} foto(s) ainda ficaram fora do Drive.`, 'warn', 7000);
-      renderSyncBar(`${restantes} foto(s) ainda ficaram fora do Drive. Verifique conexão/permissões das URLs antigas.`, 'err');
-    } else {
-      toast('Fotos antigas de inventários e vistorias enviadas para o Drive.', 'success', 5000);
-      renderSyncBar('Fotos antigas enviadas para o Google Drive.', 'ok');
-    }
-  } catch(e) {
-    console.warn('Falha ao subir fotos antigas para o Drive:', e);
-    toast('Falha ao subir fotos antigas para o Drive.', 'error', 6500);
-    renderSyncBar('Falha ao subir fotos antigas para o Drive.', 'err');
   }
 }
 
