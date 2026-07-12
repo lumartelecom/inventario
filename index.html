@@ -4046,7 +4046,10 @@ function vehicleViewHtml(v){
     </tbody></table>
   </div>`).join('');
   const fotosHtml = v.fotos && v.fotos.length
-    ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=>`<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`).join('')}</div></div>`
+    ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Fotos${v.driveFolderUrl ? ` · <a href="${escapeHtml(v.driveFolderUrl)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:none;letter-spacing:0;font-weight:600">📁 Abrir pasta no Drive</a>` : ''}</div><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px">${v.fotos.map((f,i)=> isDriveLink(f)
+        ? `<a href="${escapeHtml(f)}" target="_blank" rel="noopener" style="width:110px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:8px;border:1px solid var(--border);background:rgba(0,194,224,0.06);color:var(--cyan);text-decoration:none;font-size:11px;text-align:center" title="Abrir Foto ${i+1} no Drive"><span style="font-size:22px">📁</span><span>Foto ${i+1}</span></a>`
+        : `<img src="${escapeHtml(f)}" onclick="openLB('${escapeHtml(f)}')" style="width:110px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" title="Foto ${i+1}">`
+      ).join('')}</div></div>`
     : '';
   return `${quickStatusHtml}${metaHtml}<div style="margin:6px 0 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="vehicle-status ${st.cls}">${st.label}</span>${vehicleOilChipHtml(v, true)}${vehiclePhotoStatusHtml(v)}</div>${checksHtml}
     ${v.obsGerais ? `<div class="vehicle-form-section"><div class="vehicle-form-title">Observacoes Gerais</div><div style="padding:10px;font-size:13px;color:#fff;white-space:pre-wrap">${escapeHtml(v.obsGerais)}</div></div>` : ''}
@@ -4097,6 +4100,12 @@ const VEHICLE_MAX_FOTOS = 5;
 const VEHICLE_LOCAL_PHOTOS_ONLY = false;
 const VEHICLE_PHOTO_LOCAL_FALLBACK = true;
 let _vehiclePhotoDirHandle = null;
+
+// ── GOOGLE DRIVE — fotos de vistoria veicular ─────────────────────────
+// Preencha após implantar o Apps Script (ver AppsScript_Drive_Vistorias.gs)
+const VEHICLE_DRIVE_UPLOAD_URL = 'https://script.google.com/macros/s/AKfycbwClv1-jK1u8ijiDRXSqF2xEz85kkOHThBGYT5PDy4Rr6MVtG13T-i6NYr7Dx16iJI/exec';
+const VEHICLE_DRIVE_SECRET = 'Lumar@2026';
+function isDriveLink(f){ return typeof f === 'string' && f.indexOf('drive.google.com') !== -1; }
 
 function isLocalDataPhoto(src){ return typeof src === 'string' && src.startsWith('data:'); }
 function isCloudPhoto(src){ return typeof src === 'string' && /^https?:\/\//i.test(src); }
@@ -4253,15 +4262,26 @@ function renderVehiclePP(){
   pendingVehiclePh.forEach((src, idx) => {
     const wrap = document.createElement('div');
     wrap.className = 'pp-wrap';
-    const img = document.createElement('img');
-    img.src = src;
-    img.onclick = () => openLB(src);
+    if(isDriveLink(src)){
+      const chip = document.createElement('a');
+      chip.href = src;
+      chip.target = '_blank';
+      chip.rel = 'noopener';
+      chip.title = 'Foto já salva no Drive — abrir';
+      chip.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:100%;color:var(--cyan);text-decoration:none;font-size:10px;text-align:center';
+      chip.innerHTML = '<span style="font-size:20px">📁</span><span>No Drive</span>';
+      wrap.appendChild(chip);
+    } else {
+      const img = document.createElement('img');
+      img.src = src;
+      img.onclick = () => openLB(src);
+      wrap.appendChild(img);
+    }
     const del = document.createElement('button');
     del.className = 'pp-del';
     del.title = 'Remover foto';
     del.innerHTML = '✕';
     del.onclick = (e) => { e.stopPropagation(); pendingVehiclePh.splice(idx, 1); renderVehiclePP(); };
-    wrap.appendChild(img);
     wrap.appendChild(del);
     el.appendChild(wrap);
   });
@@ -4446,21 +4466,28 @@ async function saveVehicle(){
   const vehicleId = editingVehicleId || 'veh_' + Date.now();
   let fotosFinais = [...pendingVehiclePh];
   const temBase64 = fotosFinais.some(isLocalDataPhoto);
+  let driveFolderUrl = null;
   if(temBase64 && !VEHICLE_LOCAL_PHOTOS_ONLY){
     showCloudStatus('📷 Enviando fotos...', 'var(--cyan)');
-    toast('📷 Enviando fotos da vistoria para a nuvem...', 'info', 3000);
+    toast('📷 Enviando fotos da vistoria para o Google Drive...', 'info', 3000);
     fotosFinais = [];
     let falhasUploadFoto = 0;
+    const vehicleMetaUpload = {
+      placa: document.getElementById('vPlaca').value.trim(),
+      data: document.getElementById('vData').value,
+      tec: tec
+    };
     for(let i = 0; i < pendingVehiclePh.length; i++){
       const f = pendingVehiclePh[i];
       if(f && f.startsWith('data:')){
-        const url = await uploadVehicleFotoStorage(vehicleId, f, i);
-        if(!url){
+        const result = await uploadVehicleFotoDrive(vehicleMetaUpload, f, i);
+        if(!result){
           falhasUploadFoto++;
           fotosFinais.push(f);
           continue;
         }
-        fotosFinais.push(url);
+        fotosFinais.push(result.fileUrl);
+        if(result.folderUrl) driveFolderUrl = result.folderUrl;
       } else {
         fotosFinais.push(f);
       }
@@ -4468,9 +4495,9 @@ async function saveVehicle(){
     pendingVehiclePh = [...fotosFinais];
     if(falhasUploadFoto){
       showCloudStatus('⚠️ Fotos salvas localmente', 'var(--yellow)');
-      toast('Algumas fotos ficaram locais e serão reenviadas quando o Firebase permitir.', 'warn', 6500);
+      toast('Algumas fotos ficaram locais e serão reenviadas quando o Drive permitir.', 'warn', 6500);
     } else {
-      toast('Fotos da vistoria salvas na nuvem.', 'success', 3500);
+      toast('Fotos da vistoria salvas no Google Drive.', 'success', 3500);
     }
   }
   const anterior = vehicles.find(v => v.id === vehicleId);
@@ -4496,6 +4523,7 @@ async function saveVehicle(){
     kmProxOleo: document.getElementById('vKmProxOleo').value.trim(),
     checks: getVehicleChecklist(),
     fotos: fotosFinais,
+    driveFolderUrl: driveFolderUrl || (anterior && anterior.driveFolderUrl) || '',
     semNovaFoto,
     obsGerais: document.getElementById('vObsGerais').value.trim(),
     assResp: document.getElementById('vAssResp').value.trim(),
@@ -8201,6 +8229,46 @@ async function uploadVehicleFotoStorage(vehicleId, base64, index) {
     return await ref.getDownloadURL();
   } catch(e) {
     console.warn('Upload foto veicular falhou:', e);
+    return null;
+  }
+}
+
+// ── GOOGLE DRIVE — Upload de fotos de vistoria (organizado por placa) ──
+// Envia a foto para o Apps Script implantado na conta Google do usuário,
+// que cria/usa a pasta "Vistorias Lumar Telecom/{PLACA}/{data_condutor}/"
+// e salva o arquivo lá. Retorna { fileUrl, folderUrl } ou null se falhar.
+async function uploadVehicleFotoDrive(vehicleMeta, base64, index) {
+  try {
+    if (!VEHICLE_DRIVE_UPLOAD_URL || VEHICLE_DRIVE_UPLOAD_URL.indexOf('COLOQUE_AQUI') === 0) {
+      console.warn('Google Drive: configure VEHICLE_DRIVE_UPLOAD_URL e VEHICLE_DRIVE_SECRET no index.html.');
+      return null;
+    }
+    const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
+    const payload = {
+      secret: VEHICLE_DRIVE_SECRET,
+      base64: base64,
+      ext: ext,
+      placa: (vehicleMeta.placa || 'SEM-PLACA').toUpperCase(),
+      data: vehicleMeta.data || new Date().toISOString().slice(0, 10),
+      condutor: vehicleMeta.tec || 'sem-condutor',
+      indice: index + 1
+    };
+    const resp = await fetch(VEHICLE_DRIVE_UPLOAD_URL, {
+      method: 'POST',
+      // Content-Type text/plain evita o preflight OPTIONS, que o Apps
+      // Script não trata — o servidor faz JSON.parse(e.postData.contents)
+      // independente do Content-Type declarado aqui.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const result = await resp.json();
+    if (!result || !result.ok) {
+      console.warn('Upload foto veicular (Drive) falhou:', result && result.error);
+      return null;
+    }
+    return result;
+  } catch(e) {
+    console.warn('Upload foto veicular (Drive) falhou:', e);
     return null;
   }
 }
