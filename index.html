@@ -134,6 +134,23 @@ main{padding:24px 28px}
 .toolbar input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--light);font-family:'Barlow',sans-serif;font-size:13px;padding:8px 12px;outline:none;flex:1;min-width:160px;transition:border-color .2s}
 .toolbar input[type=text]:focus{border-color:var(--cyan)}
 .toolbar select{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--light);font-family:'Barlow',sans-serif;font-size:13px;padding:8px 12px;outline:none;cursor:pointer}
+
+/* ── COMBO PESQUISÁVEL DE SUPERVISOR ── */
+.sup-combo{position:relative;min-width:0}
+.sup-combo-native{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+.sup-combo-input{width:100%;height:38px;background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--light);font-family:'Barlow',sans-serif;font-size:13px;padding:8px 30px 8px 12px;outline:none;cursor:text}
+.sup-combo-input:focus{border-color:var(--cyan)}
+.sup-combo-input:disabled{opacity:.5;cursor:not-allowed}
+.sup-combo-clear{display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mid);cursor:pointer;font-size:15px;line-height:1;padding:4px}
+.sup-combo-clear:hover{color:var(--cyan)}
+.sup-combo.has-value .sup-combo-clear{display:block}
+.sup-combo-list{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:230px;overflow-y:auto;background:#111c2e;border:1px solid rgba(0,194,224,.35);border-radius:8px;box-shadow:0 14px 34px rgba(0,0,0,.5);z-index:80}
+.sup-combo.open .sup-combo-list{display:block}
+.sup-combo-item{padding:8px 12px;font-size:12px;color:#f0f4ff;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sup-combo-item:hover{background:rgba(0,194,224,.16)}
+.sup-combo-item.all{color:var(--cyan);font-weight:700;border-bottom:1px solid rgba(127,154,190,.18)}
+.sup-combo-empty{padding:10px 12px;font-size:11px;color:var(--mid)}
+
 .btn{padding:8px 18px;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s}
 .btn-cyan{background:var(--cyan);color:var(--navy)}.btn-cyan:hover{background:#00d9f9;transform:translateY(-1px)}
 .btn-orange{background:var(--orange);color:#fff}.btn-orange:hover{background:#ff8220;transform:translateY(-1px)}
@@ -531,24 +548,27 @@ tr.inv-hidden{display:none}
 /* VISTORIA VEICULAR */
 .vehicle-fleet-head{display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:12px;align-items:start;margin-bottom:16px;padding:14px;background:rgba(255,255,255,.035);border:1px solid rgba(127,154,190,.18);border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
 .vehicle-fleet-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-.vehicle-fleet-filters{display:grid;grid-template-columns:minmax(220px,1.2fr) repeat(3,minmax(170px,.7fr));gap:8px;margin:0 0 14px}
+.garage-search-bar{display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(170px,.6fr);gap:8px;margin:0 0 14px}
+.vistoria-search-bar{margin:0 0 14px}
+.vistoria-search-bar .vehicle-fleet-search{max-width:420px}
+@media(max-width:700px){.garage-search-bar{grid-template-columns:1fr}}
 .vehicle-fleet-search{position:relative;min-width:0}
 .vehicle-fleet-search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--cyan)}
 .vehicle-fleet-search input{width:100%;height:40px;padding-left:34px}
-.vehicle-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}
-.vehicle-kpi{border:1px solid rgba(127,154,190,.2);border-radius:8px;background:rgba(255,255,255,.035);padding:11px 12px;cursor:pointer;transition:.18s;text-align:left}
+.vehicle-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:6px;margin:0 0 14px}
+.vehicle-kpi{border:1px solid rgba(127,154,190,.2);border-radius:7px;background:rgba(255,255,255,.035);padding:6px 8px;cursor:pointer;transition:.18s;text-align:left;min-width:0}
 .vehicle-kpi:hover{border-color:rgba(0,194,224,.45);background:rgba(0,194,224,.07);transform:translateY(-1px)}
 .vehicle-kpi.active{border-color:var(--cyan);background:rgba(0,194,224,.13);box-shadow:0 0 0 2px rgba(0,194,224,.12)}
-.vehicle-kpi b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:23px;line-height:1;color:#fff}
-.vehicle-kpi span{display:block;margin-top:4px;font-size:10px;color:var(--mid);font-weight:800;letter-spacing:1px;text-transform:uppercase}
-.vehicle-kpi.ok b{color:var(--green)}.vehicle-kpi.warn b{color:#f5c518}.vehicle-kpi.garage b{color:var(--cyan)}.vehicle-kpi.bad b{color:var(--red)}
-.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(305px,1fr));gap:14px}
-.vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:14px 16px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;min-width:0}
+.vehicle-kpi b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:17px;line-height:1;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vehicle-kpi span{display:block;margin-top:2px;font-size:8px;color:var(--mid);font-weight:800;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vehicle-kpi.ok b{color:var(--green)}.vehicle-kpi.warn b{color:#f5c518}.vehicle-kpi.garage b{color:var(--cyan)}.vehicle-kpi.bad b{color:var(--red)}.vehicle-kpi.vist b{color:var(--orange)}
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
+.vehicle-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.025));border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;min-width:0}
 .vehicle-card:hover{border-color:rgba(0,194,224,.55);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
 .vehicle-card.stack:before,.vehicle-card.stack:after{content:'';position:absolute;inset:7px -5px -5px 7px;border:1px solid rgba(0,194,224,.12);border-radius:8px;background:rgba(255,255,255,.025);z-index:-1}
 .vehicle-card.stack:after{inset:12px -10px -10px 12px;opacity:.7}
-.vehicle-card h3{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.4px;margin-bottom:5px;color:#fff;line-height:1.15;overflow-wrap:anywhere;max-width:100%}
-.vehicle-card p{font-size:11px;color:var(--mid);margin:2px 0}
+.vehicle-card h3{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:.4px;margin-bottom:4px;color:#fff;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vehicle-card p{font-size:11px;color:var(--mid);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vehicle-card strong{color:#fff;font-weight:700}
 .vehicle-top{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:12px;align-items:flex-start}
 .vehicle-ico{width:34px;height:34px;border-radius:8px;background:rgba(0,194,224,.12);border:1px solid rgba(0,194,224,.35);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
@@ -611,8 +631,46 @@ tr.inv-hidden{display:none}
 .vehicle-transfer-summary{border:1px solid rgba(0,194,224,.28);background:rgba(0,194,224,.07);border-radius:8px;padding:10px 12px;margin-bottom:12px}
 .vehicle-transfer-summary h3{font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:.8px;color:#fff;margin-bottom:4px}
 .vehicle-transfer-summary p{font-size:12px;color:var(--mid);margin:2px 0}
-@media(max-width:900px){.vehicle-fleet-head{grid-template-columns:1fr}.vehicle-fleet-actions{justify-content:flex-start}.vehicle-fleet-filters{grid-template-columns:1fr 1fr}.vehicle-fleet-search{grid-column:1/-1}}
-@media(max-width:560px){.vehicle-fleet-filters{grid-template-columns:1fr}.vehicle-meta-grid{grid-template-columns:1fr}.vehicle-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.vehicle-fleet-head{grid-template-columns:1fr}.vehicle-fleet-actions{justify-content:flex-start}.vehicle-fleet-search{grid-column:1/-1}}
+@media(max-width:560px){.vehicle-meta-grid{grid-template-columns:1fr}.vehicle-grid{grid-template-columns:1fr}}
+
+/* GARAGEM — FROTA COMPLETA */
+.garage-card{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border:1px solid rgba(127,154,190,.22);border-radius:10px;margin:0 0 16px;overflow:hidden}
+.vehicle-panel{display:none}
+.vehicle-panel.active{display:block}
+.garage-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:rgba(0,194,224,.055);border-bottom:1px solid rgba(127,154,190,.18);user-select:none}
+.garage-head-title{min-width:0}
+.garage-head-title h3{font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.6px;text-transform:uppercase;color:#fff;margin:0}
+.garage-head-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.garage-total{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:var(--cyan);white-space:nowrap}
+.garage-edit-row{padding:6px 14px 0;display:flex;justify-content:flex-end}
+.garage-body{padding:14px 16px;display:grid;gap:16px}
+.garage-frota-group{min-width:0}
+.garage-frota-title{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(127,154,190,.16)}
+.garage-frota-title span{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#8fe9f2;font-weight:700}
+.garage-frota-title b{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#fff;background:rgba(0,194,224,.12);border:1px solid rgba(0,194,224,.3);border-radius:999px;padding:1px 9px;line-height:1.5}
+.garage-chip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:8px}
+.garage-chip{border:1px solid rgba(127,154,190,.2);border-radius:7px;background:rgba(255,255,255,.03);padding:7px 9px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.garage-chip strong{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.4px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garage-chip span{font-size:10px;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.garage-chip em{font-style:normal;font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-top:2px;color:var(--mid)}
+.garage-chip.ok{border-color:rgba(24,201,106,.3)}.garage-chip.ok em{color:var(--green)}
+.garage-chip.warn{border-color:rgba(245,197,24,.35)}.garage-chip.warn em{color:#f5c518}
+.garage-chip.garage{border-color:rgba(0,194,224,.35)}.garage-chip.garage em{color:var(--cyan)}
+.garage-chip.muted{opacity:.65}
+.garage-card.garage-pulse{animation:garagePulse .9s ease}
+@keyframes garagePulse{0%{box-shadow:0 0 0 0 rgba(0,194,224,.55)}70%{box-shadow:0 0 0 10px rgba(0,194,224,0)}100%{box-shadow:0 0 0 0 rgba(0,194,224,0)}}
+.garage-edit-toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
+.garage-edit-table-wrap{max-height:56vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.garage-edit-table{width:100%;border-collapse:collapse;font-size:12px}
+.garage-edit-table th{position:sticky;top:0;background:#111e38;color:var(--cyan);font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:8px;text-align:left;z-index:1}
+.garage-edit-table td{padding:6px 8px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle}
+.garage-edit-table input,.garage-edit-table select{width:100%;min-width:0;font-size:12px;padding:6px 8px}
+.garage-edit-remove{background:none;border:1px solid rgba(224,48,48,.4);color:var(--red);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:11px;white-space:nowrap}
+.garage-edit-remove:hover{background:rgba(224,48,48,.12)}
+.garage-edit-empty{padding:20px;text-align:center;color:var(--mid);font-size:12px}
+@media(max-width:760px){.garage-edit-table{min-width:680px}}
+@media(max-width:560px){.garage-chip-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}.garage-head-right{gap:8px;flex-wrap:wrap;justify-content:flex-end}}
 .vehicle-oil-alerts{margin:0 0 14px;background:linear-gradient(180deg,rgba(245,197,24,.10),rgba(224,48,48,.06));border:1px solid rgba(245,197,24,.34);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm)}
 .vehicle-oil-alert-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#f5c518;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .vehicle-oil-alert-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
@@ -1436,7 +1494,16 @@ setInterval(_updateOfflineBanner, 5000);
       <button class="btn btn-orange" onclick="openLoanModal()">+ Registrar Empréstimo</button>
       <button class="btn btn-ghost" onclick="printLoans()">🖨️ Imprimir</button>
       <button class="btn btn-ghost" onclick="exportLoansPdf()">📄 Exportar PDFs</button>
-      <select id="loanSupF" onchange="syncSupFilter(this.value)" style="min-width:240px">
+      <div class="sup-combo" data-target="loanSupF" style="min-width:240px">
+        <input type="text" class="sup-combo-input" placeholder="&#128100; Todos os supervisores" autocomplete="off"
+          oninput="supComboFilter('loanSupF', this.value)"
+          onfocus="supComboOpen('loanSupF');this.select()"
+          onblur="supComboBlurClose('loanSupF')"
+          onkeydown="supComboKeydown(event,'loanSupF')">
+        <button type="button" class="sup-combo-clear" onmousedown="event.preventDefault();supComboClear('loanSupF')" title="Limpar">&times;</button>
+        <div class="sup-combo-list"></div>
+      </div>
+      <select id="loanSupF" onchange="syncSupFilter(this.value)" class="sup-combo-native">
         <option value="">👔 Todos os supervisores</option>
       </select>
     </div>
@@ -1456,7 +1523,16 @@ setInterval(_updateOfflineBanner, 5000);
       <button class="btn btn-orange" onclick="openHistModal('ferias')">🏖️ Inventário de Férias</button>
       <button class="btn btn-danger btn-sm" onclick="openLostTermModal()">🧾 Termo itens perdidos</button>
       <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()" style="color:#2ecc71;border-color:#2ecc71">📊 Exportar XLSX</button>
-      <select id="histSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
+      <div class="sup-combo" data-target="histSupF" style="min-width:200px">
+        <input type="text" class="sup-combo-input" placeholder="&#128100; Todos os supervisores" autocomplete="off"
+          oninput="supComboFilter('histSupF', this.value)"
+          onfocus="supComboOpen('histSupF');this.select()"
+          onblur="supComboBlurClose('histSupF')"
+          onkeydown="supComboKeydown(event,'histSupF')">
+        <button type="button" class="sup-combo-clear" onmousedown="event.preventDefault();supComboClear('histSupF')" title="Limpar">&times;</button>
+        <div class="sup-combo-list"></div>
+      </div>
+      <select id="histSupF" onchange="syncSupFilter(this.value)" class="sup-combo-native">
         <option value="">👔 Todos os supervisores</option>
       </select>
       <select id="histTecF" style="display:none"><option value="">👷 Todos os técnicos</option></select>
@@ -1480,38 +1556,69 @@ setInterval(_updateOfflineBanner, 5000);
         <button class="btn btn-ghost" onclick="openVehicleModal(null,'cadastro')">+ Cadastrar Ve&iacute;culo</button>
       </div>
     </div>
-    <div class="vehicle-fleet-filters">
-      <div class="vehicle-fleet-search">
-        <span>🔍</span>
-        <input type="text" id="vehicleSearchF" placeholder="Pesquisar por placa, ve&iacute;culo ou t&eacute;cnico..." oninput="renderVehicles()" autocomplete="off">
-      </div>
-      <select id="vehicleSupF" onchange="syncSupFilter(this.value)">
-        <option value="">Todos os supervisores</option>
-      </select>
-      <select id="vehicleFrotaF" onchange="vehicleKpiFilter='';renderVehicles()">
-        <option value="">Todas as frotas</option>
-        <option>Frota Afonso</option>
-        <option>Frota Movida</option>
-        <option>Frota Mazzini</option>
-      </select>
-      <select id="vehicleTecF" onchange="renderVehicles()">
-        <option value="">Todos os v&iacute;nculos</option>
-      </select>
-      <select id="vehicleStatusF" onchange="vehicleKpiFilter='';renderVehicles()">
-        <option value="">Todos os status</option>
-        <option>Em uso</option>
-        <option>Na garagem</option>
-        <option>Em manuten&ccedil;&atilde;o</option>
-        <option>Parado</option>
-        <option>Reserva</option>
-        <option>Baixado</option>
-      </select>
-    </div>
+
     <div class="vehicle-kpi-row" id="vehicleKpis"></div>
-    <div id="vehicleCount" style="font-size:11px;color:var(--mid);margin:-4px 0 12px;text-align:right;white-space:nowrap"></div>
-    <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
-    <div class="vehicle-grid" id="vehicleGrid"></div>
-    <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
+
+    <!-- PAINEL GARAGEM — FROTA COMPLETA -->
+    <div class="vehicle-panel active" id="garagePanel">
+      <!-- BUSCA DA GARAGEM COMPLETA -->
+      <div class="garage-search-bar">
+        <div class="vehicle-fleet-search">
+          <span>🔍</span>
+          <input type="text" id="garageSearchF" placeholder="Pesquisar por placa ou modelo em toda a garagem..." oninput="renderGarageCard()" autocomplete="off">
+        </div>
+        <select id="garageFrotaF" onchange="renderGarageCard()">
+          <option value="">Todas as frotas</option>
+          <option>Frota Afonso</option>
+          <option>Frota Lumar</option>
+          <option>Frota Movida</option>
+          <option>Frota Técnico Próprio</option>
+        </select>
+      </div>
+
+      <div class="garage-card" id="garageCard">
+        <div class="garage-head">
+          <div class="garage-head-title">
+            <h3>&#127920; Garagem</h3>
+          </div>
+          <div class="garage-head-right">
+            <span class="garage-total" id="garageTotal"></span>
+          </div>
+        </div>
+        <div class="garage-edit-row">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openGarageEditModal()">&#9998; Editar</button>
+        </div>
+        <div class="garage-body" id="garageBody"></div>
+      </div>
+    </div>
+
+    <!-- PAINEL VISTORIAS (Em rota / Em manutenção / Vistorias realizadas) -->
+    <div class="vehicle-panel" id="vistoriasPanel">
+      <!-- BUSCA DAS VISTORIAS -->
+      <div class="vistoria-search-bar">
+        <div class="vehicle-fleet-search">
+          <span>🔍</span>
+          <input type="text" id="vehicleSearchF" placeholder="Pesquisar por placa, ve&iacute;culo ou t&eacute;cnico..." oninput="renderVehicles()" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="garage-card" id="vistoriasCard">
+        <div class="garage-head">
+          <div class="garage-head-title">
+            <h3 id="vistoriasCardTitle">&#128203; Vistorias</h3>
+          </div>
+          <div class="garage-head-right">
+            <span class="garage-total" id="vistoriasCardTotal"></span>
+          </div>
+        </div>
+        <div class="garage-body" id="vistoriasCardBody">
+          <div id="vehicleCount" style="font-size:11px;color:var(--mid);margin:-4px 0 12px;text-align:right;white-space:nowrap"></div>
+          <div class="vehicle-oil-alerts" id="vehicleOilAlerts" style="display:none"></div>
+          <div class="vehicle-grid" id="vehicleGrid"></div>
+          <div class="empty" id="vehicleEmpty" style="display:none"><span>&#128663;</span><p>Nenhuma vistoria veicular registrada.</p></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ORDENS DE SERVIÇO VEICULARES -->
@@ -1519,7 +1626,16 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="toolbar" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-orange" onclick="openVehicleTicketModal()">+ Abrir O.S</button>
       <input type="text" id="ticketPlateF" placeholder="Pesquisar O.S por placa..." oninput="renderVehicleTickets()" style="min-width:210px;text-transform:uppercase">
-      <select id="ticketSupF" onchange="syncSupFilter(this.value)" style="min-width:200px">
+      <div class="sup-combo" data-target="ticketSupF" style="min-width:200px">
+        <input type="text" class="sup-combo-input" placeholder="Todos os supervisores" autocomplete="off"
+          oninput="supComboFilter('ticketSupF', this.value)"
+          onfocus="supComboOpen('ticketSupF');this.select()"
+          onblur="supComboBlurClose('ticketSupF')"
+          onkeydown="supComboKeydown(event,'ticketSupF')">
+        <button type="button" class="sup-combo-clear" onmousedown="event.preventDefault();supComboClear('ticketSupF')" title="Limpar">&times;</button>
+        <div class="sup-combo-list"></div>
+      </div>
+      <select id="ticketSupF" onchange="syncSupFilter(this.value)" class="sup-combo-native" style="min-width:200px">
         <option value="">Todos os supervisores</option>
       </select>
       <select id="ticketFrotaF" onchange="renderVehicleTickets()" style="min-width:170px">
@@ -1608,6 +1724,28 @@ setInterval(_updateOfflineBanner, 5000);
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancelar</button>
       <button class="btn btn-cyan" onclick="saveVehicle()">Salvar Ve&iacute;culo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR FROTA (GARAGEM) -->
+<div class="modal-ov" id="garageEditModal">
+  <div class="modal" style="max-width:920px">
+    <button class="modal-close" onclick="closeGarageEditModal()">&times;</button>
+    <h2>Editar Frota &mdash; Garagem</h2>
+    <p style="font-size:12px;color:var(--mid);margin:-6px 0 14px">Adicione, edite ou remova ve&iacute;culos da frota completa da Lumar Telecom.</p>
+    <div class="garage-edit-toolbar">
+      <button type="button" class="btn btn-cyan btn-sm" onclick="addGarageEditRow()">+ Adicionar ve&iacute;culo</button>
+    </div>
+    <div class="garage-edit-table-wrap">
+      <table class="garage-edit-table">
+        <thead><tr><th style="width:22%">Frota</th><th style="width:16%">Placa</th><th>Modelo</th><th style="width:18%">Status</th><th style="width:40px"></th></tr></thead>
+        <tbody id="garageEditBody"></tbody>
+      </table>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeGarageEditModal()">Cancelar</button>
+      <button class="btn btn-cyan" onclick="saveGarageEdit()">Salvar Frota</button>
     </div>
   </div>
 </div>
@@ -2024,8 +2162,8 @@ let items = []; // sempre começa vazio — populado via inventário de campo
 // ── INDEXEDDB — armazenamento principal (sem limite de 5MB) ──────────
 let techs = [], loans = [], sups = [], hist = [], banco = [], vehicles = [], vehicleTickets = [];
 let _idb = null;
-const IDB_NAME = 'LumarDB', IDB_VER = 3;
-const IDB_STORES = ['techs','loans','sups','hist','banco','audit','vehicles','vehicleTickets'];
+const IDB_NAME = 'LumarDB', IDB_VER = 4;
+const IDB_STORES = ['techs','loans','sups','hist','banco','audit','vehicles','vehicleTickets','garageFleet'];
 let audit = []; // log de auditoria
 
 function idbOpen(){
@@ -2069,7 +2207,7 @@ function idbSet(store, value){
 }
 
 async function idbLoadAll(){
-  const [t,l,s,h,b,a,v,vt] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
+  const [t,l,s,h,b,a,v,vt,gf] = await Promise.all(IDB_STORES.map(st => idbGet(st)));
   // Migração automática do localStorage (primeira execução)
   const lsTechs = localStorage.getItem('lm_techs');
   if(!t && lsTechs){
@@ -2092,6 +2230,7 @@ async function idbLoadAll(){
     techs = t || []; loans = l || []; sups = s || [];
     hist  = h || []; banco = b || []; audit = a || []; vehicles = v || []; vehicleTickets = vt || [];
   }
+  if(gf && typeof gf === 'object' && Object.keys(gf).length) GARAGE_FLEET = gf;
   if(!Array.isArray(banco) || banco.length === 0){
     banco = defaultBanco.map((b,i) => ({id:'def_'+(i+1), nome:b.nome, categoria:b.cat, icon:iconeFerramenta(b), valor:b.valor||'', desc:'', tiposTec:b.tiposTec||[]}));
     try { await idbSet('banco', banco); } catch(e) {}
@@ -2108,7 +2247,7 @@ async function idbLoadAll(){
 async function idbSave(stores){
   // stores = array de nomes ou 'all'
   const toSave = stores === 'all' ? IDB_STORES : stores;
-  const map = {techs, loans, sups, hist, banco, audit, vehicles, vehicleTickets};
+  const map = {techs, loans, sups, hist, banco, audit, vehicles, vehicleTickets, garageFleet: GARAGE_FLEET};
   await Promise.all(toSave.map(s => idbSet(s, map[s])));
   if(typeof refreshDashboard === 'function') refreshDashboard();
 }
@@ -2385,7 +2524,7 @@ if(banco.length === 0){
 function save(){
   // Persiste no IndexedDB (async, não bloqueia UI)
   if(_idb){
-    idbSave(['techs','loans','sups','hist','vehicles','vehicleTickets']).catch(e => {
+    idbSave(['techs','loans','sups','hist','vehicles','vehicleTickets','garageFleet']).catch(e => {
       console.warn('IDB save error (usando fallback localStorage):', e.message||e);
       // Fallback localStorage
       try {
@@ -2395,6 +2534,7 @@ function save(){
         localStorage.setItem('lm_hist',  JSON.stringify(hist));
         localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
         localStorage.setItem('lm_vehicleTickets', JSON.stringify(vehicleTickets));
+        localStorage.setItem('lm_garageFleet', JSON.stringify(GARAGE_FLEET));
       } catch(le){ console.warn('localStorage fallback falhou:', le); }
     });
   } else {
@@ -2405,6 +2545,7 @@ function save(){
       localStorage.setItem('lm_hist',  JSON.stringify(hist));
       localStorage.setItem('lm_vehicles', JSON.stringify(vehicles));
       localStorage.setItem('lm_vehicleTickets', JSON.stringify(vehicleTickets));
+      localStorage.setItem('lm_garageFleet', JSON.stringify(GARAGE_FLEET));
     } catch(le){ console.warn('localStorage save falhou:', le); }
   }
   if(typeof refreshDashboard === 'function') refreshDashboard();
@@ -2430,13 +2571,14 @@ function activeSupervisorFilter(selectId){
 }
 function setSupervisorFilterVisibility(){
   const locked = lockedSupervisor();
-  ['histSupF','loanSupF','vehicleSupF','ticketSupF'].forEach(id => {
+  ['histSupF','loanSupF','ticketSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     el.style.display = locked ? 'none' : '';
     el.disabled = !!locked;
     if(locked) el.value = locked;
   });
+  if(typeof syncAllSupCombos === 'function') syncAllSupCombos();
 }
 function nowStr(){ return new Date().toLocaleString('pt-BR'); }
 function statusBadge(s){
@@ -3529,7 +3671,7 @@ function syncSupFilter(value){
   if(locked) value = locked;
   localStorage.setItem('lm_cursup', value || '');
   // Atualiza os 3 selects (sem disparar onchange em loop)
-  ['supSel','histSupF','loanSupF','vehicleSupF','ticketSupF'].forEach(id => {
+  ['supSel','histSupF','loanSupF','ticketSupF'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
     // Garante que o select já tem a opção (renderiza se necessário)
@@ -3552,6 +3694,105 @@ function syncSupFilter(value){
   if(typeof renderVehicles === 'function') renderVehicles();
   if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
   if(typeof refreshDashboard === 'function') refreshDashboard();
+  syncAllSupCombos();
+}
+
+// ── COMBO PESQUISÁVEL DE SUPERVISOR (busca por nome ao invés de rolar a lista) ──
+const SUP_COMBO_IDS = ['histSupF','loanSupF','ticketSupF'];
+function supComboWrap(selectId){
+  return document.querySelector('.sup-combo[data-target="' + selectId + '"]');
+}
+function supComboLabel(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return '';
+  const opt = Array.from(sel.options).find(o => o.value === sel.value);
+  return opt ? opt.textContent : '';
+}
+function refreshSupCombo(selectId){
+  const wrap = supComboWrap(selectId);
+  const sel = document.getElementById(selectId);
+  if(!wrap || !sel) return;
+  const input = wrap.querySelector('.sup-combo-input');
+  if(input && document.activeElement !== input) input.value = supComboLabel(selectId);
+  wrap.classList.toggle('has-value', !!sel.value);
+  wrap.style.display = sel.style.display === 'none' ? 'none' : '';
+  if(input) input.disabled = !!sel.disabled;
+}
+function syncAllSupCombos(){
+  SUP_COMBO_IDS.forEach(refreshSupCombo);
+}
+function supComboOptions(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return [];
+  return Array.from(sel.options).map(o => ({value:o.value, label:o.textContent}));
+}
+function renderSupComboList(selectId, query){
+  const wrap = supComboWrap(selectId);
+  if(!wrap) return;
+  const list = wrap.querySelector('.sup-combo-list');
+  if(!list) return;
+  const q = (query || '').toLowerCase().trim();
+  const opts = supComboOptions(selectId);
+  const allOpt = opts.find(o => o.value === '');
+  const matches = opts.filter(o => o.value !== '' && (!q || o.label.toLowerCase().includes(q)));
+  let html = '';
+  if(allOpt && (!q || allOpt.label.toLowerCase().includes(q))){
+    html += '<div class="sup-combo-item all" data-value="">' + escapeHtml(allOpt.label) + '</div>';
+  }
+  if(matches.length){
+    html += matches.map(o => '<div class="sup-combo-item" data-value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</div>').join('');
+  } else if(q){
+    html += '<div class="sup-combo-empty">Nenhum supervisor encontrado para "' + escapeHtml(query) + '".</div>';
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.sup-combo-item[data-value]').forEach(el => {
+    el.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      supComboSelect(selectId, el.getAttribute('data-value'));
+    });
+  });
+}
+function supComboOpen(selectId){
+  const wrap = supComboWrap(selectId);
+  if(!wrap) return;
+  wrap.classList.add('open');
+  renderSupComboList(selectId, '');
+}
+function supComboFilter(selectId, query){
+  const wrap = supComboWrap(selectId);
+  if(wrap) wrap.classList.add('open');
+  renderSupComboList(selectId, query);
+}
+function supComboBlurClose(selectId){
+  // Pequeno atraso para o mousedown do item rodar antes do blur fechar a lista
+  setTimeout(() => {
+    const wrap = supComboWrap(selectId);
+    if(wrap) wrap.classList.remove('open');
+    refreshSupCombo(selectId);
+  }, 150);
+}
+function supComboKeydown(e, selectId){
+  if(e.key === 'Escape'){ e.target.blur(); return; }
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    const wrap = supComboWrap(selectId);
+    const first = wrap ? wrap.querySelector('.sup-combo-item[data-value]') : null;
+    if(first) supComboSelect(selectId, first.getAttribute('data-value'));
+  }
+}
+function supComboSelect(selectId, value){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  sel.value = value;
+  sel.dispatchEvent(new Event('change', {bubbles:true}));
+  refreshSupCombo(selectId);
+  const wrap = supComboWrap(selectId);
+  if(wrap) wrap.classList.remove('open');
+  const input = wrap ? wrap.querySelector('.sup-combo-input') : null;
+  if(input) input.blur();
+}
+function supComboClear(selectId){
+  supComboSelect(selectId, '');
 }
 // Atualiza a barra indicadora de supervisor ativo logo abaixo do header
 function updateSupBanner(value){
@@ -3813,6 +4054,7 @@ function fillVehicleSupOptions(){
     supF.style.display = locked ? 'none' : '';
     supF.disabled = !!locked;
   }
+  if(typeof refreshSupCombo === 'function') refreshSupCombo('vehicleSupF');
 }
 function fillVehicleTechFilter(supFilter){
   const tecF = document.getElementById('vehicleTecF');
@@ -3883,30 +4125,52 @@ function renderVehicleKpis(latestList){
   const counts = latestList.reduce((acc,v) => {
     const s = v.situacao || 'Em uso';
     if(s === 'Em manutenção') acc.manut++;
-    else if(s === 'Na garagem') acc.garagem++;
-    else if(s === 'Baixado' || s === 'Parado') acc.alerta++;
     else acc.operando++;
     return acc;
-  }, {operando:0, manut:0, garagem:0, alerta:0});
+  }, {operando:0, manut:0});
+  const garageTotal = Object.values(GARAGE_FLEET).reduce((sum, arr) => sum + arr.length, 0);
+  const vistoriasTotal = (latestList || []).length;
   el.innerHTML = `
-    <button type="button" class="vehicle-kpi ok ${vehicleKpiFilter==='operando'?'active':''}" onclick="setVehicleKpiFilter('operando')"><b>${counts.operando}</b><span>Operando / reserva</span></button>
-    <button type="button" class="vehicle-kpi warn ${vehicleKpiFilter==='manut'?'active':''}" onclick="setVehicleKpiFilter('manut')"><b>${counts.manut}</b><span>Em manuten&ccedil;&atilde;o</span></button>
-    <button type="button" class="vehicle-kpi garage ${vehicleKpiFilter==='garagem'?'active':''}" onclick="setVehicleKpiFilter('garagem')"><b>${counts.garagem}</b><span>Na garagem</span></button>
-    <button type="button" class="vehicle-kpi bad ${vehicleKpiFilter==='alerta'?'active':''}" onclick="setVehicleKpiFilter('alerta')"><b>${counts.alerta}</b><span>Parado / baixado</span></button>`;
+    <button type="button" class="vehicle-kpi garage" onclick="focusGarageCard()"><b>${garageTotal}</b><span>Garagem</span></button>
+    <button type="button" class="vehicle-kpi ok" onclick="openVistoriasCard('operando','Ve&iacute;culos em Rota')"><b>${counts.operando}</b><span>Em rota</span></button>
+    <button type="button" class="vehicle-kpi warn" onclick="openVistoriasCard('manut','Ve&iacute;culos em Manuten&ccedil;&atilde;o')"><b>${counts.manut}</b><span>Em manuten&ccedil;&atilde;o</span></button>
+    <button type="button" class="vehicle-kpi vist" onclick="openVistoriasCard('todas','Vistorias Realizadas')"><b>${vistoriasTotal}</b><span>Vistorias</span></button>`;
+  const vTotalEl = document.getElementById('vistoriasCardTotal');
+  if(vTotalEl) vTotalEl.textContent = vistoriasTotal + ' veículos';
 }
-function setVehicleKpiFilter(filter){
-  vehicleKpiFilter = vehicleKpiFilter === filter ? '' : filter;
+function showVehiclePanel(panel){
+  const garagePanel = document.getElementById('garagePanel');
+  const vistoriasPanel = document.getElementById('vistoriasPanel');
+  if(garagePanel) garagePanel.classList.toggle('active', panel === 'garagem');
+  if(vistoriasPanel) vistoriasPanel.classList.toggle('active', panel === 'vistorias');
+  const active = panel === 'garagem' ? garagePanel : vistoriasPanel;
+  if(active){
+    active.scrollIntoView({behavior:'smooth', block:'start'});
+    const card = active.querySelector('.garage-card');
+    if(card){
+      card.classList.add('garage-pulse');
+      setTimeout(() => card.classList.remove('garage-pulse'), 900);
+    }
+  }
+}
+function focusGarageCard(){
+  showVehiclePanel('garagem');
+  renderGarageCard();
+}
+function openVistoriasCard(filter, title){
+  vehicleKpiFilter = filter;
   const statusSel = document.getElementById('vehicleStatusF');
   if(statusSel) statusSel.value = '';
+  const titleEl = document.getElementById('vistoriasCardTitle');
+  if(titleEl) titleEl.innerHTML = '&#128203; ' + (title || 'Vistorias');
+  showVehiclePanel('vistorias');
   renderVehicles();
 }
 function vehicleMatchesKpiFilter(v, filter){
-  if(!filter) return true;
+  if(!filter || filter === 'todas') return true;
   const s = (v && v.situacao ? v.situacao : 'Em uso').toString();
   if(filter === 'operando') return s === 'Em uso' || s === 'Reserva';
   if(filter === 'manut') return s === 'Em manutenção';
-  if(filter === 'garagem') return s === 'Na garagem';
-  if(filter === 'alerta') return s === 'Parado' || s === 'Baixado';
   return true;
 }
 function vehicleMaintenanceStatusControl(v){
@@ -3934,6 +4198,378 @@ function updateVehicleMaintenanceStatus(id, status, e){
   if(typeof renderVehicleTickets === 'function') renderVehicleTickets();
   toast('Status da manutenção atualizado: ' + status, 'success');
 }
+let GARAGE_FLEET = {
+  "Frota Afonso": [
+    {
+      "id": "gf_001",
+      "placa": "QRN-4616",
+      "modelo": "Gol Preto",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_008",
+      "placa": "RNZ-0J14",
+      "modelo": "Gol Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_010",
+      "placa": "POG-9D14",
+      "modelo": "Gol Preto",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_012",
+      "placa": "PIS-3318",
+      "modelo": "Pálio Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_015",
+      "placa": "FUT-6A37",
+      "modelo": "Ônix Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_024",
+      "placa": "DPG-5G69",
+      "modelo": "Gol Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_025",
+      "placa": "PIW-4190",
+      "modelo": "Ônix Preto",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_027",
+      "placa": "QRO-2065",
+      "modelo": "Fiat Mobi Preto",
+      "status": "ATIVO"
+    }
+  ],
+  "Frota Lumar": [
+    {
+      "id": "gf_026",
+      "placa": "OUD-7325",
+      "modelo": "Fiat Uno Preto",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_029",
+      "placa": "RMU-4C06",
+      "modelo": "Mobi Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_030",
+      "placa": "JUX-5J63",
+      "modelo": "Prisma Cinza",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_031",
+      "placa": "PIO-9116",
+      "modelo": "Classic Prta",
+      "status": "STANDBY"
+    },
+    {
+      "id": "gf_033",
+      "placa": "QRN-6J77",
+      "modelo": "Oroch Branca",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_034",
+      "placa": "NOC-4004",
+      "modelo": "Fiesta Vinho",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_036",
+      "placa": "OTB-9I19",
+      "modelo": "Fiat Uno Way Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_037",
+      "placa": "PIS-4939",
+      "modelo": "Mobi Branco",
+      "status": "EM MANUTENÇÃO"
+    },
+    {
+      "id": "gf_038",
+      "placa": "NIH-2J15",
+      "modelo": "Fiat Uno Way Preto",
+      "status": "EM MANUTENÇÃO"
+    },
+    {
+      "id": "gf_039",
+      "placa": "NXL-7374",
+      "modelo": "Fiat Uno Prata",
+      "status": "EM MANUTENÇÃO"
+    },
+    {
+      "id": "gf_040",
+      "placa": "QFG-2G99",
+      "modelo": "Montana",
+      "status": "ATIVO"
+    }
+  ],
+  "Frota Movida": [
+    {
+      "id": "gf_004",
+      "placa": "SYN-7F11",
+      "modelo": "Mobi Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_005",
+      "placa": "TBY-3G61",
+      "modelo": "Kwid Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_006",
+      "placa": "TBY-3G59",
+      "modelo": "Kwid Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_009",
+      "placa": "TBO-8D47",
+      "modelo": "Kwid Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_013",
+      "placa": "QUA-7642",
+      "modelo": "Mobi Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_014",
+      "placa": "TBY-2109",
+      "modelo": "Kwid Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_017",
+      "placa": "RUW-2B85",
+      "modelo": "Mobi Grafite",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_020",
+      "placa": "TBO-2H02",
+      "modelo": "Kwid Vermelho",
+      "status": "ATIVO"
+    }
+  ],
+  "Frota Técnico Próprio": [
+    {
+      "id": "gf_002",
+      "placa": "TDD-1H47",
+      "modelo": "Polo Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_003",
+      "placa": "LVZ-4J25",
+      "modelo": "Pálio Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_007",
+      "placa": "HVB-5447",
+      "modelo": "Corsa Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_011",
+      "placa": "OEH-1323",
+      "modelo": "Pálio Preto",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_016",
+      "placa": "OUC-2872",
+      "modelo": "Gol Grafite",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_018",
+      "placa": "HJE-5493",
+      "modelo": "Pálio Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_019",
+      "placa": "LWH-1H18",
+      "modelo": "New Fiesta Branco",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_021",
+      "placa": "OLY-1049",
+      "modelo": "Gol Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_022",
+      "placa": "OJD-0D61",
+      "modelo": "Pálio Preto",
+      "status": "FÉRIAS"
+    },
+    {
+      "id": "gf_023",
+      "placa": "LVZ-8F66",
+      "modelo": "Fiat Uno Way",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_028",
+      "placa": "NIC-0861",
+      "modelo": "Gol Prata",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_032",
+      "placa": "QVN8J44",
+      "modelo": "Gol Cinza",
+      "status": "ATIVO"
+    },
+    {
+      "id": "gf_035",
+      "placa": "NIT-2F63",
+      "modelo": "Siena Vermelho",
+      "status": "ATIVO"
+    }
+  ]
+};
+
+function garageStatusClass(status){
+  const s = (status || '').toUpperCase();
+  if(s.includes('MANUTEN')) return 'warn';
+  if(s === 'STANDBY') return 'garage';
+  if(s === 'ATIVO') return 'ok';
+  return 'muted';
+}
+function renderGarageCard(){
+  const body = document.getElementById('garageBody');
+  const totalEl = document.getElementById('garageTotal');
+  if(!body) return;
+  const search = ((document.getElementById('garageSearchF') || {}).value || '').toLowerCase().trim();
+  const frotaFilter = (document.getElementById('garageFrotaF') || {}).value || '';
+  const frotas = Object.keys(GARAGE_FLEET);
+  const total = frotas.reduce((sum,f) => sum + GARAGE_FLEET[f].length, 0);
+  const visibleFrotas = frotas.filter(f => !frotaFilter || f === frotaFilter);
+  let shownTotal = 0;
+  const html = visibleFrotas.map(frota => {
+    const carros = GARAGE_FLEET[frota].filter(c =>
+      !search || (c.placa||'').toLowerCase().includes(search) || (c.modelo||'').toLowerCase().includes(search)
+    );
+    if(!carros.length) return '';
+    shownTotal += carros.length;
+    return `<div class="garage-frota-group">
+      <div class="garage-frota-title"><span>${escapeHtml(frota)}</span><b>${carros.length}</b></div>
+      <div class="garage-chip-grid">
+        ${carros.map(c => `<div class="garage-chip ${garageStatusClass(c.status)}" title="${escapeHtml(c.modelo)} · ${escapeHtml(c.status)}">
+          <strong>${escapeHtml(c.placa)}</strong>
+          <span>${escapeHtml(c.modelo)}</span>
+          <em>${escapeHtml(c.status)}</em>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  if(totalEl) totalEl.textContent = (search || frotaFilter) ? `${shownTotal} de ${total} veículos` : `${total} veículos`;
+  body.innerHTML = html || `<div class="garage-edit-empty">Nenhum ve&iacute;culo encontrado para esse filtro.</div>`;
+}
+
+// ── EDIÇÃO DA FROTA (GARAGEM) ────────────────────────────────────────
+const GARAGE_FROTAS = ['Frota Afonso','Frota Lumar','Frota Movida','Frota Técnico Próprio'];
+const GARAGE_STATUS_OPTIONS = ['ATIVO','EM MANUTENÇÃO','STANDBY','FÉRIAS','INATIVO'];
+let garageEditDraft = [];
+let garageEditSeq = 0;
+function flattenGarageFleet(fleet){
+  const flat = [];
+  Object.keys(fleet || {}).forEach(frota => {
+    (fleet[frota] || []).forEach(v => flat.push({
+      id: v.id || ('gf_new_' + (++garageEditSeq)),
+      frota, placa: v.placa || '', modelo: v.modelo || '', status: v.status || 'ATIVO'
+    }));
+  });
+  return flat;
+}
+function groupFlatToFleet(flat){
+  const grouped = {};
+  GARAGE_FROTAS.forEach(f => grouped[f] = []);
+  (flat || []).forEach(v => {
+    const frota = GARAGE_FROTAS.includes(v.frota) ? v.frota : GARAGE_FROTAS[0];
+    grouped[frota].push({
+      id: v.id,
+      placa: (v.placa || '').trim().toUpperCase(),
+      modelo: (v.modelo || '').trim(),
+      status: (v.status || 'ATIVO').trim().toUpperCase()
+    });
+  });
+  return grouped;
+}
+function openGarageEditModal(){
+  garageEditDraft = flattenGarageFleet(GARAGE_FLEET);
+  renderGarageEditRows();
+  document.getElementById('garageEditModal').classList.add('open');
+}
+function closeGarageEditModal(){
+  const m = document.getElementById('garageEditModal');
+  if(m) m.classList.remove('open');
+}
+function addGarageEditRow(){
+  garageEditDraft.push({id: 'gf_new_' + Date.now() + '_' + (++garageEditSeq), frota: GARAGE_FROTAS[0], placa: '', modelo: '', status: 'ATIVO'});
+  renderGarageEditRows();
+  const wrap = document.querySelector('.garage-edit-table-wrap');
+  if(wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+function removeGarageEditRow(id){
+  garageEditDraft = garageEditDraft.filter(v => v.id !== id);
+  renderGarageEditRows();
+}
+function updateGarageEditField(id, field, value){
+  const row = garageEditDraft.find(v => v.id === id);
+  if(row) row[field] = value;
+}
+function renderGarageEditRows(){
+  const body = document.getElementById('garageEditBody');
+  if(!body) return;
+  if(!garageEditDraft.length){
+    body.innerHTML = `<tr><td colspan="5" class="garage-edit-empty">Nenhum ve&iacute;culo. Clique em "+ Adicionar ve&iacute;culo".</td></tr>`;
+    return;
+  }
+  body.innerHTML = garageEditDraft.map(v => `<tr data-gid="${escapeHtml(v.id)}">
+    <td><select onchange="updateGarageEditField('${escapeHtml(v.id)}','frota',this.value)">${GARAGE_FROTAS.map(f => `<option value="${escapeHtml(f)}"${v.frota===f?' selected':''}>${escapeHtml(f)}</option>`).join('')}</select></td>
+    <td><input type="text" value="${escapeHtml(v.placa)}" style="text-transform:uppercase" oninput="updateGarageEditField('${escapeHtml(v.id)}','placa',this.value)" placeholder="ABC-1D23"></td>
+    <td><input type="text" value="${escapeHtml(v.modelo)}" oninput="updateGarageEditField('${escapeHtml(v.id)}','modelo',this.value)" placeholder="Modelo do ve&iacute;culo"></td>
+    <td><select onchange="updateGarageEditField('${escapeHtml(v.id)}','status',this.value)">${GARAGE_STATUS_OPTIONS.map(s => `<option value="${escapeHtml(s)}"${(v.status||'').toUpperCase()===s?' selected':''}>${escapeHtml(s)}</option>`).join('')}</select></td>
+    <td><button type="button" class="garage-edit-remove" onclick="removeGarageEditRow('${escapeHtml(v.id)}')" title="Remover ve&iacute;culo">&times;</button></td>
+  </tr>`).join('');
+}
+function saveGarageEdit(){
+  const invalid = garageEditDraft.filter(v => !(v.placa || '').trim());
+  if(invalid.length){
+    toast('Preencha a placa de todos os veículos antes de salvar (ou remova a linha vazia).', 'warn', 4500);
+    return;
+  }
+  const before = Object.values(GARAGE_FLEET).reduce((s,a) => s + a.length, 0);
+  GARAGE_FLEET = groupFlatToFleet(garageEditDraft);
+  const after = Object.values(GARAGE_FLEET).reduce((s,a) => s + a.length, 0);
+  auditLog('Frota da Garagem Editada', `${before} → ${after} veículo(s) na frota completa`);
+  save();
+  closeGarageEditModal();
+  if(typeof renderVehicles === 'function') renderVehicles(); else renderGarageCard();
+  toast('✅ Frota da garagem atualizada!', 'success');
+}
+
 function renderVehicles(){
   fillVehicleSupOptions();
   const supFilter = activeSupervisorFilter('vehicleSupF');
@@ -4000,6 +4636,7 @@ function renderVehicles(){
   });
   if(empty) empty.style.display = visibleGroups.length ? 'none' : 'block';
   if(count) count.textContent = `${visibleGroups.length} veículo${visibleGroups.length!==1?'s':''} · ${list.length} registro${list.length!==1?'s':''}`;
+  renderGarageCard();
 }
 function renderVehicleChecklist(checks){
   const wrap = document.getElementById('vehicleChecklist');
@@ -4649,6 +5286,7 @@ function fillTicketSupOptions(){
     supF.style.display = locked ? 'none' : '';
     supF.disabled = !!locked;
   }
+  if(typeof refreshSupCombo === 'function') refreshSupCombo('ticketSupF');
 }
 function ticketStatusClass(status, prioridade){
   if(String(prioridade || '').toLowerCase().includes('crit')) return 'crit';
@@ -5701,6 +6339,7 @@ function renderHist(){
     supFEl.style.display = lockedSup ? 'none' : '';
     supFEl.disabled = !!lockedSup;
   }
+  if(typeof refreshSupCombo === 'function') refreshSupCombo('histSupF');
   const supFilter = lockedSup || (supFEl ? supFEl.value : '');
 
   // Filtro de técnico
@@ -5902,6 +6541,7 @@ function renderLoans(){
     supFEl.style.display = lockedSup ? 'none' : '';
     supFEl.disabled = !!lockedSup;
   }
+  if(typeof refreshSupCombo === 'function') refreshSupCombo('loanSupF');
   const supFilter = lockedSup || (supFEl ? supFEl.value : '');
 
   // Aplica filtro: mostra só empréstimos cujo emprestando OU recebendo seja
@@ -7792,6 +8432,7 @@ function _buildPayload() {
     banco: banco || [],
     vehicles: (vehicles || []).map(stripVehiclePhotosForCloud),
     vehicleTickets: vehicleTickets || [],
+    garageFleet: GARAGE_FLEET || {},
     audit: (audit || []).slice(0, 100),
     logo: localStorage.getItem('lm_logo') || null,
     cursup: localStorage.getItem('lm_cursup') || '',
@@ -8280,6 +8921,7 @@ async function startRealtimeSync() {
     if (Array.isArray(data.banco)) banco = data.banco;
     if (Array.isArray(data.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, data.vehicles);
     if (Array.isArray(data.vehicleTickets)) vehicleTickets = data.vehicleTickets;
+    if (data.garageFleet && typeof data.garageFleet === 'object' && Object.keys(data.garageFleet).length) GARAGE_FLEET = data.garageFleet;
     if (Array.isArray(data.audit)) audit = data.audit;
     if (data.logo) localStorage.setItem('lm_logo', data.logo);
     if (data.creds) applyCloudCreds(data.creds);
@@ -8558,6 +9200,8 @@ async function bootApp(){
       banco = JSON.parse(localStorage.getItem('lm_banco') || '[]');
       vehicles = JSON.parse(localStorage.getItem('lm_vehicles') || '[]');
       vehicleTickets = JSON.parse(localStorage.getItem('lm_vehicleTickets') || '[]');
+      const lsGarageFleet = JSON.parse(localStorage.getItem('lm_garageFleet') || 'null');
+      if(lsGarageFleet && typeof lsGarageFleet === 'object' && Object.keys(lsGarageFleet).length) GARAGE_FLEET = lsGarageFleet;
       localVehicleTicketsBeforeCloud = Array.isArray(vehicleTickets) ? [...vehicleTickets] : [];
     } catch(le) {
       console.error('Falha total no carregamento:', le);
@@ -8584,6 +9228,7 @@ async function bootApp(){
       if (Array.isArray(cloudData.banco)) banco = cloudData.banco;
       if (Array.isArray(cloudData.vehicles)) vehicles = mergeVehicleLocalPhotos(vehicles, cloudData.vehicles);
       if (Array.isArray(cloudData.vehicleTickets)) vehicleTickets = mergedVehicleTickets;
+      if (cloudData.garageFleet && typeof cloudData.garageFleet === 'object' && Object.keys(cloudData.garageFleet).length) GARAGE_FLEET = cloudData.garageFleet;
       if (Array.isArray(cloudData.audit)) audit = cloudData.audit;
       if (cloudData.logo) localStorage.setItem('lm_logo', cloudData.logo);
       if (cloudData.cursup) localStorage.setItem('lm_cursup', cloudData.cursup);
